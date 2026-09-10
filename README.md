@@ -29,10 +29,16 @@ It will sync the open issues and pull requests to the local filesystem under `.g
     closed/
       00135-fixed-crash.md
   pulls/
-    00042-add-cache.md
-    00042-add-cache.patch
+    00042-add-cache/
+      00042-add-cache.md      # PR description + comments
+      00042-add-cache.patch   # full diff
+      reviews.json            # review state (approvals, change requests)
+      checks.json             # CI/check status
+      files.json              # file list with additions/deletions
+      gate.json               # merge-readiness snapshot
     closed/
-      00043-release-cleanup.md
+      00043-release-cleanup/
+        00043-release-cleanup.md
 
   # Enhanced metadata (PR #1)
   meta.json              # topics, features, counts, pinned issues, README excerpt
@@ -51,13 +57,6 @@ It will sync the open issues and pull requests to the local filesystem under `.g
     CODEOWNERS
   actions/
     recent-runs.json     # last 20 workflow runs
-
-  # PR intelligence (PR #2)
-  pulls/00042-add-cache/
-    reviews.json         # review state and comments
-    checks.json          # CI/check status
-    files.json           # file list and diffs
-    gate.json            # merge readiness
 
   # Wiki and Discussions (PR #3)
   wiki.md                # index of wiki pages
