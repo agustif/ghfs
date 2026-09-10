@@ -1,7 +1,7 @@
 {
-  "name": "@ghfs/cli",
+  "name": "@agustif/ghfs",
   "type": "module",
-  "version": "0.2.5",
+  "version": "0.3.0-dogfood.1",
   "packageManager": "pnpm@11.9.0",
   "description": "GitHub issues/PRs as filesystem, for offline view and operations in batch. Designed for human and agents.",
   "author": "Anthony Fu <anthonyfu117@hotmail.com>",
@@ -82,6 +82,7 @@
     "tsx": "catalog:",
     "typescript": "catalog:",
     "unimport": "catalog:",
+    "unrun": "^0.3.1",
     "vitest": "catalog:"
   },
   "simple-git-hooks": {
@@ -89,5 +90,8 @@
   },
   "lint-staged": {
     "*": "eslint --fix"
+  },
+  "bin": {
+    "ghfs": "./dist/cli.mjs"
   }
 }
