@@ -878,4 +878,9 @@ export interface ProviderWebhookDelivery {
   requestPayload?: Record<string, unknown>
   responseHeaders?: Record<string, string>
   responseBody?: string
+  fetchDependabotAlerts?: () => Promise<DependabotAlert[]>
+  fetchSbom?: (ref?: string) => Promise<SbomData | null>
+  fetchDependencyReview?: (pullNumber: number, baseRef?: string, headRef?: string) => Promise<DependencyReview | null>
+  fetchAttestationsSummary?: (artifactName?: string) => Promise<AttestationsSummary | null>
+  fetchDependencyGraphSummary?: () => Promise<DependencyGraphSummary | null>
 }

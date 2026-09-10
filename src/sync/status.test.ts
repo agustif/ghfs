@@ -112,6 +112,19 @@ function createConfig(cwd: string): GhfsResolvedConfig {
       issueQueries: {},
       mentions: false,
       maxResults: 100,
+      meta: true,
+      labelsAndMilestones: true,
+      releases: true,
+      rulesets: true,
+      constitution: true,
+      actions: true,
+    },
+    extended: {
+      graph: true,
+      search: true,
+      me: true,
+      security: true,
+      syncState: true,
     },
   }
 }

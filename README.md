@@ -324,6 +324,7 @@ export default defineConfig({
       checks: true,    // sync CI/check status
       files: true,     // sync file list
       gate: true,      // sync merge-readiness
+>>>>>>> 2373ef7 (Merge main (squashed))
     },
   },
   // other options...
