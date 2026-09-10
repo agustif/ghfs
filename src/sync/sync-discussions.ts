@@ -11,6 +11,9 @@ export async function syncDiscussions(context: SyncContext): Promise<{
   if (!context.config.sync.discussions)
     return { written: 0, skipped: 0 }
 
+  // TODO: Register with graph.jsonl when foundation lands
+  // Tier: WARM (sync if stale - discussions update moderately)
+
   try {
     const categories = await context.provider.fetchDiscussionCategories()
     if (categories.length === 0)

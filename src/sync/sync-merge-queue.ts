@@ -8,6 +8,9 @@ export async function syncMergeQueue(context: SyncContext): Promise<{
   if (!context.config.sync.mergeQueue)
     return { written: 0 }
 
+  // TODO: Register with graph.jsonl when foundation lands
+  // Tier: HOT (sync every time - queue changes frequently)
+
   try {
     const entries = await context.provider.fetchMergeQueueEntries()
     if (entries.length === 0)

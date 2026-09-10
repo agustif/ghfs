@@ -10,6 +10,9 @@ export async function syncWiki(context: SyncContext): Promise<{
   if (!context.config.sync.wiki)
     return { written: 0, skipped: 0 }
 
+  // TODO: Register with graph.jsonl when foundation lands
+  // Tier: COLD (sync rarely - wiki changes infrequently)
+
   try {
     const pages = await context.provider.fetchWikiPages()
     if (pages.length === 0)
