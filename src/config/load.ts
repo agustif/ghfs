@@ -62,6 +62,12 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const bots = merged.bots ?? []
   const issuesEnabled = merged.sync?.issues ?? true
   const pullsEnabled = merged.sync?.pulls ?? true
+  const discussionsEnabled = merged.sync?.discussions ?? true
+  const wikiEnabled = merged.sync?.wiki ?? true
+  const mergeQueueEnabled = merged.sync?.mergeQueue ?? true
+  const releasesEnabled = merged.sync?.releases ?? true
+  const workflowsEnabled = merged.sync?.workflows ?? true
+  const metadataEnabled = merged.sync?.metadata ?? true
   const closedMode = merged.sync?.closed ?? false
   const patchesMode = merged.sync?.patches ?? 'open'
   const pullIntelligenceReviews = merged.sync?.pullIntelligence?.reviews ?? true
@@ -91,6 +97,12 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
     sync: {
       issues: issuesEnabled,
       pulls: pullsEnabled,
+      discussions: discussionsEnabled,
+      wiki: wikiEnabled,
+      mergeQueue: mergeQueueEnabled,
+      releases: releasesEnabled,
+      workflows: workflowsEnabled,
+      metadata: metadataEnabled,
       closed: closedMode,
       patches: patchesMode,
       meta: merged.sync?.meta ?? true,
@@ -150,10 +162,22 @@ function mergeUserConfig(base: GhfsUserConfig, overrides: Partial<GhfsUserConfig
     sync: {
       ...base.sync,
       ...overrides.sync,
+      pullIntelligence: {
+        ...base.sync?.pullIntelligence,
+        ...overrides.sync?.pullIntelligence,
+      },
     },
     extended: {
       ...base.extended,
       ...overrides.extended,
+    },
+    search: {
+      ...base.search,
+      ...overrides.search,
+      issueQueries: {
+        ...base.search?.issueQueries,
+        ...overrides.search?.issueQueries,
+      },
     },
   }
 }

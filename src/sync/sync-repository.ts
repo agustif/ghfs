@@ -7,7 +7,7 @@ import { GHFS_VERSION } from '../meta'
 import { createRepositoryProvider } from '../providers/factory'
 import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
-import { writeExtendedMetadata } from './extended-metadata'
+import { runSearchCoverage } from './search'
 import { loadSyncState, saveSyncState } from './state'
 import { writeRepositoryExtras } from './sync-repository-extras'
 import {
@@ -16,6 +16,7 @@ import {
   reconcileMarkdownFilesByScan,
   rematerializeTrackedMarkdown,
 } from './sync-repository-item'
+import { writeKitchenSinkData } from './sync-repository-kitchen-sink'
 import { fetchIssueCandidatesByNumbers, fetchIssueCandidatesByPagination } from './sync-repository-provider'
 import { writeRepositoryIndexes, writeRepoSnapshot } from './sync-repository-snapshot'
 import { pruneMissingOpenTrackedItems, pruneTrackedClosedItems } from './sync-repository-storage'
@@ -216,9 +217,15 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       if (!shouldEarlyReturn)
         await writeRepoSnapshot(syncContext)
 
-      if (!shouldEarlyReturn || ghfsVersionMismatch) {
+      if (!shouldEarlyReturn || ghfsVersionMismatch)
         await writeRepositoryIndexes(syncContext)
-        await writeExtendedMetadata(syncContext).catch(() => {})
+
+      if (!shouldEarlyReturn && !targetNumbers) {
+        try {
+          await runSearchCoverage(options.config, provider)
+        }
+        catch {
+        }
       }
 
       if (!shouldEarlyReturn)

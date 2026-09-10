@@ -16,6 +16,10 @@ node_modules
 */public/assets/fonts
 .claude
 
+# Agent coordination (ephemeral)
+.ghfs/locks/
+.ghfs/notes/
+
 # Agent skills from npm packages (managed by skills-npm)
 **/skills/npm-*
 

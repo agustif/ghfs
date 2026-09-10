@@ -113,6 +113,23 @@ Each PR gets its own directory with:
 
 All features are opt-in via configuration (see [Configuration](#configuration) below). Default: all enabled.
 
+## Research & Gap Analysis
+
+Comprehensive documentation of GitHub API surface coverage and implementation gaps:
+
+- **[`docs/research/github-api-surface.md`](docs/research/github-api-surface.md)** — Complete API surface map (REST + GraphQL)
+- **[`docs/research/social-org-surfaces-gap-b.md`](docs/research/social-org-surfaces-gap-b.md)** — Social/organizational surfaces gap observation
+  - Organization members & outside collaborators
+  - Invitation events (pending/failed)
+  - Community metrics & health score
+  - Sponsorships metadata (GraphQL)
+  - FUNDING.yml mirror
+
+See also:
+- [`docs/research/config-schema.md`](docs/research/config-schema.md) — Config reference
+- [`docs/research/file-structure-diagrams.md`](docs/research/file-structure-diagrams.md) — File layout conventions
+- [`docs/research/index-structure.md`](docs/research/index-structure.md) — Index generator spec
+
 ## Web UI
 
 `ghfs` ships a local web UI for browsing and acting on the synced mirror.
@@ -278,7 +295,6 @@ import type { GhfsUserConfig } from '@ghfs/cli'
 export default defineConfig({
   repo: 'owner/name',
   sync: {
-<<<<<<< HEAD
     // Core sync
     issues: true,              // Issues sync
     pulls: true,               // Pull requests sync
@@ -301,7 +317,6 @@ export default defineConfig({
       checks: true,            // checks.json per PR
       files: true,             // files.json per PR
       gate: true,              // gate.json per PR
-=======
     issues: true, // set false to skip issue sync
     pulls: true, // set false to skip pull request sync
     pullIntelligence: {
@@ -309,7 +324,6 @@ export default defineConfig({
       checks: true,    // sync CI/check status
       files: true,     // sync file list
       gate: true,      // sync merge-readiness
->>>>>>> 224a2bf (docs: update README and skill with PR intelligence layout)
     },
   },
   // other options...
@@ -321,7 +335,7 @@ export default defineConfig({
 - [x] `execute.md` file with human-friendly instructions (`close #123 #234`, `set-title #125 "New title"`).
 - [x] Directly editing the `<5-digit-number>-<slug>.md` file to apply the operations.
 - [ ] Add a VS Code extension for guided sync/execute.
-- [ ] Documentation.
+- [ ] Effect-based desired-state workflow (`ghfs plan` / `ghfs apply`) - see [#115](https://github.com/agustif/ghfs/pull/115), [#120](https://github.com/agustif/ghfs/pull/120), [#137](https://github.com/agustif/ghfs/pull/137)
 - [x] Index page, and basic repo info
 - [x] Agent Skills.
 - [x] Local Web UI for managing the local mirror (`ghfs ui` and `ghfs hub`).

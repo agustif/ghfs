@@ -51,7 +51,13 @@
     "release": "bumpp",
     "prepublishOnly": "pnpm run build",
     "play": "cd playgrounds/ni && tsx ../../src/cli.ts",
-    "prepare": "git submodule update --init --recursive && simple-git-hooks && skills-npm"
+    "prepare": "git submodule update --init --recursive && simple-git-hooks && skills-npm",
+    "observe:packages": "bash scripts/observe-packages.sh",
+    "observe:releases": "bash scripts/observe-releases.sh",
+    "observe:containers": "bash scripts/observe-containers.sh",
+    "observe:deployments": "bash scripts/observe-deployments.sh",
+    "observe:attestations": "bash scripts/observe-attestations.sh",
+    "observe:all": "pnpm run observe:packages && pnpm run observe:releases && pnpm run observe:containers && pnpm run observe:deployments && pnpm run observe:attestations"
   },
   "dependencies": {
     "@clack/prompts": "catalog:",

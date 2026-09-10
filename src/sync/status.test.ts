@@ -95,6 +95,12 @@ function createConfig(cwd: string): GhfsResolvedConfig {
     sync: {
       issues: true,
       pulls: true,
+      discussions: true,
+      wiki: true,
+      mergeQueue: true,
+      releases: true,
+      workflows: true,
+      metadata: true,
       closed: false,
       patches: 'open',
       meta: true,
@@ -110,6 +116,13 @@ function createConfig(cwd: string): GhfsResolvedConfig {
       me: true,
       security: true,
       syncState: true,
+    },
+    search: {
+      codeTodos: true,
+      commitRefs: true,
+      issueQueries: {},
+      mentions: false,
+      maxResults: 100,
     },
   }
 }
