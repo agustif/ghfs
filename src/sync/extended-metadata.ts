@@ -1,6 +1,7 @@
 import type { SyncContext } from './sync-repository-types'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'
+import { EXTENDED_GRAPH_FILE_NAME } from '../constants'
 import { buildMeSummary, renderMeSummary } from './me-summary'
 import { buildGraph } from './refs-graph'
 import { buildSearchIndex, renderSearchIndex } from './search-index'
@@ -18,7 +19,7 @@ export async function writeExtendedMetadata(context: SyncContext): Promise<void>
   if (config.graph) {
     const graph = buildGraph(context.syncState.items, context.syncedAt)
     await writeFile(
-      join(storageDirAbsolute, 'graph.jsonl'),
+      join(storageDirAbsolute, EXTENDED_GRAPH_FILE_NAME),
       `${graph.nodes.map(n => JSON.stringify({ ...n, type: 'node' })).join('\n')
       }\n${
         graph.edges.map(e => JSON.stringify({ ...e, type: 'edge' })).join('\n')

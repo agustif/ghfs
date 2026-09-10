@@ -242,6 +242,40 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
         await writeExtendedMetadata(syncContext).catch(() => {})
       }
 
+      if (!targetNumbers) {
+        try {
+          await syncPeople(syncContext)
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: 'people sync complete',
+          })
+        }
+        catch (error) {
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: `people sync skipped: ${(error as Error).message}`,
+          })
+        }
+
+        try {
+          await syncCollaborators(syncContext)
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: 'collaborators sync complete',
+          })
+        }
+        catch (error) {
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: `collaborators sync skipped: ${(error as Error).message}`,
+          })
+        }
+      }
+
       syncContext.syncState.ghfsVersion = GHFS_VERSION
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)
     })

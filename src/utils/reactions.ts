@@ -111,3 +111,15 @@ function normalizeCount(value: unknown): number {
     return 0
   return Math.floor(value)
 }
+
+export function formatReactions(reactions: ProviderReactions): string {
+  const parts: string[] = []
+  for (const content of REACTION_CONTENTS) {
+    const key = reactionKeyFromContent(content)
+    const count = reactions[key]
+    if (count > 0) {
+      parts.push(`${REACTION_EMOJI[content]} ${count}`)
+    }
+  }
+  return parts.join(' ')
+}

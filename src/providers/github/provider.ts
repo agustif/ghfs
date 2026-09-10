@@ -3,28 +3,26 @@ import type {
   MergeOptions,
   PaginateItemsOptions,
   ProviderAuthenticatedUser,
-  ProviderBranchProtection,
   ProviderComment,
   ProviderCommit,
+  ProviderDeployment,
+  ProviderEvent,
   ProviderItem,
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
   ProviderMergeQueueEntry,
   ProviderMilestone,
+  ProviderPullFile,
   ProviderPullMetadata,
   ProviderReactions,
-  ProviderRelease,
   ProviderRepository,
-  ProviderRepositoryContent,
-  ProviderRepositoryTopics,
   ProviderReviewComment,
   ProviderReviewDecision,
   ProviderReviewState,
   ProviderTimelineEvent,
   ProviderTimelineSource,
   ProviderUpdateCounts,
-  ProviderWorkflowRun,
   ReactionTarget,
   RepositoryProvider,
 } from '../../types/provider'
@@ -34,6 +32,13 @@ import { randomHexColor } from '../../utils/color'
 import { formatIssueNumber } from '../../utils/format'
 import { createEmptyReactions, isReactionContent, normalizeReactions, reactionKeyFromContent } from '../../utils/reactions'
 import { collectPages, iteratePages } from '../helpers'
+import {
+  fetchAutolinks,
+  fetchLatestPagesBuild,
+  fetchRuleSuites,
+  fetchWorkflowPermissions,
+  fetchWorkflows,
+} from './actions'
 import { createGitHubClient } from './client'
 import {
   fetchBranchProtection,
@@ -76,6 +81,7 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchPullMetadata: number => fetchPullMetadata(octokit, owner, repo, number, bumpRequestCount),
     fetchPullPatch: number => fetchPullPatch(octokit, owner, repo, number, bumpRequestCount),
     fetchPullCommits: number => fetchPullCommits(octokit, owner, repo, number, bumpRequestCount),
+    fetchPullFiles: number => fetchPullFiles(octokit, owner, repo, number, bumpRequestCount),
     fetchReviewComments: number => fetchReviewComments(octokit, owner, repo, number, bumpRequestCount),
     fetchTimeline: number => fetchTimeline(octokit, owner, repo, number, bumpRequestCount),
     fetchItemSnapshot: number => fetchItemSnapshot(octokit, owner, repo, number, bumpRequestCount),
@@ -96,6 +102,15 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchPullChecks: number => fetchPullChecks(octokit, owner, repo, number, bumpRequestCount),
     fetchPullFiles: number => fetchPullFiles(octokit, owner, repo, number, bumpRequestCount),
     fetchPullGate: number => fetchPullGate(octokit, owner, repo, number, bumpRequestCount),
+
+    fetchEvents: limit => fetchEvents(octokit, owner, repo, limit, bumpRequestCount),
+    fetchDeployments: () => fetchDeployments(octokit, owner, repo, bumpRequestCount),
+
+    fetchWorkflows: () => fetchWorkflows(octokit, owner, repo, bumpRequestCount),
+    fetchWorkflowPermissions: workflowId => fetchWorkflowPermissions(octokit, owner, repo, workflowId, bumpRequestCount),
+    fetchRuleSuites: params => fetchRuleSuites(octokit, owner, repo, params, bumpRequestCount),
+    fetchLatestPagesBuild: () => fetchLatestPagesBuild(octokit, owner, repo, bumpRequestCount),
+    fetchAutolinks: () => fetchAutolinks(octokit, owner, repo, bumpRequestCount),
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
@@ -1803,8 +1818,8 @@ async function fetchPullGate(
 
   const checksGreen = checks.length > 0
     ? checks.every(check =>
-      check.status === 'completed' && (check.conclusion === 'success' || check.conclusion === 'neutral' || check.conclusion === 'skipped'),
-    )
+        check.status === 'completed' && (check.conclusion === 'success' || check.conclusion === 'neutral' || check.conclusion === 'skipped'),
+      )
     : null
 
   const conflictFiles: string[] = []
@@ -2121,4 +2136,54 @@ interface GitHubTimelineEvent {
   /** Populated for `auto_merge_*` / `auto_squash_*` / `auto_rebase_*`. */
   commit_title?: string
   commit_message?: string
+}
+
+async function fetchEvents(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  limit = 50,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderEvent[]> {
+  bumpRequestCount()
+  const response = await octokit.rest.activity.listRepoEvents({
+    owner,
+    repo,
+    per_page: Math.min(limit, 100),
+  })
+
+  return response.data.slice(0, limit).map((event: any) => ({
+    id: event.id,
+    type: event.type,
+    actor: event.actor?.login ?? null,
+    createdAt: event.created_at,
+    payload: event.payload,
+  }))
+}
+
+async function fetchDeployments(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderDeployment[]> {
+  bumpRequestCount()
+  const response = await octokit.rest.repos.listDeployments({
+    owner,
+    repo,
+    per_page: 100,
+  })
+
+  return response.data.map((deployment: any) => ({
+    id: deployment.id,
+    environment: deployment.environment,
+    state: deployment.statuses_url ? 'unknown' : 'pending',
+    description: deployment.description ?? null,
+    createdAt: deployment.created_at,
+    updatedAt: deployment.updated_at,
+    creator: deployment.creator?.login ?? null,
+    ref: deployment.ref,
+    sha: deployment.sha,
+    url: deployment.url,
+  }))
 }
