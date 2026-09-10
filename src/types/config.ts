@@ -64,17 +64,122 @@ export interface GhfsUserConfig {
      */
     patches?: 'open' | 'all' | false
     /**
-     * Whether to search code for TODO/FIXME comments and save to .ghfs/search/code-todos.jsonl
-    /**
-     * Whether to sync GitHub Actions workflows, runs, and artifacts.
+     * Whether to sync repository metadata (meta.json).
      *
-     * @default false
+     * @default true
+     */
+    meta?: boolean
+    /**
+     * Whether to sync separate labels.json and milestones.json files.
+     *
+     * @default true
+     */
+    labelsAndMilestones?: boolean
+    /**
+     * Whether to sync releases to releases/ directory.
+     * Whether to sync releases.
+     *
+     * @default true
+     */
+    releases?: boolean
+    /**
+     * Whether to sync branch protection rules to rulesets/ directory.
+     *
+     * @default true
+     */
+    rulesets?: boolean
+    /**
+     * Whether to sync repository constitution files (CONTRIBUTING, SECURITY, etc.) to constitution/ directory.
+     *
+     * @default true
+     */
+    constitution?: boolean
+    /**
+     * Whether to sync recent workflow runs to actions/ directory.
+     *
+     * @default true
      */
     actions?: boolean
     /**
-     * Number of workflow runs to fetch per workflow.
+     * Pull request intelligence features.
+     */
+    pullIntelligence?: {
+      /**
+       * Whether to sync PR review state (reviews.json).
+       *
+       * @default true
+       */
+      reviews?: boolean
+      /**
+       * Whether to sync PR CI/check status (checks.json).
+       *
+       * @default true
+       */
+      checks?: boolean
+      /**
+       * Whether to sync PR file list (files.json).
+       *
+       * @default true
+       */
+      files?: boolean
+      /**
+       * Whether to sync PR merge gate status (gate.json).
+       *
+       * @default true
+       */
+      gate?: boolean
+    }
+  }
+  /**
+   * Extended metadata generation for agent ergonomics.
+   */
+  extended?: {
+    /**
+     * Generate graph.jsonl with nodes and edges for agent navigation.
      *
-     * @default 30
+     * @default true
+     */
+    graph?: boolean
+    /**
+     * Generate search.jsonl for fast local lookup.
+     *
+     * @default true
+     */
+    search?: boolean
+    /**
+     * Generate me.md with personal work summary (assigned, review-requested, mentions).
+     * Only created if authenticated user is available.
+     *
+     * @default true
+     */
+    me?: boolean
+    /**
+     * Generate security/summary.json with Dependabot, code scanning, and secret scanning alerts.
+     * Gracefully skips if features unavailable or no permissions.
+     *
+     * @default true
+     */
+    security?: boolean
+    /**
+     * Generate sync-state.json with full sync state for staleness detection.
+     *
+     * @default true
+     */
+    syncState?: boolean
+     * Whether to sync packages.
+     *
+     * @default true
+     */
+    packages?: boolean
+  }
+  /**
+   * Search coverage configuration for agent ergonomics.
+   */
+  search?: {
+    /**
+     * Whether to search code for TODO/FIXME comments and save to .ghfs/search/code-todos.jsonl
+     *
+     * @default true
      */
     codeTodos?: boolean
     /**
@@ -211,12 +316,6 @@ export interface GhfsUserConfig {
      * @default false
      */
     vulnerabilityReporting?: boolean
-    actionsRunsPerWorkflow?: number
-     * Whether to sync GitHub Pages build history.
-     *
-     * @default false
-     */
-    pagesBuilds?: boolean
   }
 }
 
@@ -224,9 +323,6 @@ export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended'> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: Required<GhfsUserConfig['sync']>
-  search: Required<Omit<NonNullable<GhfsUserConfig['search']>, 'issueQueries'>> & {
-    issueQueries: Record<string, string>
-  }
   extended: Required<NonNullable<GhfsUserConfig['extended']>>
   extended?: GhfsUserConfig['extended']
 }

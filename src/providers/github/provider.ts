@@ -1,20 +1,23 @@
 import type { Octokit } from 'octokit'
 import type {
+  MergeMethod,
   MergeOptions,
   PaginateItemsOptions,
   ProviderAuthenticatedUser,
-  ProviderBranchProtection,
+  ProviderAutoMergeInfo,
+  ProviderCheckConclusionState,
+  ProviderCheckRun,
+  ProviderCheckStatusState,
+  ProviderCombinedStatus,
   ProviderComment,
   ProviderCommit,
-  ProviderDeployment,
-  ProviderEvent,
+  ProviderCommitStatus,
   ProviderItem,
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
   ProviderMergeQueueEntry,
   ProviderMilestone,
-  ProviderPagesBuild,
   ProviderPullMetadata,
   ProviderReactions,
   ProviderRelease,
@@ -92,15 +95,10 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchRepository: () => fetchRepository(octokit, owner, repo, bumpRequestCount),
     fetchRepositoryLabels: () => fetchRepositoryLabels(octokit, owner, repo, bumpRequestCount),
     fetchRepositoryMilestones: () => fetchRepositoryMilestones(octokit, owner, repo, bumpRequestCount),
-    fetchPagesBuilds: () => fetchPagesBuilds(octokit, owner, repo, bumpRequestCount),
     fetchAuthenticatedUser: fetchAuthenticatedUserCached,
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
-    fetchRepositoryTopics: () => fetchRepositoryTopics(octokit, owner, repo, bumpRequestCount),
-    fetchReleases: limit => fetchReleases(octokit, owner, repo, limit, bumpRequestCount),
-    fetchBranchProtection: branch => fetchBranchProtection(octokit, owner, repo, branch, bumpRequestCount),
-    fetchRecentWorkflowRuns: limit => fetchRecentWorkflowRuns(octokit, owner, repo, limit, bumpRequestCount),
-    fetchRepositoryContent: path => fetchRepositoryContent(octokit, owner, repo, path, bumpRequestCount),
-    fetchPinnedIssues: () => fetchPinnedIssues(octokit, owner, repo, bumpRequestCount),
+    fetchCheckRuns: ref => fetchCheckRuns(octokit, owner, repo, ref, bumpRequestCount),
+    fetchCombinedStatus: ref => fetchCombinedStatus(octokit, owner, repo, ref, bumpRequestCount),
     getRequestCount: () => requestCount,
     fetchPullReviews: number => fetchPullReviews(octokit, owner, repo, number, bumpRequestCount),
     fetchPullReviewThreads: number => fetchPullReviewThreads(octokit, owner, repo, number, bumpRequestCount),
@@ -147,6 +145,13 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
       actionRemoveReaction(octokit, owner, repo, number, reaction, target, fetchAuthenticatedUserCached, bumpRequestCount),
     fetchViewerReactions: (number, target) =>
       fetchViewerReactions(octokit, owner, repo, number, target, fetchAuthenticatedUserCached, bumpRequestCount),
+
+    fetchActionsWorkflowRuns: () => fetchActionsWorkflowRuns(octokit, owner, repo, bumpRequestCount),
+    fetchActionsWorkflowJobs: runId => fetchActionsWorkflowJobs(octokit, owner, repo, runId, bumpRequestCount),
+    fetchActionsJobLogs: jobId => fetchActionsJobLogs(octokit, owner, repo, jobId, bumpRequestCount),
+    fetchActionsRunArtifacts: runId => fetchActionsRunArtifacts(octokit, owner, repo, runId, bumpRequestCount),
+    fetchWebhooks: () => fetchWebhooks(octokit, owner, repo, bumpRequestCount),
+    fetchWebhookDeliveries: (hookId, options) => fetchWebhookDeliveries(octokit, owner, repo, hookId, options, bumpRequestCount),
   }
 }
 
@@ -250,19 +255,21 @@ async function fetchPullMetadata(
   const pull = result.data as GitHubPull
   const requestedReviewers = pull.requested_reviewers.map(reviewer => reviewer.login)
   const reviewDecision = await fetchPullReviewDecision(octokit, owner, repo, number, requestedReviewers.length > 0, bumpRequestCount)
-  const mergeQueueEntry = await fetchMergeQueueEntry(octokit, owner, repo, number, bumpRequestCount)
+  const autoMerge = await fetchAutoMergeInfo(octokit, owner, repo, number, bumpRequestCount)
 
   return {
     isDraft: pull.draft,
     merged: pull.merged,
     mergedAt: pull.merged_at,
+    mergeCommitSha: pull.merge_commit_sha ?? null,
     baseRef: pull.base.ref,
     headRef: pull.head.ref,
+    headSha: pull.head.sha,
     requestedReviewers,
     mergeable: pull.mergeable ?? null,
     mergeableState: pull.mergeable_state ?? 'unknown',
     reviewDecision,
-    mergeQueueEntry,
+    autoMerge,
   }
 }
 
@@ -634,37 +641,6 @@ async function fetchRepositoryMilestones(octokit: Octokit, owner: string, repo: 
   }) as ProviderMilestone[]
 }
 
-async function fetchPagesBuilds(octokit: Octokit, owner: string, repo: string, bumpRequestCount: BumpRequestCount): Promise<ProviderPagesBuild[]> {
-  bumpRequestCount()
-  try {
-    const builds = await octokit.paginate(octokit.rest.repos.listPagesBuilds, {
-      owner,
-      repo,
-      per_page: 100,
-    })
-    return builds.map((build: any): ProviderPagesBuild => ({
-      url: build.url,
-      status: build.status,
-      error: build.error ? { message: build.error.message ?? null } : undefined,
-      commit: build.commit,
-      duration: build.duration ?? null,
-      created_at: build.created_at,
-      updated_at: build.updated_at,
-      pusher: build.pusher
-        ? {
-            login: build.pusher.login,
-            avatarUrl: build.pusher.avatar_url,
-          }
-        : null,
-    }))
-  }
-  catch (error: any) {
-    if (error.status === 404)
-      return []
-    throw error
-  }
-}
-
 async function fetchAuthenticatedUser(octokit: Octokit, bumpRequestCount: BumpRequestCount): Promise<ProviderAuthenticatedUser | null> {
   bumpRequestCount()
   try {
@@ -713,6 +689,135 @@ function normalizeSinceForSearch(since: string): string {
   if (Number.isNaN(date.getTime()))
     return since
   return date.toISOString()
+}
+
+async function fetchAutoMergeInfo(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  number: number,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderAutoMergeInfo | null> {
+  try {
+    bumpRequestCount()
+    const data = await octokit.graphql<{
+      repository: {
+        pullRequest: {
+          autoMergeRequest: {
+            enabledAt: string
+            enabledBy: { login: string } | null
+            mergeMethod: string
+            commitHeadline: string | null
+            commitBody: string | null
+          } | null
+        } | null
+      } | null
+    }>(
+      `query PullAutoMerge($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            autoMergeRequest {
+              enabledAt
+              enabledBy { login }
+              mergeMethod
+              commitHeadline
+              commitBody
+            }
+          }
+        }
+      }`,
+      { owner, repo, number },
+    )
+
+    const autoMerge = data.repository?.pullRequest?.autoMergeRequest
+    if (!autoMerge)
+      return null
+
+    const mergeMethod = normalizeMergeMethod(autoMerge.mergeMethod)
+    return {
+      enabledAt: autoMerge.enabledAt,
+      enabledBy: autoMerge.enabledBy?.login ?? null,
+      mergeMethod,
+      commitTitle: autoMerge.commitHeadline ?? null,
+      commitMessage: autoMerge.commitBody ?? null,
+    }
+  }
+  catch {
+    return null
+  }
+}
+
+function normalizeMergeMethod(method: string): MergeMethod | null {
+  const lower = method.toLowerCase()
+  if (lower === 'squash' || lower === 'merge' || lower === 'rebase')
+    return lower
+  return null
+}
+
+async function fetchCheckRuns(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  ref: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderCheckRun[]> {
+  bumpRequestCount()
+  const response = await octokit.rest.checks.listForRef({
+    owner,
+    repo,
+    ref,
+    per_page: 100,
+  })
+
+  return response.data.check_runs.map(mapCheckRun)
+}
+
+async function fetchCombinedStatus(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  ref: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderCombinedStatus> {
+  bumpRequestCount()
+  const response = await octokit.rest.repos.getCombinedStatusForRef({
+    owner,
+    repo,
+    ref,
+    per_page: 100,
+  })
+
+  return {
+    state: response.data.state as 'success' | 'pending' | 'failure',
+    sha: response.data.sha,
+    totalCount: response.data.total_count,
+    statuses: response.data.statuses.map(mapCommitStatus),
+  }
+}
+
+function mapCheckRun(run: GitHubCheckRun): ProviderCheckRun {
+  return {
+    id: run.id,
+    name: run.name,
+    headSha: run.head_sha,
+    status: run.status as ProviderCheckStatusState,
+    conclusion: run.conclusion as ProviderCheckConclusionState | null,
+    startedAt: run.started_at ?? null,
+    completedAt: run.completed_at ?? null,
+    detailsUrl: run.details_url ?? null,
+    htmlUrl: run.html_url ?? null,
+  }
+}
+
+function mapCommitStatus(status: GitHubCommitStatus): ProviderCommitStatus {
+  return {
+    state: status.state as 'error' | 'failure' | 'pending' | 'success',
+    targetUrl: status.target_url ?? null,
+    description: status.description ?? null,
+    context: status.context,
+    createdAt: status.created_at,
+    updatedAt: status.updated_at,
+  }
 }
 
 async function actionClose(octokit: Octokit, owner: string, repo: string, number: number, bumpRequestCount: BumpRequestCount): Promise<void> {
@@ -2058,11 +2163,13 @@ interface GitHubPull {
   draft: boolean
   merged: boolean
   merged_at: string | null
+  merge_commit_sha?: string | null
   base: {
     ref: string
   }
   head: {
     ref: string
+    sha: string
   }
   requested_reviewers: Array<{ login: string }>
   mergeable?: boolean | null
@@ -2174,52 +2281,23 @@ interface GitHubTimelineEvent {
   commit_message?: string
 }
 
-async function fetchEvents(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  limit = 50,
-  bumpRequestCount: BumpRequestCount,
-): Promise<ProviderEvent[]> {
-  bumpRequestCount()
-  const response = await octokit.rest.activity.listRepoEvents({
-    owner,
-    repo,
-    per_page: Math.min(limit, 100),
-  })
-
-  return response.data.slice(0, limit).map((event: any) => ({
-    id: event.id,
-    type: event.type,
-    actor: event.actor?.login ?? null,
-    createdAt: event.created_at,
-    payload: event.payload,
-  }))
+interface GitHubCheckRun {
+  id: number
+  name: string
+  head_sha: string
+  status: string
+  conclusion: string | null
+  started_at: string | null
+  completed_at: string | null
+  details_url: string | null
+  html_url: string | null
 }
 
-async function fetchDeployments(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<ProviderDeployment[]> {
-  bumpRequestCount()
-  const response = await octokit.rest.repos.listDeployments({
-    owner,
-    repo,
-    per_page: 100,
-  })
-
-  return response.data.map((deployment: any) => ({
-    id: deployment.id,
-    environment: deployment.environment,
-    state: deployment.statuses_url ? 'unknown' : 'pending',
-    description: deployment.description ?? null,
-    createdAt: deployment.created_at,
-    updatedAt: deployment.updated_at,
-    creator: deployment.creator?.login ?? null,
-    ref: deployment.ref,
-    sha: deployment.sha,
-    url: deployment.url,
-  }))
+interface GitHubCommitStatus {
+  state: string
+  target_url: string | null
+  description: string | null
+  context: string
+  created_at: string
+  updated_at: string
 }

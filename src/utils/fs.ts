@@ -18,6 +18,33 @@ export async function writeFileEnsured(path: string, content: string): Promise<v
   await writeFile(path, content, 'utf8')
 }
 
+export async function writeJsonFile<T>(path: string, data: T): Promise<void> {
+  const content = JSON.stringify(data, null, 2)
+  await writeFileEnsured(path, content)
+}
+
+export async function writeJsonlFile<T>(path: string, items: T[], limit?: number | false): Promise<void> {
+  const itemsToWrite = limit && limit > 0 ? items.slice(-limit) : items
+  const lines = itemsToWrite.map(item => JSON.stringify(item)).join('\n')
+  await writeFileEnsured(path, lines + (lines.length > 0 ? '\n' : ''))
+}
+
+export async function removeJsonlIfExists(path: string): Promise<number> {
+  try {
+    await unlink(path)
+    return 1
+  }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+      return 0
+    throw error
+  }
+}
+
+export async function removeJsonIfExists(path: string): Promise<number> {
+  return removeJsonlIfExists(path)
+}
+
 export async function removePath(path: string): Promise<void> {
   await rm(path, { force: true })
 }

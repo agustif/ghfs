@@ -571,6 +571,8 @@ function createMockProvider(overrides: Partial<RepositoryProvider> = {}): Reposi
       isDraft: false,
       merged: false,
       mergedAt: null,
+      mergeCommitSha: null,
+      headSha: 'abc123',
       baseRef: 'main',
       headRef: 'feature',
       requestedReviewers: [],
@@ -579,6 +581,8 @@ function createMockProvider(overrides: Partial<RepositoryProvider> = {}): Reposi
     fetchPullCommits: vi.fn(async () => []),
     fetchReviewComments: vi.fn(async () => []),
     fetchTimeline: vi.fn(async () => []),
+    fetchCheckRuns: vi.fn(async () => []),
+    fetchCombinedStatus: vi.fn(async () => ({ state: 'success', sha: 'abc123', totalCount: 0, statuses: [] })),
     fetchItemSnapshot: vi.fn(async number => ({
       number,
       kind: 'issue' as const,
