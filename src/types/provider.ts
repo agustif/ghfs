@@ -394,6 +394,21 @@ export interface RepositoryProvider {
   fetchStarHistory: () => Promise<ProviderStarHistory[]>
   fetchContributors: () => Promise<ProviderContributor[]>
 
+  fetchCustomProperties?: () => Promise<any[] | null>
+  fetchAutolinks?: () => Promise<any[] | null>
+  fetchBranchRenames?: () => Promise<any[] | null>
+  fetchCommitActivity?: () => Promise<any[] | null>
+  fetchParticipationStats?: () => Promise<any | null>
+  fetchRepositoryTags?: () => Promise<any[] | null>
+  fetchGitRefs?: (namespace?: string) => Promise<any[] | null>
+  fetchGitTree?: (treeSha: string, recursive?: boolean) => Promise<any | null>
+  fetchAssigneeSuggestions?: () => Promise<any[] | null>
+  fetchTrafficReferrers?: () => Promise<any[] | null>
+  fetchTrafficPaths?: () => Promise<any[] | null>
+  fetchTrafficViews?: () => Promise<any | null>
+  fetchTrafficClones?: () => Promise<any | null>
+  fetchVulnerabilityReporting?: () => Promise<any | null>
+
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>
   actionSetTitle: (number: number, title: string) => Promise<void>

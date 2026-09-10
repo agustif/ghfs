@@ -112,6 +112,21 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchLatestPagesBuild: () => fetchLatestPagesBuild(octokit, owner, repo, bumpRequestCount),
     fetchAutolinks: () => fetchAutolinks(octokit, owner, repo, bumpRequestCount),
 
+    fetchCustomProperties: () => fetchCustomProperties(octokit, owner, repo, bumpRequestCount),
+    fetchAutolinks: () => fetchAutolinks(octokit, owner, repo, bumpRequestCount),
+    fetchBranchRenames: () => fetchBranchRenames(octokit, owner, repo, bumpRequestCount),
+    fetchCommitActivity: () => fetchCommitActivity(octokit, owner, repo, bumpRequestCount),
+    fetchParticipationStats: () => fetchParticipationStats(octokit, owner, repo, bumpRequestCount),
+    fetchRepositoryTags: () => fetchRepositoryTags(octokit, owner, repo, bumpRequestCount),
+    fetchGitRefs: namespace => fetchGitRefs(octokit, owner, repo, namespace, bumpRequestCount),
+    fetchGitTree: (treeSha, recursive) => fetchGitTree(octokit, owner, repo, treeSha, recursive, bumpRequestCount),
+    fetchAssigneeSuggestions: () => fetchAssigneeSuggestions(octokit, owner, repo, bumpRequestCount),
+    fetchTrafficReferrers: () => fetchTrafficReferrers(octokit, owner, repo, bumpRequestCount),
+    fetchTrafficPaths: () => fetchTrafficPaths(octokit, owner, repo, bumpRequestCount),
+    fetchTrafficViews: () => fetchTrafficViews(octokit, owner, repo, bumpRequestCount),
+    fetchTrafficClones: () => fetchTrafficClones(octokit, owner, repo, bumpRequestCount),
+    fetchVulnerabilityReporting: () => fetchVulnerabilityReporting(octokit, owner, repo, bumpRequestCount),
+
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
     actionSetTitle: (number, title) => actionSetTitle(octokit, owner, repo, number, title, bumpRequestCount),
@@ -1981,6 +1996,308 @@ function mapGraphQLReactions(reactions: { totalCount: number, nodes: Array<{ con
       result.eyes = (result.eyes ?? 0) + 1
   }
   return result
+async function fetchCustomProperties(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/properties/values', {
+      owner,
+      repo,
+    })
+    return result.data as any[]
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchAutolinks(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/autolinks', {
+      owner,
+      repo,
+    })
+    return result.data as any[]
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchBranchRenames(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/branches', {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return result.data as any[]
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchCommitActivity(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/stats/commit_activity', {
+      owner,
+      repo,
+    })
+    return result.data as any[]
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403 || error.status === 202)
+      return null
+    throw error
+  }
+}
+
+async function fetchParticipationStats(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/stats/participation', {
+      owner,
+      repo,
+    })
+    return result.data as any
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403 || error.status === 202)
+      return null
+    throw error
+  }
+}
+
+async function fetchRepositoryTags(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.paginate('GET /repos/{owner}/{repo}/tags', {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return result as any[]
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchGitRefs(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  namespace: string | undefined,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any[] | null> {
+  try {
+    bumpRequestCount()
+    const path = namespace ? `GET /repos/{owner}/{repo}/git/matching-refs/${namespace}` : 'GET /repos/{owner}/{repo}/git/refs'
+    const result = await octokit.paginate(path as any, {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return result as any[]
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchGitTree(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  treeSha: string,
+  recursive: boolean | undefined,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/git/trees/{tree_sha}', {
+      owner,
+      repo,
+      tree_sha: treeSha,
+      recursive: recursive ? '1' : undefined,
+    } as any)
+    return result.data as any
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchAssigneeSuggestions(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.paginate('GET /repos/{owner}/{repo}/assignees', {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return result as any[]
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchTrafficReferrers(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/traffic/popular/referrers', {
+      owner,
+      repo,
+    })
+    return result.data as any[]
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchTrafficPaths(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/traffic/popular/paths', {
+      owner,
+      repo,
+    })
+    return result.data as any[]
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchTrafficViews(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/traffic/views', {
+      owner,
+      repo,
+    })
+    return result.data as any
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchTrafficClones(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/traffic/clones', {
+      owner,
+      repo,
+    })
+    return result.data as any
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchVulnerabilityReporting(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<any | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/private-vulnerability-reporting', {
+      owner,
+      repo,
+    })
+    return result.data as any
+  }
+  catch (error: any) {
+    if (error.status === 404 || error.status === 403)
+      return null
+    throw error
+  }
 }
 
 interface GitHubIssue {
