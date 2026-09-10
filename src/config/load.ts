@@ -117,6 +117,8 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       rulesets: merged.sync?.rulesets ?? true,
       constitution: merged.sync?.constitution ?? true,
       actions: merged.sync?.actions ?? true,
+      pagesBuilds: merged.sync?.pagesBuilds ?? false,
+      interactionLimits: merged.sync?.interactionLimits ?? false,
       pullIntelligence: {
         reviews: pullIntelligenceReviews,
         checks: pullIntelligenceChecks,

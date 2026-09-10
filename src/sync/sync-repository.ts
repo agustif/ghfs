@@ -9,6 +9,12 @@ import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
 import { loadSyncState, saveSyncState } from './state'
 import { writePagesBuilds } from './sync-pages-builds'
+import { syncCollaborators } from './sync-collaborators'
+import { syncPeople } from './sync-people'
+import { syncActions, syncWebhooks } from './sync-actions-webhooks'
+import { writeInteractionLimits } from './sync-interaction-limits'
+import { writePagesBuilds } from './sync-pages-builds'
+import { syncPeople } from './sync-people'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,
@@ -229,6 +235,46 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
           message: 'extended metadata written',
         })
       }
+
+      await writePagesBuilds(syncContext)
+      await writeInteractionLimits(syncContext)
+
+      if (!targetNumbers) {
+        try {
+          await syncPeople(syncContext)
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: 'people sync complete',
+          })
+        }
+        catch (error) {
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: `people sync skipped: ${(error as Error).message}`,
+          })
+        }
+
+        try {
+          await syncCollaborators(syncContext)
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: 'collaborators sync complete',
+          })
+        }
+        catch (error) {
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: `collaborators sync skipped: ${(error as Error).message}`,
+          })
+        }
+      }
+
+      if (!shouldEarlyReturn)
+        await writeKitchenSinkData(syncContext)
 
       if (!shouldEarlyReturn && !targetNumbers) {
         try {

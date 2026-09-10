@@ -12,6 +12,16 @@ import type {
   ProviderCommitComment,
   ProviderFeeds,
   ProviderForkStatus,
+  ProviderCommitStatus,
+  ProviderGitBlob,
+  ProviderGitCommit,
+  ProviderGitRef,
+  ProviderGitTree,
+  ProviderComment,
+  ProviderCommit,
+  ProviderDeployment,
+  ProviderEvent,
+  ProviderInteractionLimits,
   ProviderItem,
   ProviderItemSnapshot,
   ProviderLabel,
@@ -24,8 +34,6 @@ import type {
   ProviderRelease,
   ProviderRepoInvitation,
   ProviderRepository,
-  ProviderRepositoryContent,
-  ProviderRepositoryTopics,
   ProviderReviewComment,
   ProviderReviewDecision,
   ProviderReviewState,
@@ -44,13 +52,6 @@ import { randomHexColor } from '../../utils/color'
 import { formatIssueNumber } from '../../utils/format'
 import { createEmptyReactions, isReactionContent, normalizeReactions, reactionKeyFromContent } from '../../utils/reactions'
 import { collectPages, iteratePages } from '../helpers'
-import {
-  fetchAutolinks,
-  fetchLatestPagesBuild,
-  fetchRuleSuites,
-  fetchWorkflowPermissions,
-  fetchWorkflows,
-} from './actions'
 import { createGitHubClient } from './client'
 import {
   fetchBranchProtection,
@@ -101,6 +102,7 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchRepositoryLabels: () => fetchRepositoryLabels(octokit, owner, repo, bumpRequestCount),
     fetchRepositoryMilestones: () => fetchRepositoryMilestones(octokit, owner, repo, bumpRequestCount),
     fetchPagesBuilds: () => fetchPagesBuilds(octokit, owner, repo, bumpRequestCount),
+    fetchInteractionLimits: () => fetchInteractionLimits(octokit, owner, repo, bumpRequestCount),
     fetchAuthenticatedUser: fetchAuthenticatedUserCached,
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
     fetchRepositoryTopics: () => fetchRepositoryTopics(octokit, owner, repo, bumpRequestCount),
@@ -698,6 +700,31 @@ async function fetchPagesBuilds(octokit: Octokit, owner: string, repo: string, b
   catch (error: any) {
     if (error.status === 404)
       return []
+    throw error
+  }
+}
+
+async function fetchInteractionLimits(octokit: Octokit, owner: string, repo: string, bumpRequestCount: BumpRequestCount): Promise<ProviderInteractionLimits> {
+  bumpRequestCount()
+  try {
+    const response = await octokit.rest.interactions.getRestrictionsForRepo({
+      owner,
+      repo,
+    })
+    return {
+      limit: response.data.limit as ProviderInteractionLimits['limit'],
+      origin: response.data.origin,
+      expires_at: response.data.expires_at ?? null,
+    }
+  }
+  catch (error: any) {
+    if (error.status === 404) {
+      return {
+        limit: null,
+        origin: 'repository',
+        expires_at: null,
+      }
+    }
     throw error
   }
 }
@@ -1891,8 +1918,8 @@ async function fetchPullGate(
 
   const checksGreen = checks.length > 0
     ? checks.every(check =>
-      check.status === 'completed' && (check.conclusion === 'success' || check.conclusion === 'neutral' || check.conclusion === 'skipped'),
-    )
+        check.status === 'completed' && (check.conclusion === 'success' || check.conclusion === 'neutral' || check.conclusion === 'skipped'),
+      )
     : null
 
   const conflictFiles: string[] = []
