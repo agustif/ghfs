@@ -1,0 +1,61 @@
+name: Observe Releases
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: |
+          npm install -g npm@latest
+          pnpm install --frozen-lockfile
+
+      - name: Run Observations
+        id: observe
+        run: |
+          mkdir -p reports
+          bash scripts/observe-all.sh > reports/observation-report.txt 2>&1 || true
+
+      - name: Upload Observation Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: observation-report-${{ github.run_number }}
+          path: reports/
+          retention-days: 90
+
+      - name: Post Summary
+        if: success()
+        run: |
+          echo "## 📊 Release Observatory Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Observation completed at $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Quick Stats" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- NPM Version: $(npm view @ghfs/cli version 2>/dev/null || echo 'N/A')" >> $GITHUB_STEP_SUMMARY
+          echo "- GitHub Releases: $(gh api /repos/${{ github.repository }}/releases --jq 'length' 2>/dev/null || echo '0')" >> $GITHUB_STEP_SUMMARY
+          echo "- Deployments: $(gh api /repos/${{ github.repository }}/deployments --jq 'length' 2>/dev/null || echo '0')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📥 Download the full report from artifacts above." >> $GITHUB_STEP_SUMMARY
