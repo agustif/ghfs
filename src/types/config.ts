@@ -266,6 +266,7 @@ export interface GhfsUserConfig {
      * @default true
      */
     deployments?: boolean
+    /**
      * Whether to sync custom repository properties.
      *
      * @default false
@@ -289,26 +290,6 @@ export interface GhfsUserConfig {
      * @default false
      */
     packages?: boolean
-      /**
-       * Whether to sync PR compare data: ahead/behind commits, merge-base (compare.json).
-       *
-       * @default true
-       */
-      compare?: boolean
-      /**
-       * Whether to sync PR stack relationships: base and dependent PRs (stack.json).
-       *
-       * @default true
-       */
-      stack?: boolean
-      /**
-       * Whether to use GraphQL statusCheckRollup for check status (more comprehensive).
-       * When true, check status is fetched via GraphQL; when false, uses REST API.
-       *
-       * @default true
-       */
-      statusCheckRollup?: boolean
-    }
   }
   /**
    * Extended metadata generation for agent ergonomics.
@@ -375,26 +356,6 @@ export interface GhfsUserConfig {
      */
     maxResults?: number
     syncState?: boolean
-      /**
-       * Whether to sync PR compare data: ahead/behind commits, merge-base (compare.json).
-       *
-       * @default true
-       */
-      compare?: boolean
-      /**
-       * Whether to sync PR stack relationships: base and dependent PRs (stack.json).
-       *
-       * @default true
-       */
-      stack?: boolean
-      /**
-       * Whether to use GraphQL statusCheckRollup for check status (more comprehensive).
-       * When true, check status is fetched via GraphQL; when false, uses REST API.
-       *
-       * @default true
-       */
-      statusCheckRollup?: boolean
-    }
   }
   /**
    * Extended metadata generation for agent ergonomics.
@@ -419,6 +380,7 @@ export interface GhfsUserConfig {
      * @default true
      */
     deployments?: boolean
+    /**
      * Whether to sync custom repository properties.
      *
      * @default false

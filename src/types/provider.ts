@@ -512,6 +512,8 @@ export interface ProviderRepositoryContent {
   type: 'file' | 'dir' | 'symlink' | 'submodule'
   content?: string
   encoding?: string
+}
+
 export interface ProviderIssueDependency {
   id: number
   number: number
@@ -571,6 +573,8 @@ export interface ProviderIssueType {
   description: string | null
   color: string | null
   isEnabled: boolean
+}
+
 export interface ProviderCommitComment {
   id: number
   body: string | null
@@ -636,8 +640,6 @@ export interface ProviderFeeds {
   timelineUrl: string | null
   userUrl: string | null
 }
-
-export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
 
 export interface ProviderTrafficViews {
   count: number

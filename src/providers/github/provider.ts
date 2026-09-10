@@ -4,23 +4,17 @@ import type {
   PaginateItemsOptions,
   ProviderActivityEvent,
   ProviderAuthenticatedUser,
-  ProviderBranchProtection,
   ProviderComment,
+
   ProviderCommit,
-  ProviderDeployment,
-  ProviderEvent,
+
   ProviderCommitComment,
+  ProviderDeployment,
+
+  ProviderEvent,
+
   ProviderFeeds,
   ProviderForkStatus,
-  ProviderCommitStatus,
-  ProviderGitBlob,
-  ProviderGitCommit,
-  ProviderGitRef,
-  ProviderGitTree,
-  ProviderComment,
-  ProviderCommit,
-  ProviderDeployment,
-  ProviderEvent,
   ProviderInteractionLimits,
   ProviderItem,
   ProviderItemSnapshot,
@@ -31,7 +25,6 @@ import type {
   ProviderNetworkSummary,
   ProviderPullMetadata,
   ProviderReactions,
-  ProviderRelease,
   ProviderRepoInvitation,
   ProviderRepository,
   ProviderReviewComment,
@@ -41,7 +34,6 @@ import type {
   ProviderTimelineEvent,
   ProviderTimelineSource,
   ProviderUpdateCounts,
-  ProviderWorkflowRun,
   ProviderViewerStatus,
   ReactionTarget,
   RepositoryProvider,
@@ -2274,6 +2266,20 @@ async function fetchDeployments(
     per_page: 100,
   })
 
+  return response.data.map(deployment => ({
+    id: deployment.id,
+    sha: deployment.sha,
+    ref: deployment.ref,
+    task: deployment.task,
+    environment: deployment.environment ?? null,
+    description: deployment.description,
+    createdAt: deployment.created_at,
+    updatedAt: deployment.updated_at,
+    statusesUrl: deployment.statuses_url,
+    repositoryUrl: deployment.repository_url,
+  }))
+}
+
 async function fetchActionsRunArtifacts(
   octokit: Octokit,
   owner: string,
@@ -2315,6 +2321,55 @@ async function fetchActionsRunArtifacts(
 }
 
 async function fetchWebhooks(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderWebhook[]> {
+  bumpRequestCount()
+  const hooks = await octokit.paginate(octokit.rest.repos.listWebhooks, {
+    owner,
+    repo,
+    per_page: 100,
+  }) as Array<{
+    id: number
+    type: string
+    name: string
+    active: boolean
+    events: string[]
+    config: {
+      url?: string
+      content_type?: string
+      insecure_ssl?: string
+    }
+    updated_at: string
+    created_at: string
+    url: string
+    test_url: string
+    ping_url: string
+    deliveries_url: string
+  }>
+
+  return hooks.map(hook => ({
+    id: hook.id,
+    type: hook.type,
+    name: hook.name,
+    active: hook.active,
+    events: hook.events,
+    config: {
+      url: hook.config.url,
+      contentType: hook.config.content_type,
+      insecureSsl: hook.config.insecure_ssl,
+    },
+    updatedAt: hook.updated_at,
+    createdAt: hook.created_at,
+    url: hook.url,
+    testUrl: hook.test_url,
+    pingUrl: hook.ping_url,
+    deliveriesUrl: hook.deliveries_url,
+  }))
+}
+
 async function fetchCommitComments(
   octokit: Octokit,
   owner: string,
@@ -2429,49 +2484,19 @@ async function fetchTemplateInfo(
   owner: string,
   repo: string,
   bumpRequestCount: BumpRequestCount,
-): Promise<import('../../types/provider').ProviderWebhook[]> {
-  bumpRequestCount()
-  const hooks = await octokit.paginate(octokit.rest.repos.listWebhooks, {
-    owner,
-    repo,
-    per_page: 100,
-  }) as Array<{
-    id: number
-    type: string
-    name: string
-    active: boolean
-    events: string[]
-    config: {
-      url?: string
-      content_type?: string
-      insecure_ssl?: string
+): Promise<ProviderTemplateInfo> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.rest.repos.get({ owner, repo })
+    const data = result.data as { is_template?: boolean, template_repository?: { full_name: string } | null }
+    return {
+      isTemplate: Boolean(data.is_template),
+      templateRepository: data.template_repository?.full_name ?? null,
     }
-    updated_at: string
-    created_at: string
-    url: string
-    test_url: string
-    ping_url: string
-    deliveries_url: string
-  }>
-
-  return hooks.map(hook => ({
-    id: hook.id,
-    type: hook.type,
-    name: hook.name,
-    active: hook.active,
-    events: hook.events,
-    config: {
-      url: hook.config.url,
-      contentType: hook.config.content_type,
-      insecureSsl: hook.config.insecure_ssl,
-    },
-    updatedAt: hook.updated_at,
-    createdAt: hook.created_at,
-    url: hook.url,
-    testUrl: hook.test_url,
-    pingUrl: hook.ping_url,
-    deliveriesUrl: hook.deliveries_url,
-  }))
+  }
+  catch {
+    return { isTemplate: false, templateRepository: null }
+  }
 }
 
 async function fetchWebhookDeliveries(
@@ -2532,19 +2557,6 @@ async function fetchWebhookDeliveries(
     responseHeaders: delivery.response?.headers,
     responseBody: delivery.response?.payload,
   }))
-): Promise<ProviderTemplateInfo> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.rest.repos.get({ owner, repo })
-    const data = result.data as { is_template?: boolean, template_repository?: { full_name: string } | null }
-    return {
-      isTemplate: Boolean(data.is_template),
-      templateRepository: data.template_repository?.full_name ?? null,
-    }
-  }
-  catch {
-    return { isTemplate: false, templateRepository: null }
-  }
 }
 
 async function fetchForkStatus(

@@ -55,6 +55,8 @@ export function getItemReviewCommentsPath(storageDirAbsolute: string, number: nu
 export function getItemCheckStatusPath(storageDirAbsolute: string, number: number, state: IssueState, title: string): string {
   const markdownPath = getPullMarkdownPath(storageDirAbsolute, number, state, title)
   return markdownPath.replace(/\.md$/, '.check-status.json')
+}
+
 export function getActionsRunDir(storageDirAbsolute: string, runId: number): string {
   return join(storageDirAbsolute, 'actions', 'runs', String(runId))
 }
