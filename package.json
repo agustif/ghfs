@@ -23,6 +23,9 @@
     "./dir": "./dist/dir.mjs",
     "./package.json": "./package.json"
   },
+  "bin": {
+    "ghfs": "./dist-effect/cli/main.js"
+  },
   "types": "./dist/index.d.mts",
   "bin": {
     "ghfs": "./dist/cli.mjs"
@@ -60,24 +63,17 @@
     "observe:all": "pnpm run observe:packages && pnpm run observe:releases && pnpm run observe:containers && pnpm run observe:deployments && pnpm run observe:attestations"
   },
   "dependencies": {
-    "@clack/prompts": "catalog:",
-    "@octokit/plugin-retry": "catalog:",
-    "@octokit/plugin-throttling": "catalog:",
-    "ansis": "catalog:",
-    "cac": "catalog:",
+    "effect": "catalog:",
+    "@effect/platform": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@effect/cli": "catalog:",
     "devframe": "catalog:",
-    "dotenv": "catalog:",
-    "jiti": "catalog:",
-    "nostics": "catalog:",
-    "octokit": "catalog:",
-    "ohash": "catalog:",
     "open": "catalog:",
-    "pathe": "catalog:",
     "portless": "catalog:",
-    "valibot": "catalog:",
     "yaml": "catalog:"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
     "@antfu/eslint-config": "catalog:",
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
