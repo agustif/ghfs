@@ -45,6 +45,42 @@ export interface GhfsUserConfig {
      */
     pulls?: boolean
     /**
+     * Whether to sync discussions.
+     *
+     * @default true
+     */
+    discussions?: boolean
+    /**
+     * Whether to sync wiki pages.
+     *
+     * @default true
+     */
+    wiki?: boolean
+    /**
+     * Whether to sync merge queue entries.
+     *
+     * @default true
+     */
+    mergeQueue?: boolean
+    /**
+     * Whether to sync releases and tags.
+     *
+     * @default true
+     */
+    releases?: boolean
+    /**
+     * Whether to sync recent workflow runs for open PRs.
+     *
+     * @default true
+     */
+    workflows?: boolean
+    /**
+     * Whether to sync repository metadata (topics, features, CODEOWNERS, security advisories).
+     *
+     * @default true
+     */
+    metadata?: boolean
+    /**
      * When to sync closed issues and pull requests.
      *
      * - `true`: sync all closed issues and pull requests.
@@ -64,122 +100,17 @@ export interface GhfsUserConfig {
      */
     patches?: 'open' | 'all' | false
     /**
-     * Whether to sync repository metadata (meta.json).
-     *
-     * @default true
-     */
-    meta?: boolean
+     * Whether to search code for TODO/FIXME comments and save to .ghfs/search/code-todos.jsonl
     /**
-     * Whether to sync separate labels.json and milestones.json files.
+     * Whether to sync GitHub Actions workflows, runs, and artifacts.
      *
-     * @default true
-     */
-    labelsAndMilestones?: boolean
-    /**
-     * Whether to sync releases to releases/ directory.
-     * Whether to sync releases.
-     *
-     * @default true
-     */
-    releases?: boolean
-    /**
-     * Whether to sync branch protection rules to rulesets/ directory.
-     *
-     * @default true
-     */
-    rulesets?: boolean
-    /**
-     * Whether to sync repository constitution files (CONTRIBUTING, SECURITY, etc.) to constitution/ directory.
-     *
-     * @default true
-     */
-    constitution?: boolean
-    /**
-     * Whether to sync recent workflow runs to actions/ directory.
-     *
-     * @default true
+     * @default false
      */
     actions?: boolean
     /**
-     * Pull request intelligence features.
-     */
-    pullIntelligence?: {
-      /**
-       * Whether to sync PR review state (reviews.json).
-       *
-       * @default true
-       */
-      reviews?: boolean
-      /**
-       * Whether to sync PR CI/check status (checks.json).
-       *
-       * @default true
-       */
-      checks?: boolean
-      /**
-       * Whether to sync PR file list (files.json).
-       *
-       * @default true
-       */
-      files?: boolean
-      /**
-       * Whether to sync PR merge gate status (gate.json).
-       *
-       * @default true
-       */
-      gate?: boolean
-    }
-  }
-  /**
-   * Extended metadata generation for agent ergonomics.
-   */
-  extended?: {
-    /**
-     * Generate graph.jsonl with nodes and edges for agent navigation.
+     * Number of workflow runs to fetch per workflow.
      *
-     * @default true
-     */
-    graph?: boolean
-    /**
-     * Generate search.jsonl for fast local lookup.
-     *
-     * @default true
-     */
-    search?: boolean
-    /**
-     * Generate me.md with personal work summary (assigned, review-requested, mentions).
-     * Only created if authenticated user is available.
-     *
-     * @default true
-     */
-    me?: boolean
-    /**
-     * Generate security/summary.json with Dependabot, code scanning, and secret scanning alerts.
-     * Gracefully skips if features unavailable or no permissions.
-     *
-     * @default true
-     */
-    security?: boolean
-    /**
-     * Generate sync-state.json with full sync state for staleness detection.
-     *
-     * @default true
-     */
-    syncState?: boolean
-     * Whether to sync packages.
-     *
-     * @default true
-     */
-    packages?: boolean
-  }
-  /**
-   * Search coverage configuration for agent ergonomics.
-   */
-  search?: {
-    /**
-     * Whether to search code for TODO/FIXME comments and save to .ghfs/search/code-todos.jsonl
-     *
-     * @default true
+     * @default 30
      */
     codeTodos?: boolean
     /**
@@ -279,43 +210,51 @@ export interface GhfsUserConfig {
      *
      * @default false
      */
-    participationStats?: boolean
+    packages?: boolean
+      /**
+       * Whether to sync PR compare data: ahead/behind commits, merge-base (compare.json).
+       *
+       * @default true
+       */
+      compare?: boolean
+      /**
+       * Whether to sync PR stack relationships: base and dependent PRs (stack.json).
+       *
+       * @default true
+       */
+      stack?: boolean
+      /**
+       * Whether to use GraphQL statusCheckRollup for check status (more comprehensive).
+       * When true, check status is fetched via GraphQL; when false, uses REST API.
+       *
+       * @default true
+       */
+      statusCheckRollup?: boolean
+    }
+  }
+  /**
+   * Extended metadata generation for agent ergonomics.
+   */
+  extended?: {
     /**
-     * Whether to sync repository tags.
+     * Generate activity.md with last N repository events.
      *
-     * @default false
+     * @default true
      */
-    tags?: boolean
+    activity?: boolean
     /**
-     * Whether to sync git refs.
+     * Generate agent-hints.md with detected test/lint/build commands.
      *
-     * @default false
+     * @default true
      */
-    gitRefs?: boolean
+    agentHints?: boolean
     /**
-     * Whether to sync docs tree (recursive tree of docs/ directory).
+     * Generate deployments/ with environment and deployment status.
+     * Gracefully skips if deployments unavailable.
      *
-     * @default false
+     * @default true
      */
-    docsTree?: boolean
-    /**
-     * Whether to sync assignee suggestions.
-     *
-     * @default false
-     */
-    assigneeSuggestions?: boolean
-    /**
-     * Whether to sync traffic data (referrers, paths, views, clones).
-     *
-     * @default false
-     */
-    traffic?: boolean
-    /**
-     * Whether to sync private vulnerability reporting status.
-     *
-     * @default false
-     */
-    vulnerabilityReporting?: boolean
+    deployments?: boolean
   }
   /**
    * Search coverage configuration for agent ergonomics.
@@ -468,6 +407,9 @@ export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended'> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: Required<GhfsUserConfig['sync']>
+  search: Required<Omit<NonNullable<GhfsUserConfig['search']>, 'issueQueries'>> & {
+    issueQueries: Record<string, string>
+  }
   extended: Required<NonNullable<GhfsUserConfig['extended']>>
   extended?: GhfsUserConfig['extended']
 }
