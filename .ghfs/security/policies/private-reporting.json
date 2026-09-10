@@ -1,0 +1,22 @@
+{
+  "collection_metadata": {
+    "collected_at": "2026-09-10T09:41:00Z",
+    "repository": "agustif/ghfs",
+    "endpoint": "GET /repos/{owner}/{repo}/private-vulnerability-reporting",
+    "documentation": "https://docs.github.com/rest/repos/repos#check-if-private-vulnerability-reporting-is-enabled"
+  },
+  "private_vulnerability_reporting": {
+    "enabled": false
+  },
+  "summary": {
+    "status": "Private vulnerability reporting is DISABLED",
+    "description": "When enabled, security researchers can privately report vulnerabilities directly through GitHub without exposing the issue publicly",
+    "recommendation": "Enable this feature in repository settings > Security > Code security and analysis",
+    "benefits": [
+      "Secure, private channel for vulnerability disclosure",
+      "Built-in GitHub workflow for triage and discussion",
+      "Automatic CVE assignment when publishing advisories",
+      "Better coordination with security researchers"
+    ]
+  }
+}

@@ -15,26 +15,103 @@ and then run the command inside a repository directory:
 ghfs
 ```
 
-It will sync the open issues and pull requests to the local filesystem under `.ghfs` directory, like:
+It will sync the open issues and pull requests to the local filesystem under `.ghfs` directory, plus rich metadata, release history, governance files, and more:
 
 ```txt
 .ghfs/
-  repo.json   # repository basic information
-  issues.md   # index of fetched issues
-  pulls.md    # index of fetched pull requests
-  execute.md  # queued operations
+  # Core issue/PR data (existing)
+  repo.json              # repository basic information
+  issues.md              # index of fetched issues
+  pulls.md               # index of fetched pull requests
+  execute.md             # queued operations
   issues/
     00134-some-bug.md
     closed/
       00135-fixed-crash.md
   pulls/
-    00042-add-cache.md
-    00042-add-cache.patch
+    00042-add-cache/
+      00042-add-cache.md      # PR description + comments
+      00042-add-cache.patch   # full diff
+      reviews.json            # review state (approvals, change requests)
+      checks.json             # CI/check status
+      files.json              # file list with additions/deletions
+      gate.json               # merge-readiness snapshot
     closed/
-      00043-release-cleanup.md
+      00043-release-cleanup/
+        00043-release-cleanup.md
+
+  # Enhanced metadata (PR #1)
+  meta.json              # topics, features, counts, pinned issues, README excerpt
+  labels.json            # all repository labels
+  milestones.json        # all milestones
+  releases/
+    releases.json        # last 30 releases with changelogs
+  rulesets/
+    rulesets.json        # branch protection rules
+  constitution/          # governance files
+    CONTRIBUTING.md
+    SECURITY.md
+    CODE_OF_CONDUCT.md
+    SUPPORT.md
+    FUNDING.yml
+    CODEOWNERS
+  actions/
+    recent-runs.json     # last 20 workflow runs
+
+  # Wiki and Discussions (PR #3)
+  wiki.md                # index of wiki pages
+  wiki/
+    home.md
+    installation.md
+  discussions.md         # index of discussions
+  discussions/
+    announcements/
+      00001-welcome.md
+    q-and-a/
+      00002-how-to-install.md
+
+  # Agent ergonomics (PR #19)
+  graph.jsonl            # entity graph (nodes + edges)
+  search.jsonl           # fast search index
+  me.md                  # personal summary
+  sync-state.json        # incremental sync metadata
+  security/
+    summary.json         # security alerts
 ```
 
 Then you can view them offline, or ask your local agent to summarize them for you.
+
+## Sync Surfaces
+
+Beyond core issues and PRs, `ghfs` can sync rich repository metadata and intelligence layers to make offline work and agent automation more powerful:
+
+### Enhanced Metadata ([#1](https://github.com/agustif/ghfs/pull/1))
+- **meta.json** - Repository overview with topics, features, counts, pinned issues, and README excerpt
+- **labels.json / milestones.json** - Separate structured files for easy parsing
+- **releases/** - Last 30 releases with changelogs
+- **rulesets/** - Branch protection rules
+- **constitution/** - Governance files (CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, etc.)
+- **actions/** - Recent workflow runs
+
+### PR Intelligence ([#2](https://github.com/agustif/ghfs/pull/2))
+Each PR gets its own directory with:
+- **reviews.json** - Review state, comments, and threads
+- **checks.json** - CI/check status (Actions + commit statuses)
+- **files.json** - File list with additions/deletions/patches
+- **gate.json** - Merge readiness snapshot
+
+### Wiki and Discussions ([#3](https://github.com/agustif/ghfs/pull/3))
+- **wiki/** - All wiki pages as markdown
+- **discussions/** - Discussion threads organized by category
+
+### Agent Ergonomics ([#19](https://github.com/agustif/ghfs/pull/19))
+- **graph.jsonl** - Entity graph with nodes (issues, PRs, people, labels) and edges (references, assigns, etc.)
+- **search.jsonl** - Fast local search index
+- **me.md** - Personal summary (assigned to me, review requests, mentions)
+- **sync-state.json** - Incremental sync metadata
+- **security/** - Security alert summaries
+
+All features are opt-in via configuration (see [Configuration](#configuration) below). Default: all enabled.
 
 ## Web UI
 
@@ -201,8 +278,39 @@ import type { GhfsUserConfig } from '@ghfs/cli'
 export default defineConfig({
   repo: 'owner/name',
   sync: {
+<<<<<<< HEAD
+    // Core sync
+    issues: true,              // Issues sync
+    pulls: true,               // Pull requests sync
+
+    // Enhanced metadata (PR #1)
+    meta: true,                // meta.json with topics, features, pinned issues
+    labelsAndMilestones: true, // labels.json and milestones.json
+    releases: true,            // releases/ directory
+    rulesets: true,            // rulesets/ with branch protection
+    constitution: true,        // constitution/ governance files
+    actions: true,             // actions/ workflow runs
+
+    // Wiki and Discussions (PR #3)
+    wiki: true,                // wiki/ pages
+    discussions: true,         // discussions/ threads
+
+    // PR intelligence (PR #2)
+    pullIntelligence: {
+      reviews: true,           // reviews.json per PR
+      checks: true,            // checks.json per PR
+      files: true,             // files.json per PR
+      gate: true,              // gate.json per PR
+=======
     issues: true, // set false to skip issue sync
     pulls: true, // set false to skip pull request sync
+    pullIntelligence: {
+      reviews: true,   // sync PR review state
+      checks: true,    // sync CI/check status
+      files: true,     // sync file list
+      gate: true,      // sync merge-readiness
+>>>>>>> 224a2bf (docs: update README and skill with PR intelligence layout)
+    },
   },
   // other options...
 })

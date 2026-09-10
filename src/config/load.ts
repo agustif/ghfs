@@ -65,6 +65,16 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const projectsEnabled = merged.sync?.projects ?? false
   const closedMode = merged.sync?.closed ?? false
   const patchesMode = merged.sync?.patches ?? 'open'
+  const pullIntelligenceReviews = merged.sync?.pullIntelligence?.reviews ?? true
+  const pullIntelligenceChecks = merged.sync?.pullIntelligence?.checks ?? true
+  const pullIntelligenceFiles = merged.sync?.pullIntelligence?.files ?? true
+  const pullIntelligenceGate = merged.sync?.pullIntelligence?.gate ?? true
+
+  const extendedGraph = merged.extended?.graph ?? true
+  const extendedSearch = merged.extended?.search ?? true
+  const extendedMe = merged.extended?.me ?? true
+  const extendedSecurity = merged.extended?.security ?? true
+  const extendedSyncState = merged.extended?.syncState ?? true
 
   return {
     cwd,
@@ -80,6 +90,25 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       projects: projectsEnabled,
       closed: closedMode,
       patches: patchesMode,
+      meta: merged.sync?.meta ?? true,
+      labelsAndMilestones: merged.sync?.labelsAndMilestones ?? true,
+      releases: merged.sync?.releases ?? true,
+      rulesets: merged.sync?.rulesets ?? true,
+      constitution: merged.sync?.constitution ?? true,
+      actions: merged.sync?.actions ?? true,
+      pullIntelligence: {
+        reviews: pullIntelligenceReviews,
+        checks: pullIntelligenceChecks,
+        files: pullIntelligenceFiles,
+        gate: pullIntelligenceGate,
+      },
+    },
+    extended: {
+      graph: extendedGraph,
+      search: extendedSearch,
+      me: extendedMe,
+      security: extendedSecurity,
+      syncState: extendedSyncState,
     },
   }
 }
@@ -113,6 +142,10 @@ function mergeUserConfig(base: GhfsUserConfig, overrides: Partial<GhfsUserConfig
     sync: {
       ...base.sync,
       ...overrides.sync,
+    },
+    extended: {
+      ...base.extended,
+      ...overrides.extended,
     },
   }
 }

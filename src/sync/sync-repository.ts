@@ -7,6 +7,7 @@ import { GHFS_VERSION } from '../meta'
 import { createRepositoryProvider } from '../providers/factory'
 import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
+import { writeExtendedMetadata } from './extended-metadata'
 import { loadSyncState, saveSyncState } from './state'
 import {
   materializePreparedIssue,
@@ -215,8 +216,10 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       if (!shouldEarlyReturn)
         await writeRepoSnapshot(syncContext)
 
-      if (!shouldEarlyReturn || ghfsVersionMismatch)
+      if (!shouldEarlyReturn || ghfsVersionMismatch) {
         await writeRepositoryIndexes(syncContext)
+        await writeExtendedMetadata(syncContext).catch(() => {})
+      }
 
       await syncProjects(syncContext)
 

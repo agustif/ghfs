@@ -46,6 +46,17 @@ export interface ProviderComment {
 
 export type ProviderReviewDecision = 'approved' | 'changes_requested' | 'review_required'
 
+export type MergeQueueEntryState = 'QUEUED' | 'AWAITING_CHECKS' | 'MERGEABLE' | 'UNMERGEABLE' | 'LOCKED'
+
+export interface ProviderMergeQueueEntry {
+  position: number
+  state: MergeQueueEntryState
+  enqueuedAt: string
+  estimatedTimeToMerge: number | null
+  /** Login of the user who enqueued this PR. */
+  enqueuer: string | null
+}
+
 export interface ProviderPullMetadata {
   isDraft: boolean
   merged: boolean
@@ -70,6 +81,59 @@ export interface ProviderPullMetadata {
    * signal (no reviews submitted and no reviewers requested).
    */
   reviewDecision?: ProviderReviewDecision | null
+  /**
+   * Merge queue entry details when this PR is in the merge queue.
+   * `null` when not in queue or when scope/permissions are insufficient.
+   */
+  mergeQueueEntry?: ProviderMergeQueueEntry | null
+}
+
+export interface ProviderPullReview {
+  id: number
+  state: ProviderReviewState
+  author: string | null
+  authorAvatarUrl?: string
+  body: string | null
+  submittedAt: string
+  commitId?: string
+}
+
+export interface ProviderPullReviewThread {
+  id: string
+  isResolved: boolean
+  isOutdated: boolean
+  comments: ProviderReviewComment[]
+}
+
+export type ProviderCheckStatus = 'completed' | 'in_progress' | 'queued' | 'waiting' | 'pending' | 'requested'
+export type ProviderCheckConclusion = 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+
+export interface ProviderCheck {
+  name: string
+  status: ProviderCheckStatus
+  conclusion: ProviderCheckConclusion
+  detailsUrl?: string
+  startedAt?: string
+  completedAt?: string
+}
+
+export interface ProviderPullFile {
+  filename: string
+  status: 'added' | 'removed' | 'modified' | 'renamed' | 'copied' | 'changed' | 'unchanged'
+  additions: number
+  deletions: number
+  changes: number
+  patch?: string
+  previousFilename?: string
+}
+
+export interface ProviderPullGate {
+  mergeable: boolean | null
+  mergeableState: string
+  reviewDecision: ProviderReviewDecision | null
+  checksGreen: boolean | null
+  inMergeQueue: boolean
+  conflictFiles: string[]
 }
 
 export interface ProviderReviewComment {
@@ -238,6 +302,85 @@ export interface ProviderMilestone {
   closed_at: string | null
 }
 
+export interface ProviderSecurityAlert {
+  number: number
+  state: 'open' | 'dismissed' | 'fixed'
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  createdAt: string
+  dismissedAt: string | null
+  fixedAt: string | null
+}
+
+export interface ProviderDependabotAlert extends ProviderSecurityAlert {
+  package: string
+  ecosystem: string
+  vulnerableVersionRange: string | null
+}
+
+export interface ProviderCodeScanningAlert extends ProviderSecurityAlert {
+  rule: string
+  tool: string
+  location: {
+    path: string
+    startLine: number
+    endLine: number
+  }
+}
+
+export interface ProviderSecretScanningAlert extends ProviderSecurityAlert {
+  secretType: string
+  resolution: string | null
+}
+
+export interface ProviderDeployment {
+  id: number
+  ref: string
+  sha: string
+  environment: string
+  state: 'queued' | 'in_progress' | 'success' | 'failure' | 'error' | 'inactive'
+  createdAt: string
+  updatedAt: string
+  creator: string | null
+  description: string | null
+  url: string | null
+}
+
+export interface ProviderEnvironment {
+  name: string
+  url: string | null
+}
+
+export interface ProviderRepoEvent {
+  id: string
+  type: string
+  actor: string | null
+  createdAt: string
+  payload: Record<string, unknown>
+}
+
+export interface ProviderCollaborator {
+  login: string
+  permissions: {
+    admin: boolean
+    maintain: boolean
+    push: boolean
+    triage: boolean
+    pull: boolean
+  }
+}
+
+export interface ProviderTeam {
+  name: string
+  slug: string
+  permission: string
+}
+
+export interface ProviderApp {
+  id: number
+  name: string
+  slug: string
+}
+
 export interface ProviderItemSnapshot {
   number: number
   kind: IssueKind
@@ -247,6 +390,69 @@ export interface ProviderItemSnapshot {
 export interface ProviderUpdateCounts {
   issues: number
   pulls: number
+}
+
+export interface ProviderRelease {
+  id: number
+  tag_name: string
+  name: string | null
+  body: string | null
+  draft: boolean
+  prerelease: boolean
+  created_at: string
+  published_at: string | null
+  author: string | null
+  html_url: string
+}
+
+export interface ProviderBranchProtection {
+  pattern: string
+  required_status_checks: {
+    strict: boolean
+    contexts: string[]
+  } | null
+  required_pull_request_reviews: {
+    dismiss_stale_reviews: boolean
+    require_code_owner_reviews: boolean
+    required_approving_review_count: number
+  } | null
+  enforce_admins: boolean
+  required_linear_history: boolean
+  allow_force_pushes: boolean
+  allow_deletions: boolean
+}
+
+export interface ProviderWorkflowRun {
+  id: number
+  name: string | null
+  head_branch: string | null
+  head_sha: string
+  status: string
+  conclusion: string | null
+  workflow_id: number
+  created_at: string
+  updated_at: string
+  html_url: string
+  event: string
+  actor: string | null
+}
+
+export interface ProviderRepositoryTopics {
+  names: string[]
+}
+
+export interface ProviderRepositoryContent {
+  name: string
+  path: string
+  sha: string
+  size: number
+  url: string
+  html_url: string
+  git_url: string
+  download_url: string | null
+  type: 'file' | 'dir' | 'symlink' | 'submodule'
+  content?: string
+  encoding?: string
 }
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
@@ -318,6 +524,12 @@ export interface RepositoryProvider {
   fetchRepositoryMilestones: () => Promise<ProviderMilestone[]>
   fetchAuthenticatedUser: () => Promise<ProviderAuthenticatedUser | null>
   countUpdatedSince: (since: string) => Promise<ProviderUpdateCounts>
+  fetchRepositoryTopics?: () => Promise<ProviderRepositoryTopics>
+  fetchReleases?: (limit?: number) => Promise<ProviderRelease[]>
+  fetchBranchProtection?: (branch: string) => Promise<ProviderBranchProtection | null>
+  fetchRecentWorkflowRuns?: (limit?: number) => Promise<ProviderWorkflowRun[]>
+  fetchRepositoryContent?: (path: string) => Promise<ProviderRepositoryContent | null>
+  fetchPinnedIssues?: () => Promise<number[]>
   getRequestCount: () => number
   fetchProjectsV2?: () => Promise<ProviderProjectV2[]>
 

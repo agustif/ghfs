@@ -20,6 +20,10 @@ Key `.ghfs` files:
 - `.sync.json`: sync and execution run history (skip reading it)
 - `issues.md`, `pulls.md`, `repo.json`: aggregated mirror views
 - `issues/**/*.md`, `pulls/**/*.md`: per-item mirrors
+- `pulls/<number>-<slug>/reviews.json`: PR review state (approvals, change requests)
+- `pulls/<number>-<slug>/checks.json`: PR CI/check status
+- `pulls/<number>-<slug>/files.json`: PR file list with additions/deletions
+- `pulls/<number>-<slug>/gate.json`: PR merge-readiness snapshot
 
 ## Main Workflow
 

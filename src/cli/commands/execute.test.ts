@@ -189,6 +189,19 @@ function createConfig(): GhfsResolvedConfig {
       projects: false,
       closed: false,
       patches: 'open',
+      meta: true,
+      labelsAndMilestones: true,
+      releases: true,
+      rulesets: true,
+      constitution: true,
+      actions: true,
+    },
+    extended: {
+      graph: true,
+      search: true,
+      me: true,
+      security: true,
+      syncState: true,
     },
   }
 }
