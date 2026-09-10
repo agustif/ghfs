@@ -471,6 +471,12 @@ function createConfig(cwd: string, sync: Partial<GhfsResolvedConfig['sync']> = {
       pulls: sync.pulls ?? true,
       closed: sync.closed ?? false,
       patches: sync.patches ?? 'open',
+      meta: true,
+      labelsAndMilestones: true,
+      releases: true,
+      rulesets: true,
+      constitution: true,
+      actions: true,
     },
   }
 }

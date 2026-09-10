@@ -274,6 +274,12 @@ describe('sync-repository-storage', () => {
       pulls: true,
       closed: false,
       patches: 'open' as const,
+      meta: true,
+      labelsAndMilestones: true,
+      releases: true,
+      rulesets: true,
+      constitution: true,
+      actions: true,
     }
 
     const closedPatches = await pruneTrackedClosedItems(dir, syncState, sync)
@@ -347,6 +353,12 @@ function createSyncContext(storageDirAbsolute: string, syncOverrides: Partial<Sy
         pulls: syncOverrides.pulls ?? true,
         closed: syncOverrides.closed ?? false,
         patches: syncOverrides.patches ?? 'open',
+        meta: true,
+        labelsAndMilestones: true,
+        releases: true,
+        rulesets: true,
+        constitution: true,
+        actions: true,
       },
     },
     syncState: {
