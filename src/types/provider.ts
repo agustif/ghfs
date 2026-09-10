@@ -475,6 +475,65 @@ export interface ProviderRepositoryContent {
   type: 'file' | 'dir' | 'symlink' | 'submodule'
   content?: string
   encoding?: string
+export interface ProviderIssueDependency {
+  id: number
+  number: number
+  title: string
+  state: IssueState
+  url?: string
+  repo?: string
+}
+
+export interface ProviderSubIssue {
+  id: number
+  number: number
+  title: string
+  state: IssueState
+  url?: string
+  repo?: string
+}
+
+export interface ProviderParentIssue {
+  id: number
+  number: number
+  title: string
+  state: IssueState
+  url?: string
+  repo?: string
+}
+
+export type IssueFieldDataType = 'text' | 'date' | 'single_select' | 'multi_select' | 'number'
+
+export interface IssueFieldOption {
+  id: number
+  name: string
+  description: string | null
+  color: string | null
+}
+
+export interface ProviderIssueField {
+  id: number
+  nodeId: string
+  name: string
+  description: string | null
+  dataType: IssueFieldDataType
+  options?: IssueFieldOption[] | null
+}
+
+export interface ProviderIssueFieldValue {
+  fieldId: number
+  fieldName: string
+  dataType: IssueFieldDataType
+  value: string | number | string[] | null
+}
+
+export interface ProviderIssueType {
+  id: number
+  nodeId: string
+  name: string
+  description: string | null
+  color: string | null
+  isEnabled: boolean
 }
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
@@ -615,6 +674,14 @@ export interface RepositoryProvider {
 
   fetchEvents?: (limit?: number) => Promise<ProviderEvent[]>
   fetchDeployments?: () => Promise<ProviderDeployment[]>
+
+  fetchIssueDependenciesBlockedBy: (number: number) => Promise<ProviderIssueDependency[]>
+  fetchIssueDependenciesBlocking: (number: number) => Promise<ProviderIssueDependency[]>
+  fetchIssueSubIssues: (number: number) => Promise<ProviderSubIssue[]>
+  fetchIssueParent: (number: number) => Promise<ProviderParentIssue | null>
+  fetchIssueFieldValues: (number: number) => Promise<ProviderIssueFieldValue[]>
+  fetchRepositoryIssueTypes: () => Promise<ProviderIssueType[]>
+  fetchOrganizationIssueFields: (org: string) => Promise<ProviderIssueField[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>
