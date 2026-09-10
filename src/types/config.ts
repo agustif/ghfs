@@ -99,6 +99,35 @@ export interface GhfsUserConfig {
      * @default true
      */
     actions?: boolean
+    /**
+     * Pull request intelligence features.
+     */
+    pullIntelligence?: {
+      /**
+       * Whether to sync PR review state (reviews.json).
+       *
+       * @default true
+       */
+      reviews?: boolean
+      /**
+       * Whether to sync PR CI/check status (checks.json).
+       *
+       * @default true
+       */
+      checks?: boolean
+      /**
+       * Whether to sync PR file list (files.json).
+       *
+       * @default true
+       */
+      files?: boolean
+      /**
+       * Whether to sync PR merge gate status (gate.json).
+       *
+       * @default true
+       */
+      gate?: boolean
+    }
   }
   /**
    * Extended metadata generation for agent ergonomics.

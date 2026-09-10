@@ -64,6 +64,10 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const pullsEnabled = merged.sync?.pulls ?? true
   const closedMode = merged.sync?.closed ?? false
   const patchesMode = merged.sync?.patches ?? 'open'
+  const pullIntelligenceReviews = merged.sync?.pullIntelligence?.reviews ?? true
+  const pullIntelligenceChecks = merged.sync?.pullIntelligence?.checks ?? true
+  const pullIntelligenceFiles = merged.sync?.pullIntelligence?.files ?? true
+  const pullIntelligenceGate = merged.sync?.pullIntelligence?.gate ?? true
 
   const extendedGraph = merged.extended?.graph ?? true
   const extendedSearch = merged.extended?.search ?? true
@@ -90,6 +94,12 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       rulesets: merged.sync?.rulesets ?? true,
       constitution: merged.sync?.constitution ?? true,
       actions: merged.sync?.actions ?? true,
+      pullIntelligence: {
+        reviews: pullIntelligenceReviews,
+        checks: pullIntelligenceChecks,
+        files: pullIntelligenceFiles,
+        gate: pullIntelligenceGate,
+      },
     },
     extended: {
       graph: extendedGraph,

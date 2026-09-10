@@ -905,4 +905,182 @@ describe('createGitHubProvider', () => {
       },
     ])
   })
+
+  it('fetches PR reviews', async () => {
+    const listReviews = vi.fn()
+    const paginate = vi.fn(async () => [
+      {
+        id: 1,
+        state: 'APPROVED',
+        user: { login: 'reviewer1', avatar_url: 'https://avatar1.png' },
+        body: 'LGTM',
+        submitted_at: '2026-01-10T00:00:00.000Z',
+        commit_id: 'abc123',
+      },
+      {
+        id: 2,
+        state: 'CHANGES_REQUESTED',
+        user: { login: 'reviewer2', avatar_url: 'https://avatar2.png' },
+        body: 'Needs work',
+        submitted_at: '2026-01-11T00:00:00.000Z',
+        commit_id: 'def456',
+      },
+    ])
+
+    const octokit = {
+      rest: { pulls: { listReviews } },
+      paginate,
+    } as unknown as Octokit
+
+    mockedCreateGitHubClient.mockReturnValue(octokit)
+    const provider = createGitHubProvider({ token: 'test-token', owner: 'owner', repo: 'repo' })
+    const reviews = await provider.fetchPullReviews(123)
+
+    expect(reviews).toHaveLength(2)
+    expect(reviews[0]).toMatchObject({
+      id: 1,
+      state: 'approved',
+      author: 'reviewer1',
+      body: 'LGTM',
+    })
+    expect(reviews[1]).toMatchObject({
+      id: 2,
+      state: 'changes_requested',
+      author: 'reviewer2',
+    })
+  })
+
+  it('fetches PR checks', async () => {
+    const pullsGet = vi.fn(async () => ({
+      data: { head: { sha: 'abc123' } },
+    }))
+    const listForRef = vi.fn(async () => ({
+      data: {
+        check_runs: [
+          {
+            name: 'CI',
+            status: 'completed',
+            conclusion: 'success',
+            html_url: 'https://checks.com/1',
+            started_at: '2026-01-10T00:00:00.000Z',
+            completed_at: '2026-01-10T00:05:00.000Z',
+          },
+        ],
+      },
+    }))
+    const getCombinedStatusForRef = vi.fn(async () => ({
+      data: {
+        statuses: [
+          {
+            context: 'Legacy Check',
+            state: 'success',
+            target_url: 'https://legacy.com/1',
+          },
+        ],
+      },
+    }))
+
+    const octokit = {
+      rest: {
+        pulls: { get: pullsGet },
+        checks: { listForRef },
+        repos: { getCombinedStatusForRef },
+      },
+    } as unknown as Octokit
+
+    mockedCreateGitHubClient.mockReturnValue(octokit)
+    const provider = createGitHubProvider({ token: 'test-token', owner: 'owner', repo: 'repo' })
+    const checks = await provider.fetchPullChecks(123)
+
+    expect(checks).toHaveLength(2)
+    expect(checks[0]).toMatchObject({
+      name: 'CI',
+      status: 'completed',
+      conclusion: 'success',
+    })
+  })
+
+  it('fetches PR files', async () => {
+    const listFiles = vi.fn()
+    const paginate = vi.fn(async () => [
+      {
+        filename: 'src/file1.ts',
+        status: 'modified',
+        additions: 10,
+        deletions: 5,
+        changes: 15,
+        patch: '@@ -1,5 +1,10 @@',
+      },
+    ])
+
+    const octokit = {
+      rest: { pulls: { listFiles } },
+      paginate,
+    } as unknown as Octokit
+
+    mockedCreateGitHubClient.mockReturnValue(octokit)
+    const provider = createGitHubProvider({ token: 'test-token', owner: 'owner', repo: 'repo' })
+    const files = await provider.fetchPullFiles(123)
+
+    expect(files).toHaveLength(1)
+    expect(files[0]).toMatchObject({
+      filename: 'src/file1.ts',
+      status: 'modified',
+      additions: 10,
+    })
+  })
+
+  it('fetches PR gate status', async () => {
+    const pullsGet = vi.fn(async () => ({
+      data: {
+        head: { sha: 'abc123' },
+        mergeable: true,
+        mergeable_state: 'clean',
+        requested_reviewers: [],
+        base: { ref: 'main' },
+        merged: false,
+        merged_at: null,
+        draft: false,
+      },
+    }))
+    const listForRef = vi.fn(async () => ({
+      data: { check_runs: [{ name: 'CI', status: 'completed', conclusion: 'success', html_url: null, started_at: null, completed_at: null }] },
+    }))
+    const getCombinedStatusForRef = vi.fn(async () => ({
+      data: { statuses: [] },
+    }))
+    const graphql = vi.fn(async () => ({
+      repository: {
+        pullRequest: {
+          reviewDecision: 'APPROVED',
+          latestOpinionatedReviews: { nodes: [] },
+          mergeQueueEntry: null,
+        },
+      },
+    }))
+    const listFiles = vi.fn()
+    const paginate = vi.fn(async () => [])
+
+    const octokit = {
+      rest: {
+        pulls: { get: pullsGet, listFiles },
+        checks: { listForRef },
+        repos: { getCombinedStatusForRef },
+      },
+      graphql,
+      paginate,
+    } as unknown as Octokit
+
+    mockedCreateGitHubClient.mockReturnValue(octokit)
+    const provider = createGitHubProvider({ token: 'test-token', owner: 'owner', repo: 'repo' })
+    const gate = await provider.fetchPullGate(123)
+
+    expect(gate).toMatchObject({
+      mergeable: true,
+      mergeableState: 'clean',
+      reviewDecision: 'approved',
+      checksGreen: true,
+      inMergeQueue: false,
+    })
+  })
 })
