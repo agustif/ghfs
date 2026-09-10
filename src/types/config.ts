@@ -99,159 +99,55 @@ export interface GhfsUserConfig {
      * @default 'open'
      */
     patches?: 'open' | 'all' | false
-    /**
-     * Whether to sync repository metadata (meta.json).
-     *
-     * @default true
-     */
-    meta?: boolean
-    /**
-     * Whether to sync separate labels.json and milestones.json files.
-     *
-     * @default true
-     */
-    labelsAndMilestones?: boolean
-    /**
-     * Whether to sync releases to releases/ directory.
-     *
-     * @default true
-     */
-    releases?: boolean
-    /**
-     * Whether to sync branch protection rules to rulesets/ directory.
-     *
-     * @default true
-     */
-    rulesets?: boolean
-    /**
-     * Whether to sync repository constitution files (CONTRIBUTING, SECURITY, etc.) to constitution/ directory.
-     *
-     * @default true
-     */
-    constitution?: boolean
-    /**
-     * Whether to sync recent workflow runs to actions/ directory.
-     *
-     * @default true
-     */
-    actions?: boolean
-    /**
-     * Pull request intelligence features.
-     */
-    pullIntelligence?: {
-      /**
-       * Whether to sync PR review state (reviews.json).
-       *
-       * @default true
-       */
-      reviews?: boolean
-      /**
-       * Whether to sync PR CI/check status (checks.json).
-       *
-       * @default true
-       */
-      checks?: boolean
-      /**
-       * Whether to sync PR file list (files.json).
-       *
-       * @default true
-       */
-      files?: boolean
-      /**
-       * Whether to sync PR merge gate status (gate.json).
-       *
-       * @default true
-       */
-      gate?: boolean
-    }
   }
   /**
-   * Extended metadata generation for agent ergonomics.
+   * Search coverage configuration for agent ergonomics.
    */
-  extended?: {
+  search?: {
     /**
-     * Generate graph.jsonl with nodes and edges for agent navigation.
+     * Whether to search code for TODO/FIXME comments and save to .ghfs/search/code-todos.jsonl
      *
      * @default true
      */
-    graph?: boolean
+    codeTodos?: boolean
     /**
-     * Generate search.jsonl for fast local lookup.
+     * Whether to search commits for "fixes #" references and save to .ghfs/search/commit-refs.jsonl
      *
      * @default true
      */
-    search?: boolean
+    commitRefs?: boolean
     /**
-     * Generate me.md with personal work summary (assigned, review-requested, mentions).
-     * Only created if authenticated user is available.
+     * Optional saved issue searches to run. Each query is saved to .ghfs/search/issues-<key>.jsonl
      *
-     * @default true
+     * @example
+     * {
+     *   'p1-bugs': 'is:issue is:open label:bug label:p1',
+     *   'needs-triage': 'is:issue is:open no:label'
+     * }
+     *
+     * @default {}
      */
-    me?: boolean
+    issueQueries?: Record<string, string>
     /**
-     * Generate security/summary.json with Dependabot, code scanning, and secret scanning alerts.
-     * Gracefully skips if features unavailable or no permissions.
+     * Whether to search for mentions of the repository name in other issues (heavy operation)
      *
-     * @default true
+     * @default false
      */
-    security?: boolean
+    mentions?: boolean
     /**
-     * Generate sync-state.json with full sync state for staleness detection.
+     * Maximum number of search results per query to avoid rate limits
      *
-     * @default true
+     * @default 100
      */
-    syncState?: boolean
-      /**
-       * Whether to sync PR compare data: ahead/behind commits, merge-base (compare.json).
-       *
-       * @default true
-       */
-      compare?: boolean
-      /**
-       * Whether to sync PR stack relationships: base and dependent PRs (stack.json).
-       *
-       * @default true
-       */
-      stack?: boolean
-      /**
-       * Whether to use GraphQL statusCheckRollup for check status (more comprehensive).
-       * When true, check status is fetched via GraphQL; when false, uses REST API.
-       *
-       * @default true
-       */
-      statusCheckRollup?: boolean
-    }
-  }
-  /**
-   * Extended metadata generation for agent ergonomics.
-   */
-  extended?: {
-    /**
-     * Generate activity.md with last N repository events.
-     *
-     * @default true
-     */
-    activity?: boolean
-    /**
-     * Generate agent-hints.md with detected test/lint/build commands.
-     *
-     * @default true
-     */
-    agentHints?: boolean
-    /**
-     * Generate deployments/ with environment and deployment status.
-     * Gracefully skips if deployments unavailable.
-     *
-     * @default true
-     */
-    deployments?: boolean
+    maxResults?: number
   }
 }
 
-export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended'> & {
+export type GhfsResolvedConfig = Required<GhfsUserConfig> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: Required<GhfsUserConfig['sync']>
-  extended: Required<NonNullable<GhfsUserConfig['extended']>>
-  extended?: GhfsUserConfig['extended']
+  search: Required<Omit<NonNullable<GhfsUserConfig['search']>, 'issueQueries'>> & {
+    issueQueries: Record<string, string>
+  }
 }
