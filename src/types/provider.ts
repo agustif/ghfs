@@ -46,6 +46,17 @@ export interface ProviderComment {
 
 export type ProviderReviewDecision = 'approved' | 'changes_requested' | 'review_required'
 
+export type MergeQueueEntryState = 'QUEUED' | 'AWAITING_CHECKS' | 'MERGEABLE' | 'UNMERGEABLE' | 'LOCKED'
+
+export interface ProviderMergeQueueEntry {
+  position: number
+  state: MergeQueueEntryState
+  enqueuedAt: string
+  estimatedTimeToMerge: number | null
+  /** Login of the user who enqueued this PR. */
+  enqueuer: string | null
+}
+
 export interface ProviderPullMetadata {
   isDraft: boolean
   merged: boolean
@@ -70,6 +81,11 @@ export interface ProviderPullMetadata {
    * signal (no reviews submitted and no reviewers requested).
    */
   reviewDecision?: ProviderReviewDecision | null
+  /**
+   * Merge queue entry details when this PR is in the merge queue.
+   * `null` when not in queue or when scope/permissions are insufficient.
+   */
+  mergeQueueEntry?: ProviderMergeQueueEntry | null
 }
 
 export interface ProviderPullReview {
