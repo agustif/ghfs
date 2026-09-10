@@ -48,6 +48,18 @@ export interface SyncItemState {
   data: SyncItemCanonicalData
 }
 
+export interface SurfaceState {
+  name: string
+  lastSyncedAt: string
+  cursor?: string
+  etag?: string
+}
+
+export interface TierState {
+  lastSyncedAt: string
+  surfaces: SurfaceState[]
+}
+
 export interface SyncState {
   version: 2
   ghfsVersion?: string
@@ -58,4 +70,9 @@ export interface SyncState {
   lastSyncRun?: SyncRunTelemetry
   items: Record<string, SyncItemState>
   executions: ExecutionResult[]
+  tiers?: {
+    hot: TierState
+    warm: TierState
+    cold: TierState
+  }
 }
