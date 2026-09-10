@@ -12,6 +12,12 @@ export function createTestSyncConfig(overrides: Partial<GhfsResolvedConfig['sync
     rulesets: true,
     constitution: true,
     actions: true,
+    pullIntelligence: {
+      reviews: true,
+      checks: true,
+      files: true,
+      gate: true,
+    },
     ...overrides,
   }
 }

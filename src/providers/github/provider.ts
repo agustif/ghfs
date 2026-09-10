@@ -3,7 +3,9 @@ import type {
   MergeOptions,
   PaginateItemsOptions,
   ProviderAuthenticatedUser,
-  ProviderBranchProtection,
+  ProviderCheck,
+  ProviderCheckConclusion,
+  ProviderCheckStatus,
   ProviderComment,
   ProviderCommit,
   ProviderItem,
@@ -11,19 +13,19 @@ import type {
   ProviderLabel,
   ProviderLockReason,
   ProviderMilestone,
+  ProviderPullFile,
+  ProviderPullGate,
   ProviderPullMetadata,
+  ProviderPullReview,
+  ProviderPullReviewThread,
   ProviderReactions,
-  ProviderRelease,
   ProviderRepository,
-  ProviderRepositoryContent,
-  ProviderRepositoryTopics,
   ProviderReviewComment,
   ProviderReviewDecision,
   ProviderReviewState,
   ProviderTimelineEvent,
   ProviderTimelineSource,
   ProviderUpdateCounts,
-  ProviderWorkflowRun,
   ReactionTarget,
   RepositoryProvider,
 } from '../../types/provider'
@@ -1611,7 +1613,9 @@ async function fetchPullReviewThreads(
       }))
   }
   catch (error) {
-    diagnostics.warn(`Failed to fetch review threads for PR #${number}: ${error}`)
+    // TODO: Add diagnostic for PR intelligence sync failures
+
+    console.warn(`Failed to fetch review threads for PR #${number}: ${error}`)
     return []
   }
 }
@@ -1673,7 +1677,9 @@ async function fetchPullChecks(
     return checks
   }
   catch (error) {
-    diagnostics.warn(`Failed to fetch checks for PR #${number}: ${error}`)
+    // TODO: Add diagnostic for PR intelligence sync failures
+
+    console.warn(`Failed to fetch checks for PR #${number}: ${error}`)
     return []
   }
 }
@@ -1731,8 +1737,8 @@ async function fetchPullGate(
 
   const checksGreen = checks.length > 0
     ? checks.every(check =>
-      check.status === 'completed' && (check.conclusion === 'success' || check.conclusion === 'neutral' || check.conclusion === 'skipped'),
-    )
+        check.status === 'completed' && (check.conclusion === 'success' || check.conclusion === 'neutral' || check.conclusion === 'skipped'),
+      )
     : null
 
   const conflictFiles: string[] = []

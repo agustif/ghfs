@@ -305,7 +305,9 @@ async function syncPullIntelligence(context: SyncContext, number: number, markdo
     }
   }
   catch (error) {
-    diagnostics.warn(`Failed to sync reviews for PR #${number}: ${error}`)
+    // TODO: Add diagnostic for PR intelligence sync failures
+
+    console.warn(`Failed to sync reviews for PR #${number}: ${error}`)
   }
 
   try {
@@ -316,7 +318,9 @@ async function syncPullIntelligence(context: SyncContext, number: number, markdo
     }
   }
   catch (error) {
-    diagnostics.warn(`Failed to sync checks for PR #${number}: ${error}`)
+    // TODO: Add diagnostic for PR intelligence sync failures
+
+    console.warn(`Failed to sync checks for PR #${number}: ${error}`)
   }
 
   try {
@@ -327,7 +331,9 @@ async function syncPullIntelligence(context: SyncContext, number: number, markdo
     }
   }
   catch (error) {
-    diagnostics.warn(`Failed to sync files for PR #${number}: ${error}`)
+    // TODO: Add diagnostic for PR intelligence sync failures
+
+    console.warn(`Failed to sync files for PR #${number}: ${error}`)
   }
 
   try {
@@ -338,7 +344,9 @@ async function syncPullIntelligence(context: SyncContext, number: number, markdo
     }
   }
   catch (error) {
-    diagnostics.warn(`Failed to sync gate for PR #${number}: ${error}`)
+    // TODO: Add diagnostic for PR intelligence sync failures
+
+    console.warn(`Failed to sync gate for PR #${number}: ${error}`)
   }
 }
 
