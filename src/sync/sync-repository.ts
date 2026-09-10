@@ -272,6 +272,30 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)
     })
 
+    await runStage('prune', 'Sync Actions & Webhooks', async () => {
+      if (options.config.sync.actionsLogs || options.config.sync.actionsArtifacts) {
+        await syncActions({
+          provider,
+          storageDirAbsolute,
+          config: options.config,
+        })
+      }
+
+      if (options.config.sync.webhooks) {
+        await syncWebhooks({
+          provider,
+          storageDirAbsolute,
+          config: options.config,
+        })
+      }
+
+      reporter?.onStageUpdate?.({
+        stage: 'prune',
+        snapshot: cloneSnapshot(counters),
+        message: 'actions and webhooks synced',
+      })
+    })
+
     const totals = computeTotals(syncContext.syncState.items)
     syncContext.totalIssues = totals.totalIssues
     syncContext.totalPulls = totals.totalPulls
