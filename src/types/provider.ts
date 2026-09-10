@@ -72,6 +72,54 @@ export interface ProviderPullMetadata {
   reviewDecision?: ProviderReviewDecision | null
 }
 
+export interface ProviderPullReview {
+  id: number
+  state: ProviderReviewState
+  author: string | null
+  authorAvatarUrl?: string
+  body: string | null
+  submittedAt: string
+  commitId?: string
+}
+
+export interface ProviderPullReviewThread {
+  id: string
+  isResolved: boolean
+  isOutdated: boolean
+  comments: ProviderReviewComment[]
+}
+
+export type ProviderCheckStatus = 'completed' | 'in_progress' | 'queued' | 'waiting' | 'pending' | 'requested'
+export type ProviderCheckConclusion = 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+
+export interface ProviderCheck {
+  name: string
+  status: ProviderCheckStatus
+  conclusion: ProviderCheckConclusion
+  detailsUrl?: string
+  startedAt?: string
+  completedAt?: string
+}
+
+export interface ProviderPullFile {
+  filename: string
+  status: 'added' | 'removed' | 'modified' | 'renamed' | 'copied' | 'changed' | 'unchanged'
+  additions: number
+  deletions: number
+  changes: number
+  patch?: string
+  previousFilename?: string
+}
+
+export interface ProviderPullGate {
+  mergeable: boolean | null
+  mergeableState: string
+  reviewDecision: ProviderReviewDecision | null
+  checksGreen: boolean | null
+  inMergeQueue: boolean
+  conflictFiles: string[]
+}
+
 export interface ProviderReviewComment {
   id: number
   body: string | null
@@ -432,6 +480,11 @@ export interface RepositoryProvider {
   fetchRepositoryContent?: (path: string) => Promise<ProviderRepositoryContent | null>
   fetchPinnedIssues?: () => Promise<number[]>
   getRequestCount: () => number
+  fetchPullReviews: (number: number) => Promise<ProviderPullReview[]>
+  fetchPullReviewThreads: (number: number) => Promise<ProviderPullReviewThread[]>
+  fetchPullChecks: (number: number) => Promise<ProviderCheck[]>
+  fetchPullFiles: (number: number) => Promise<ProviderPullFile[]>
+  fetchPullGate: (number: number) => Promise<ProviderPullGate>
 
   fetchDependabotAlerts?: (options?: { state?: 'open' | 'dismissed' | 'fixed', limit?: number }) => Promise<ProviderDependabotAlert[]>
   fetchCodeScanningAlerts?: (options?: { state?: 'open' | 'dismissed' | 'fixed', limit?: number }) => Promise<ProviderCodeScanningAlert[]>
