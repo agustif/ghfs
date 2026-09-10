@@ -1006,6 +1006,13 @@ export interface RepositoryProvider {
   fetchTrafficClones?: () => Promise<any | null>
   fetchVulnerabilityReporting?: () => Promise<any | null>
 
+  fetchTrafficViews: () => Promise<ProviderTrafficViews | null>
+  fetchTrafficClones: () => Promise<ProviderTrafficClones | null>
+  fetchTrafficReferrers: () => Promise<ProviderTrafficReferrer[]>
+  fetchTrafficPaths: () => Promise<ProviderTrafficPath[]>
+  fetchStarHistory: () => Promise<ProviderStarHistory[]>
+  fetchContributors: () => Promise<ProviderContributor[]>
+
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>
   actionSetTitle: (number: number, title: string) => Promise<void>
