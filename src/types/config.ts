@@ -118,32 +118,77 @@ export interface GhfsUserConfig {
      *
      * @default true
      */
-    commitRefs?: boolean
+    meta?: boolean
     /**
-     * Optional saved issue searches to run. Each query is saved to .ghfs/search/issues-<key>.jsonl
+     * Whether to sync separate labels.json and milestones.json files.
      *
-     * @example
-     * {
-     *   'p1-bugs': 'is:issue is:open label:bug label:p1',
-     *   'needs-triage': 'is:issue is:open no:label'
-     * }
-     *
-     * @default {}
+     * @default true
      */
-    issueQueries?: Record<string, string>
+    labelsAndMilestones?: boolean
     /**
-     * Whether to search for mentions of the repository name in other issues (heavy operation)
+     * Whether to sync releases to releases/ directory.
+     *
+     * @default true
+     */
+    releases?: boolean
+    /**
+     * Whether to sync branch protection rules to rulesets/ directory.
+     *
+     * @default true
+     */
+    rulesets?: boolean
+    /**
+     * Whether to sync repository constitution files (CONTRIBUTING, SECURITY, etc.) to constitution/ directory.
+     *
+     * @default true
+     */
+    constitution?: boolean
+    /**
+     * Whether to sync recent workflow runs to actions/ directory.
+     *
+     * @default true
+     */
+    actions?: boolean
+    /**
+     * Whether to sync GitHub Pages build history.
      *
      * @default false
      */
-    mentions?: boolean
+    pagesBuilds?: boolean
     /**
-     * Maximum number of search results per query to avoid rate limits
+     * Whether to sync interaction limits (temporary user restrictions).
      *
-     * @default 100
+     * @default false
      */
-    maxResults?: number
-    syncState?: boolean
+    interactionLimits?: boolean
+    /**
+     * Pull request intelligence features.
+     */
+    pullIntelligence?: {
+      /**
+       * Whether to sync PR review state (reviews.json).
+       *
+       * @default true
+       */
+      reviews?: boolean
+      /**
+       * Whether to sync PR CI/check status (checks.json).
+       *
+       * @default true
+       */
+      checks?: boolean
+      /**
+       * Whether to sync PR file list (files.json).
+       *
+       * @default true
+       */
+      files?: boolean
+      /**
+       * Whether to sync PR merge gate status (gate.json).
+       *
+       * @default true
+       */
+      gate?: boolean
       /**
        * Whether to sync PR compare data: ahead/behind commits, merge-base (compare.json).
        *
@@ -169,6 +214,39 @@ export interface GhfsUserConfig {
    * Extended metadata generation for agent ergonomics.
    */
   extended?: {
+    /**
+     * Generate graph.jsonl with nodes and edges for agent navigation.
+     *
+     * @default true
+     */
+    graph?: boolean
+    /**
+     * Generate search.jsonl for fast local lookup.
+     *
+     * @default true
+     */
+    search?: boolean
+    /**
+     * Generate me.md with personal work summary (assigned, review-requested, mentions).
+     * Only created if authenticated user is available.
+     *
+     * @default true
+     */
+    me?: boolean
+    /**
+     * Generate security/summary.json with Dependabot, code scanning, and secret scanning alerts.
+     * Gracefully skips if features unavailable or no permissions.
+     *
+     * @default true
+     */
+    security?: boolean
+    /**
+     * Generate sync-state.json with full sync state for staleness detection.
+     *
+     * @default true
+     */
+    syncState?: boolean
+    pullIntelligence?: boolean
     /**
      * Generate activity.md with last N repository events.
      *
