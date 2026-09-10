@@ -1,5 +1,6 @@
 import type { Octokit } from 'octokit'
 import type {
+  CodeownersErrors,
   MergeOptions,
   PaginateItemsOptions,
   ProviderAuthenticatedUser,
@@ -26,6 +27,9 @@ import type {
   ProviderUpdateCounts,
   ProviderWorkflowRun,
   ReactionTarget,
+  RepositoryActivity,
+  RepositoryContributor,
+  RepositoryLanguages,
   RepositoryProvider,
 } from '../../types/provider'
 import type { ReactionContent } from '../../utils/reactions'
@@ -127,6 +131,10 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
       actionRemoveReaction(octokit, owner, repo, number, reaction, target, fetchAuthenticatedUserCached, bumpRequestCount),
     fetchViewerReactions: (number, target) =>
       fetchViewerReactions(octokit, owner, repo, number, target, fetchAuthenticatedUserCached, bumpRequestCount),
+    fetchRepositoryActivity: options => fetchRepositoryActivity(octokit, owner, repo, options, bumpRequestCount),
+    fetchCodeownersErrors: ref => fetchCodeownersErrors(octokit, owner, repo, ref, bumpRequestCount),
+    fetchRepositoryLanguages: () => fetchRepositoryLanguages(octokit, owner, repo, bumpRequestCount),
+    fetchRepositoryContributors: options => fetchRepositoryContributors(octokit, owner, repo, options, bumpRequestCount),
   }
 }
 
@@ -2121,4 +2129,119 @@ interface GitHubTimelineEvent {
   /** Populated for `auto_merge_*` / `auto_squash_*` / `auto_rebase_*`. */
   commit_title?: string
   commit_message?: string
+}
+
+async function fetchRepositoryActivity(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  options: { perPage?: number, before?: string, after?: string } | undefined,
+  bumpRequestCount: BumpRequestCount,
+): Promise<RepositoryActivity[]> {
+  bumpRequestCount()
+  try {
+    const params: Record<string, unknown> = {
+      owner,
+      repo,
+      per_page: options?.perPage ?? 100,
+    }
+    if (options?.before)
+      params.before = options.before
+    if (options?.after)
+      params.after = options.after
+
+    const activities = await octokit.paginate(
+      'GET /repos/{owner}/{repo}/activity',
+      params as never,
+    ) as RepositoryActivity[]
+
+    return activities
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 404 || status === 403)
+      return []
+    throw error
+  }
+}
+
+async function fetchCodeownersErrors(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  ref: string | undefined,
+  bumpRequestCount: BumpRequestCount,
+): Promise<CodeownersErrors> {
+  bumpRequestCount()
+  try {
+    const params: Record<string, unknown> = {
+      owner,
+      repo,
+    }
+    if (ref)
+      params.ref = ref
+
+    const result = await octokit.request('GET /repos/{owner}/{repo}/codeowners/errors', params as never)
+    return result.data as CodeownersErrors
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 404)
+      return { errors: [] }
+    throw error
+  }
+}
+
+async function fetchRepositoryLanguages(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<RepositoryLanguages> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.request('GET /repos/{owner}/{repo}/languages', {
+      owner,
+      repo,
+    })
+    return result.data as RepositoryLanguages
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 404)
+      return {}
+    throw error
+  }
+}
+
+async function fetchRepositoryContributors(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  options: { anon?: boolean, perPage?: number } | undefined,
+  bumpRequestCount: BumpRequestCount,
+): Promise<RepositoryContributor[]> {
+  bumpRequestCount()
+  try {
+    const params: Record<string, unknown> = {
+      owner,
+      repo,
+      per_page: options?.perPage ?? 100,
+    }
+    if (options?.anon)
+      params.anon = '1'
+
+    const contributors = await octokit.paginate(
+      octokit.rest.repos.listContributors,
+      params as never,
+    ) as RepositoryContributor[]
+
+    return contributors
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 404)
+      return []
+    throw error
+  }
 }

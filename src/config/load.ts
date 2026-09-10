@@ -74,6 +74,10 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const extendedMe = merged.extended?.me ?? true
   const extendedSecurity = merged.extended?.security ?? true
   const extendedSyncState = merged.extended?.syncState ?? true
+  const activityEnabled = merged.sync?.activity ?? true
+  const codeownersErrorsEnabled = merged.sync?.codeownersErrors ?? true
+  const languagesEnabled = merged.sync?.languages ?? true
+  const contributorsEnabled = merged.sync?.contributors ?? true
 
   return {
     cwd,
@@ -107,6 +111,10 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       me: extendedMe,
       security: extendedSecurity,
       syncState: extendedSyncState,
+      activity: activityEnabled,
+      codeownersErrors: codeownersErrorsEnabled,
+      languages: languagesEnabled,
+      contributors: contributorsEnabled,
     },
   }
 }
