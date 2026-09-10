@@ -70,7 +70,7 @@ describe('syncRepository', () => {
     expect(summary.updatedIssues).toBe(0)
     expect(summary.updatedPulls).toBe(0)
     expect(summary.durationMs).toBeGreaterThanOrEqual(0)
-    expect(summary.written).toBe(0)
+    expect(summary.written).toBe(1) // metadata.json
     expect(fetchComments).not.toHaveBeenCalled()
 
     const syncState = await loadSyncState(storageDir)
@@ -224,7 +224,7 @@ describe('syncRepository', () => {
     expect(summary.selected).toBe(1)
     expect(summary.processed).toBe(1)
     expect(summary.skipped).toBe(0)
-    expect(summary.written).toBe(1)
+    expect(summary.written).toBe(2) // 1 PR + metadata.json
     expect(summary.updatedIssues).toBe(0)
     expect(summary.updatedPulls).toBe(1)
     expect(fetchPullMetadata).toHaveBeenCalledTimes(1)
@@ -271,7 +271,7 @@ describe('syncRepository', () => {
     })
 
     expect(summary.processed).toBe(1)
-    expect(summary.written).toBe(1)
+    expect(summary.written).toBe(2) // renamed issue + metadata.json
 
     const renamedPath = join(storageDir, 'issues', '00001-new-title.md')
     await expect(stat(renamedPath)).resolves.toBeDefined()
