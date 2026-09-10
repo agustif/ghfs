@@ -314,6 +314,11 @@ function createProviderMock(overrides: Partial<RepositoryProvider> = {}): Reposi
     fetchWorkflowRuns: vi.fn(async () => []),
     fetchCheckRunAnnotations: vi.fn(async () => []),
     fetchCheckRuns: vi.fn(async () => []),
+    fetchGitRefs: vi.fn(async () => []),
+    fetchGitCommits: vi.fn(async () => []),
+    fetchGitTree: vi.fn(async () => ({ sha: '', url: '', tree: [], truncated: false })),
+    fetchGitBlob: vi.fn(async () => ({ sha: '', content: '', encoding: 'utf-8' as const, size: 0, url: '' })),
+    compareCommits: vi.fn(async () => ({ commits: [] })),
     ...overrides,
   }
 }
