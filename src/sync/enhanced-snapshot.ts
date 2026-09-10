@@ -6,6 +6,7 @@ import {
   ACTIONS_DIR_NAME,
   ACTIONS_FILE_NAME,
   CONSTITUTION_DIR_NAME,
+  ENHANCED_GRAPH_FILE_NAME,
   LABELS_FILE_NAME,
   META_FILE_NAME,
   MILESTONES_FILE_NAME,
@@ -264,7 +265,7 @@ async function writeGraphFile(context: SyncContext): Promise<void> {
 
   await mkdir(context.storageDirAbsolute, { recursive: true })
   await writeFile(
-    join(context.storageDirAbsolute, 'graph.json'),
+    join(context.storageDirAbsolute, ENHANCED_GRAPH_FILE_NAME),
     `${JSON.stringify(graph, null, 2)}\n`,
     'utf8',
   )
