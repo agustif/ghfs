@@ -74,8 +74,28 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const extendedMe = merged.extended?.me ?? true
   const extendedSecurity = merged.extended?.security ?? true
   const extendedSyncState = merged.extended?.syncState ?? true
-  const releasesEnabled = merged.sync?.releases ?? true
-  const packagesEnabled = merged.sync?.packages ?? true
+  const pullIntelligence = {
+    reviews: merged.sync?.pullIntelligence?.reviews ?? true,
+    checks: merged.sync?.pullIntelligence?.checks ?? true,
+    files: merged.sync?.pullIntelligence?.files ?? true,
+    gate: merged.sync?.pullIntelligence?.gate ?? true,
+    compare: merged.sync?.pullIntelligence?.compare ?? true,
+    stack: merged.sync?.pullIntelligence?.stack ?? true,
+    statusCheckRollup: merged.sync?.pullIntelligence?.statusCheckRollup ?? true,
+  }
+  const customProperties = merged.sync?.customProperties ?? false
+  const autolinks = merged.sync?.autolinks ?? false
+  const commitActivity = merged.sync?.commitActivity ?? false
+  const participationStats = merged.sync?.participationStats ?? false
+  const tags = merged.sync?.tags ?? false
+  const gitRefs = merged.sync?.gitRefs ?? false
+  const docsTree = merged.sync?.docsTree ?? false
+  const assigneeSuggestions = merged.sync?.assigneeSuggestions ?? false
+  const traffic = merged.sync?.traffic ?? false
+  const vulnerabilityReporting = merged.sync?.vulnerabilityReporting ?? false
+  const actionsEnabled = merged.sync?.actions ?? false
+  const actionsRunsPerWorkflow = merged.sync?.actionsRunsPerWorkflow ?? 30
+  const pagesBuildsEnabled = merged.sync?.pagesBuilds ?? false
 
   return {
     cwd,
@@ -109,8 +129,27 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       me: extendedMe,
       security: extendedSecurity,
       syncState: extendedSyncState,
-      releases: releasesEnabled,
-      packages: packagesEnabled,
+      pullIntelligence,
+      customProperties,
+      autolinks,
+      commitActivity,
+      participationStats,
+      tags,
+      gitRefs,
+      docsTree,
+      assigneeSuggestions,
+      traffic,
+      vulnerabilityReporting,
+    },
+    search: {
+      codeTodos: merged.search?.codeTodos ?? true,
+      commitRefs: merged.search?.commitRefs ?? true,
+      issueQueries: merged.search?.issueQueries ?? {},
+      mentions: merged.search?.mentions ?? false,
+      maxResults: merged.search?.maxResults ?? 100,
+      actions: actionsEnabled,
+      actionsRunsPerWorkflow,
+      pagesBuilds: pagesBuildsEnabled,
     },
   }
 }
@@ -144,14 +183,6 @@ function mergeUserConfig(base: GhfsUserConfig, overrides: Partial<GhfsUserConfig
     sync: {
       ...base.sync,
       ...overrides.sync,
-      pullIntelligence: {
-        ...base.sync?.pullIntelligence,
-        ...overrides.sync?.pullIntelligence,
-      },
-    },
-    extended: {
-      ...base.extended,
-      ...overrides.extended,
     },
   }
 }
