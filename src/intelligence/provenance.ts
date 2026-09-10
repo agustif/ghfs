@@ -4,26 +4,26 @@ import type { ProvenanceEntry } from '../types/provenance'
 // Write .ghfs/provenance.jsonl recording fetch metadata per file
 
 export async function recordProvenance(
-  storageDir: string,
-  entry: ProvenanceEntry,
+  _storageDir: string,
+  _entry: ProvenanceEntry,
 ): Promise<void> {
   // TODO: Append to .ghfs/provenance.jsonl
 }
 
-export async function loadProvenance(storageDir: string): Promise<ProvenanceEntry[]> {
+export async function loadProvenance(_storageDir: string): Promise<ProvenanceEntry[]> {
   // TODO: Load and parse .ghfs/provenance.jsonl
   return []
 }
 
 export async function getFileProvenance(
-  storageDir: string,
-  path: string,
+  _storageDir: string,
+  _path: string,
 ): Promise<ProvenanceEntry | null> {
   // TODO: Find provenance entry for specific file
   return null
 }
 
-export function computeContentHash(content: string): string {
+export function computeContentHash(_content: string): string {
   // TODO: Compute sha256 hash
   return `sha256:stub`
 }

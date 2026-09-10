@@ -77,46 +77,46 @@ This document defines the **canonical contracts** for these layers. Other sync a
 ```typescript
 // Node
 interface GraphNode {
-  id: string                  // e.g. "issue:123", "pull:42", "person:octocat"
+  id: string // e.g. "issue:123", "pull:42", "person:octocat"
   type: GraphNodeType
-  label: string               // human-readable
-  url?: string                // GitHub URL when applicable
-  state?: string              // open, closed, merged, etc.
+  label: string // human-readable
+  url?: string // GitHub URL when applicable
+  state?: string // open, closed, merged, etc.
   metadata?: Record<string, unknown>
 }
 
-type GraphNodeType =
-  | 'issue'
-  | 'pull'
-  | 'discussion'
-  | 'commit'
-  | 'check'
-  | 'person'
-  | 'label'
-  | 'milestone'
-  | 'release'
-  | 'workflow'
-  | 'file_path'
+type GraphNodeType
+  = | 'issue'
+    | 'pull'
+    | 'discussion'
+    | 'commit'
+    | 'check'
+    | 'person'
+    | 'label'
+    | 'milestone'
+    | 'release'
+    | 'workflow'
+    | 'file_path'
 
 // Edge
 interface GraphEdge {
-  from: string                // node id
-  to: string                  // node id
+  from: string // node id
+  to: string // node id
   type: GraphEdgeType
   metadata?: Record<string, unknown>
 }
 
-type GraphEdgeType =
-  | 'references'
-  | 'fixes'
-  | 'review_requested'
-  | 'owns'                    // CODEOWNERS
-  | 'checks'
-  | 'merges'
-  | 'labels'
-  | 'discusses'
-  | 'assigned_to'
-  | 'milestone_tracks'
+type GraphEdgeType
+  = | 'references'
+    | 'fixes'
+    | 'review_requested'
+    | 'owns' // CODEOWNERS
+    | 'checks'
+    | 'merges'
+    | 'labels'
+    | 'discusses'
+    | 'assigned_to'
+    | 'milestone_tracks'
 ```
 
 ### Builder contract
@@ -207,10 +207,10 @@ generated_at: "2026-09-10T09:30:00Z"
 interface Policy {
   version: 1
   repo: string
-  source: string[]            // where parsed from: constitution.md, rulesets API, etc.
+  source: string[] // where parsed from: constitution.md, rulesets API, etc.
   rules: PolicyRule[]
   gates: Gate[]
-  danger_paths: string[]      // glob patterns for risky files
+  danger_paths: string[] // glob patterns for risky files
 }
 
 interface PolicyRule {
@@ -229,14 +229,14 @@ interface Gate {
 }
 
 // DSL (evaluable offline)
-type GatePredicate =
-  | { op: 'requires_review_count', min: number }
-  | { op: 'blocks_paths', patterns: string[] }
-  | { op: 'requires_label', labels: string[] }
-  | { op: 'requires_check', check: string, state: 'success' | 'failure' }
-  | { op: 'author_in', logins: string[] }
-  | { op: 'and', predicates: GatePredicate[] }
-  | { op: 'or', predicates: GatePredicate[] }
+type GatePredicate
+  = | { op: 'requires_review_count', min: number }
+    | { op: 'blocks_paths', patterns: string[] }
+    | { op: 'requires_label', labels: string[] }
+    | { op: 'requires_check', check: string, state: 'success' | 'failure' }
+    | { op: 'author_in', logins: string[] }
+    | { op: 'and', predicates: GatePredicate[] }
+    | { op: 'or', predicates: GatePredicate[] }
 ```
 
 ### Sources (priority order)
@@ -281,10 +281,10 @@ interface TierState {
 }
 
 interface SurfaceState {
-  name: string                // 'issues', 'pulls', 'wiki', 'discussions', 'checks', etc.
+  name: string // 'issues', 'pulls', 'wiki', 'discussions', 'checks', etc.
   lastSyncedAt: string
-  cursor?: string             // pagination cursor
-  etag?: string               // HTTP ETag for conditional requests
+  cursor?: string // pagination cursor
+  etag?: string // HTTP ETag for conditional requests
 }
 ```
 
@@ -301,14 +301,18 @@ interface SurfaceState {
 ```typescript
 async function shouldSync(surface: string, tier: 'hot' | 'warm' | 'cold'): Promise<boolean> {
   const state = syncState.tiers?.[tier]
-  if (!state) return true
-  
+  if (!state)
+    return true
+
   const age = Date.now() - new Date(state.lastSyncedAt).getTime()
-  
-  if (tier === 'hot') return true
-  if (tier === 'warm') return age > 3600_000    // 1h
-  if (tier === 'cold') return age > 86400_000   // 24h
-  
+
+  if (tier === 'hot')
+    return true
+  if (tier === 'warm')
+    return age > 3600_000 // 1h
+  if (tier === 'cold')
+    return age > 86400_000 // 24h
+
   return false
 }
 ```
@@ -324,11 +328,11 @@ async function shouldSync(surface: string, tier: 'hot' | 'warm' | 'cold'): Promi
 
 ```typescript
 interface ProvenanceEntry {
-  path: string                // relative to .ghfs/
-  fetched_at: string          // ISO 8601
-  source: string              // e.g. "github:issues:123", "github:pulls:42:patch"
-  content_hash: string        // sha256:... for integrity
-  etag?: string               // HTTP ETag if available
+  path: string // relative to .ghfs/
+  fetched_at: string // ISO 8601
+  source: string // e.g. "github:issues:123", "github:pulls:42:patch"
+  content_hash: string // sha256:... for integrity
+  etag?: string // HTTP ETag if available
   metadata?: Record<string, unknown>
 }
 ```
@@ -358,10 +362,10 @@ interface ProvenanceEntry {
 
 ```typescript
 interface Lock {
-  agent: string               // agent identifier
-  claimed_at: string          // ISO 8601
-  task: string                // human-readable task description
-  timeout_at?: string         // optional expiry
+  agent: string // agent identifier
+  claimed_at: string // ISO 8601
+  task: string // human-readable task description
+  timeout_at?: string // optional expiry
 }
 ```
 
@@ -497,9 +501,9 @@ Add to `ghfs.config.ts`:
 ```typescript
 export default defineConfig({
   // existing fields...
-  
+
   intelligence: {
-    graph: true,              // enable graph generation
+    graph: true, // enable graph generation
     packs: {
       enabled: true,
       sizes: ['small', 'medium', 'large'],
@@ -508,7 +512,7 @@ export default defineConfig({
       enabled: true,
       sources: ['constitution', 'codeowners', 'rulesets'],
     },
-    provenance: true,         // enable provenance tracking
+    provenance: true, // enable provenance tracking
     tiers: {
       hot: ['issues:open', 'pulls:open', 'checks:failing'],
       warm: ['issues:closed', 'pulls:closed', 'discussions'],
@@ -516,7 +520,7 @@ export default defineConfig({
     },
     coordination: {
       enabled: true,
-      lockTimeout: 1800,      // 30min in seconds
+      lockTimeout: 1800, // 30min in seconds
     },
   },
 })
@@ -529,7 +533,7 @@ export default defineConfig({
 ### Registering graph nodes/edges
 
 ```typescript
-import { addGraphNode, addGraphEdge } from '@ghfs/cli/intelligence/graph'
+import { addGraphEdge, addGraphNode } from '@ghfs/cli/intelligence/graph'
 
 // After syncing discussions
 await addGraphNode({
