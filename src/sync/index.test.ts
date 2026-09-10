@@ -485,6 +485,13 @@ function createConfig(cwd: string, sync: Partial<GhfsResolvedConfig['sync']> = {
       security: true,
       syncState: true,
     },
+    extended: {
+      graph: true,
+      search: true,
+      me: true,
+      security: true,
+      syncState: true,
+    },
   }
 }
 

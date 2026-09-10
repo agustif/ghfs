@@ -111,5 +111,12 @@ function createConfig(cwd: string): GhfsResolvedConfig {
       security: true,
       syncState: true,
     },
+    extended: {
+      graph: true,
+      search: true,
+      me: true,
+      security: true,
+      syncState: true,
+    },
   }
 }

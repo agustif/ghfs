@@ -165,39 +165,24 @@ function extractGraphFromText(
 ): void {
   const issuePattern = /#(\d+)/g
   const closesPattern = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi
-<<<<<<< HEAD
   const mentionPattern = /@([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)/gi
 
   let match: RegExpExecArray | null
 
   match = closesPattern.exec(text)
   while (match !== null) {
-=======
-  const mentionPattern = /@([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)/g
-
-  let match: RegExpExecArray | null
-
-  while ((match = closesPattern.exec(text)) !== null) {
->>>>>>> 8f13687 (refactor: align with foundation architecture)
     const toNumber = Number.parseInt(match[1], 10)
     const toNodeId = `ghfs:issue:${toNumber}`
     if (!nodes.has(toNodeId)) {
       nodes.set(toNodeId, { id: toNodeId, type: 'issue', metadata: { number: toNumber } })
     }
     addEdge(edges, seen, fromNodeId, toNodeId, 'fixes')
-<<<<<<< HEAD
     match = closesPattern.exec(text)
   }
 
   closesPattern.lastIndex = 0
   match = issuePattern.exec(text)
   while (match !== null) {
-=======
-  }
-
-  closesPattern.lastIndex = 0
-  while ((match = issuePattern.exec(text)) !== null) {
->>>>>>> 8f13687 (refactor: align with foundation architecture)
     const toNumber = Number.parseInt(match[1], 10)
     const toNodeId = `ghfs:issue:${toNumber}`
     const alreadyFixed = edges.some(e => e.from === fromNodeId && e.to === toNodeId && e.relation === 'fixes')
@@ -211,21 +196,14 @@ function extractGraphFromText(
   }
 
   mentionPattern.lastIndex = 0
-<<<<<<< HEAD
   match = mentionPattern.exec(text)
   while (match !== null) {
-=======
-  while ((match = mentionPattern.exec(text)) !== null) {
->>>>>>> 8f13687 (refactor: align with foundation architecture)
     const login = match[1]
     const personId = `ghfs:person:${login}`
     if (!nodes.has(personId)) {
       nodes.set(personId, { id: personId, type: 'person', metadata: { login } })
     }
     addEdge(edges, seen, fromNodeId, personId, 'mentions')
-<<<<<<< HEAD
     match = mentionPattern.exec(text)
-=======
->>>>>>> 8f13687 (refactor: align with foundation architecture)
   }
 }

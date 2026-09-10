@@ -197,6 +197,13 @@ function createContext(overrides: {
         security: true,
         syncState: true,
       },
+      extended: {
+        graph: true,
+        search: true,
+        me: true,
+        security: true,
+        syncState: true,
+      },
     },
     syncState: {
       version: 2,
