@@ -43,6 +43,8 @@ export async function writeEnhancedSnapshots(context: SyncContext): Promise<void
 async function writeMetaFile(context: SyncContext): Promise<void> {
   const repository = await context.provider.fetchRepository()
   const topics = await context.provider.fetchRepositoryTopics?.()
+  const pinnedIssues = await context.provider.fetchPinnedIssues?.()
+  const readmeExcerpt = await fetchReadmeExcerpt(context)
 
   const meta = {
     repo: context.repoSlug,
@@ -64,6 +66,8 @@ async function writeMetaFile(context: SyncContext): Promise<void> {
       total_issues: context.totalIssues,
       total_pulls: context.totalPulls,
     },
+    pinned_issues: pinnedIssues ?? [],
+    readme_excerpt: readmeExcerpt,
     created_at: repository.created_at,
     updated_at: repository.updated_at,
     pushed_at: repository.pushed_at,
@@ -75,6 +79,42 @@ async function writeMetaFile(context: SyncContext): Promise<void> {
     `${JSON.stringify(meta, null, 2)}\n`,
     'utf8',
   )
+}
+
+async function fetchReadmeExcerpt(context: SyncContext): Promise<string | null> {
+  const paths = ['README.md', 'README', 'readme.md', 'Readme.md']
+
+  for (const path of paths) {
+    const content = await context.provider.fetchRepositoryContent?.(path)
+    if (content?.content && content.encoding === 'base64') {
+      const decoded = Buffer.from(content.content, 'base64').toString('utf8')
+      return extractExcerpt(decoded, 500)
+    }
+  }
+
+  return null
+}
+
+function extractExcerpt(markdown: string, maxLength: number): string {
+  let text = markdown
+    .split('\n')
+    .filter(line => !line.trim().startsWith('#'))
+    .filter(line => !line.trim().startsWith('<!--'))
+    .filter(line => !line.trim().startsWith('!['))
+    .filter(line => line.trim().length > 0)
+    .join(' ')
+    .trim()
+
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+  text = text.replace(/`([^`]+)`/g, '$1')
+  text = text.replace(/\*\*([^*]+)\*\*/g, '$1')
+  text = text.replace(/\*([^*]+)\*/g, '$1')
+
+  if (text.length <= maxLength)
+    return text
+
+  const cutoff = text.lastIndexOf(' ', maxLength)
+  return cutoff > 0 ? `${text.slice(0, cutoff)}...` : `${text.slice(0, maxLength)}...`
 }
 
 async function writeLabelsFile(context: SyncContext): Promise<void> {
