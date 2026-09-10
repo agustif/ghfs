@@ -180,6 +180,56 @@ Complete checklist of GitHub REST and GraphQL endpoints mapped to GHFS implement
 
 ---
 
+## Social & Organizational Surfaces
+
+**📋 See detailed gap analysis**: [`docs/research/social-org-surfaces-gap-b.md`](./social-org-surfaces-gap-b.md)
+
+### Organization Members
+
+| API Surface | Endpoint | Status | Config | Files | Notes |
+|------------|----------|--------|--------|-------|-------|
+| Organization members | `GET /orgs/{org}/members` | ❌ Missing | - | - | Gap B: Org-owned repos only |
+| Organization member roles | `GET /orgs/{org}/memberships/{username}` | ❌ Missing | - | - | Gap B: admin/member roles |
+| Public members | `GET /orgs/{org}/public_members` | ❌ Missing | - | - | Gap B: Public visibility |
+
+### Outside Collaborators
+
+| API Surface | Endpoint | Status | Config | Files | Notes |
+|------------|----------|--------|--------|-------|-------|
+| Org outside collaborators | `GET /orgs/{org}/outside_collaborators` | ❌ Missing | - | - | Gap B: Org-level list |
+| Repository collaborators | `GET /repos/{owner}/{repo}/collaborators` | ❌ Missing | - | - | Gap B: All repo types |
+| Collaborator permission | `GET /repos/{owner}/{repo}/collaborators/{username}/permission` | ❌ Missing | - | - | Gap B: Permission level |
+
+### Invitations
+
+| API Surface | Endpoint | Status | Config | Files | Notes |
+|------------|----------|--------|--------|-------|-------|
+| Org pending invitations | `GET /orgs/{org}/invitations` | ❌ Missing | - | - | Gap B: Org invites |
+| Org failed invitations | `GET /orgs/{org}/failed_invitations` | ❌ Missing | - | - | Gap B: Failed invites |
+| Repo invitations | `GET /repos/{owner}/{repo}/invitations` | ❌ Missing | - | - | Gap B: Repo collaborator invites |
+
+### Community Metrics
+
+| API Surface | Endpoint | Status | Config | Files | Notes |
+|------------|----------|--------|--------|-------|-------|
+| Community profile | `GET /repos/{owner}/{repo}/community/profile` | ❌ Missing | - | - | Gap B: Health score + files |
+
+### Sponsorships
+
+| API Surface | Endpoint | Status | Config | Files | Notes |
+|------------|----------|--------|--------|-------|-------|
+| Sponsor listings | GraphQL `user.sponsorsListing` | ❌ Missing | - | - | Gap B: GraphQL only |
+| Sponsors (as maintainer) | GraphQL `user.sponsorshipsAsMaintainer` | ❌ Missing | - | - | Gap B: Current sponsors |
+| Sponsoring (as sponsor) | GraphQL `user.sponsorshipsAsSponsor` | ❌ Missing | - | - | Gap B: Who user sponsors |
+
+### Funding Configuration
+
+| API Surface | Endpoint | Status | Config | Files | Notes |
+|------------|----------|--------|--------|-------|-------|
+| FUNDING.yml | `GET /repos/{owner}/{repo}/contents/.github/FUNDING.yml` | ❌ Missing | - | `.ghfs/constitution/FUNDING.yml` | Gap B: Issue #13 |
+
+---
+
 ## Authenticated User
 
 | API Surface | Endpoint | Status | Config | Files | Notes |
@@ -379,6 +429,14 @@ sync?: {
   
   // Issues & PRs
   pinnedIssues?: boolean        // Issue #28
+  
+  // Social & Org (Gap B)
+  funding?: boolean             // Gap B: FUNDING.yml mirror
+  communityMetrics?: boolean    // Gap B: Community health score
+  collaborators?: boolean       // Gap B: Repository collaborators
+  orgMembers?: boolean          // Gap B: Org members (org repos only)
+  outsideCollaborators?: boolean // Gap B: Outside collaborators (org repos only)
+  invitations?: boolean         // Gap B: Pending/failed invitations (org repos only)
 }
 
 extended?: {
@@ -405,6 +463,9 @@ extended?: {
   provenance?: boolean          // Issue #23
   localCoordination?: boolean   // Issue #22
   policyGate?: boolean          // Issue #20
+  
+  // Social & Org (Gap B)
+  sponsorships?: boolean        // Gap B: GraphQL sponsorships data
 }
 ```
 
@@ -416,7 +477,8 @@ extended?: {
 
 - **Done**: 50+ endpoints (core issues/PRs, comments, timeline, reviews, actions)
 - **In PR**: 15+ endpoints across 8 open PRs
-- **Missing**: 35+ endpoints (releases, actions, governance, advanced intelligence)
+- **Missing**: 45+ endpoints (releases, actions, governance, advanced intelligence, social/org surfaces)
+- **Gap B (Social/Org)**: 10+ new endpoints identified (see [`social-org-surfaces-gap-b.md`](./social-org-surfaces-gap-b.md))
 
 ### Config Coverage
 
@@ -428,6 +490,7 @@ extended?: {
 - **Implemented**: `.ghfs/issues/`, `.ghfs/pulls/`, `.ghfs/repo.json`, `.ghfs/execute.yml`
 - **In PR**: `.ghfs/security/`, `.ghfs/projects/`, `.ghfs/merge-queue/`, `.ghfs/wiki/`, `.ghfs/discussions/`, `.ghfs/activity.md`, `.ghfs/constitution/CODEOWNERS.errors.json`
 - **Missing**: `.ghfs/releases/`, `.ghfs/actions/`, `.ghfs/branches/`, `.ghfs/constitution/`, `.ghfs/deployments/`, `.ghfs/context-packs/`, `.ghfs/search.jsonl`, `.ghfs/refs.json`, `.ghfs/me.md`, `.ghfs/agent-hints.md`
+- **Gap B (Social/Org)**: `.ghfs/org/`, `.ghfs/community/`, `.ghfs/sponsors/`, `.ghfs/collaborators.json`, `.ghfs/constitution/FUNDING.yml`
 
 ---
 
