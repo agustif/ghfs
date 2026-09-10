@@ -1,0 +1,17 @@
+{
+  "collection_metadata": {
+    "collected_at": "2026-09-10T09:41:00Z",
+    "repository": "agustif/ghfs",
+    "endpoint": "GET /repos/{owner}/{repo}/code-scanning/analyses",
+    "documentation": "https://docs.github.com/rest/code-scanning/code-scanning#list-code-scanning-analyses-for-a-repository"
+  },
+  "access_status": {
+    "accessible": false,
+    "error": "Resource not accessible by integration",
+    "http_status": 403
+  },
+  "analyses": null,
+  "summary": {
+    "note": "Code scanning analyses would show the history of all code scanning runs, including tool versions, analysis duration, and results summary"
+  }
+}

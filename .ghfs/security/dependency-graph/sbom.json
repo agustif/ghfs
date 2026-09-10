@@ -1,0 +1,23 @@
+{
+  "collection_metadata": {
+    "collected_at": "2026-09-10T09:41:00Z",
+    "repository": "agustif/ghfs",
+    "endpoint": "GET /repos/{owner}/{repo}/dependency-graph/sbom",
+    "documentation": "https://docs.github.com/rest/dependency-graph/sboms"
+  },
+  "access_status": {
+    "accessible": false,
+    "error": "Not Found",
+    "http_status": 404,
+    "reason": "SBOM endpoint not available - may require dependency graph to be enabled or feature not accessible"
+  },
+  "sbom": null,
+  "summary": {
+    "note": "Software Bill of Materials (SBOM) provides a complete inventory of all dependencies in SPDX format",
+    "alternatives": [
+      "Dependency information can be inferred from package.json, pnpm-lock.yaml",
+      "GitHub dependency graph (when enabled) provides similar information",
+      "Use tools like syft or cyclonedx to generate local SBOM"
+    ]
+  }
+}

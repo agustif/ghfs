@@ -1,0 +1,196 @@
+{
+  "collection_metadata": {
+    "collected_at": "2026-09-10T09:41:00Z",
+    "repository": "agustif/ghfs",
+    "scope": "GitHub Actions workflow security analysis"
+  },
+  "workflows_found": [
+    {
+      "name": "Release",
+      "path": ".github/workflows/release.yml",
+      "triggers": ["push on tags v*"],
+      "permissions": {
+        "contents": "write",
+        "id-token": "write"
+      },
+      "uses_reusable_workflow": "sxzz/workflows/.github/workflows/release.yml@v1",
+      "security_notes": [
+        "Uses id-token: write for trusted publishing (good practice)",
+        "Reusable workflow from external repository - ensure trust in sxzz/workflows",
+        "Triggered only on version tags (good practice for releases)",
+        "Publishing enabled - ensure npm/registry credentials are properly secured"
+      ],
+      "risk_level": "MEDIUM",
+      "recommendations": [
+        "Pin reusable workflow to commit SHA instead of @v1 tag for immutability",
+        "Review sxzz/workflows source code periodically",
+        "Ensure release secrets are stored as GitHub secrets, not hardcoded"
+      ]
+    },
+    {
+      "name": "Unit Test",
+      "path": ".github/workflows/unit-test.yml",
+      "triggers": ["push on main", "pull_request on main"],
+      "permissions": {
+        "default": "none (permissions: {})",
+        "coverage_job": {
+          "id-token": "write"
+        }
+      },
+      "uses_reusable_workflow": "sxzz/workflows/.github/workflows/unit-test.yml@v1",
+      "security_notes": [
+        "Minimal permissions by default (excellent security practice)",
+        "Uses external reusable workflows",
+        "Coverage job has id-token: write for reporting"
+      ],
+      "risk_level": "LOW",
+      "recommendations": [
+        "Pin reusable workflows to commit SHA",
+        "Consider adding dependency review action for PRs"
+      ]
+    },
+    {
+      "name": "E2E",
+      "path": ".github/workflows/e2e.yml",
+      "triggers": ["push on main", "pull_request on main"],
+      "permissions": {
+        "default": "none (permissions: {})"
+      },
+      "actions_used": [
+        "actions/checkout@v4",
+        "pnpm/action-setup@v4",
+        "actions/setup-node@v4",
+        "actions/upload-artifact@v4"
+      ],
+      "security_notes": [
+        "Minimal permissions (excellent security practice)",
+        "Uses pinned versions of actions (v4)",
+        "Submodules are cloned recursively - ensure all submodules are trusted",
+        "Artifacts uploaded only on failure with 7-day retention (good practice)"
+      ],
+      "risk_level": "LOW",
+      "recommendations": [
+        "Pin actions to commit SHA instead of version tags for maximum security",
+        "Consider limiting submodule recursion if not all levels are needed",
+        "Review uploaded artifacts for sensitive information"
+      ]
+    },
+    {
+      "name": "autofix.ci",
+      "path": ".github/workflows/autofix.yml",
+      "triggers": ["pull_request"],
+      "permissions": {
+        "contents": "read"
+      },
+      "uses_reusable_workflow": "sxzz/workflows/.github/workflows/autofix.yml@v1",
+      "security_notes": [
+        "Read-only contents permission (good security practice)",
+        "Runs on all pull requests",
+        "Uses external reusable workflow for automated fixes"
+      ],
+      "risk_level": "LOW",
+      "recommendations": [
+        "Pin reusable workflow to commit SHA",
+        "Ensure autofix changes are reviewed before merge",
+        "Consider requiring approval for autofix commits"
+      ]
+    }
+  ],
+  "summary": {
+    "total_workflows": 4,
+    "external_reusable_workflows": 3,
+    "third_party_actions": 4,
+    "overall_security_posture": "GOOD",
+    "key_strengths": [
+      "Minimal permissions principle applied consistently",
+      "No workflows with excessive write permissions",
+      "Uses relatively recent action versions (@v4)",
+      "No hardcoded secrets visible in workflow files"
+    ],
+    "areas_for_improvement": [
+      "Pin all actions and reusable workflows to commit SHAs instead of tags",
+      "Add Dependabot for GitHub Actions to keep actions updated",
+      "Consider adding CodeQL or other security scanning workflow",
+      "Add dependency review action for pull requests",
+      "Periodically audit external reusable workflows (sxzz/workflows)"
+    ]
+  },
+  "security_recommendations": {
+    "immediate": [
+      "Add .github/dependabot.yml with github-actions ecosystem",
+      "Review and validate sxzz/workflows repository security"
+    ],
+    "short_term": [
+      "Pin actions to commit SHAs",
+      "Add dependency-review-action to PR workflow",
+      "Add CodeQL workflow for code scanning"
+    ],
+    "long_term": [
+      "Implement workflow approval requirements for third-party actions",
+      "Set up automated security scanning of workflow changes",
+      "Document trusted action sources and review process"
+    ]
+  },
+  "external_dependencies": {
+    "reusable_workflows": [
+      {
+        "source": "sxzz/workflows",
+        "workflows_used": [
+          "release.yml",
+          "unit-test.yml",
+          "coverage.yml",
+          "autofix.yml"
+        ],
+        "pinning": "tag-based (@v1)",
+        "recommendation": "Review source repository and consider SHA pinning",
+        "trust_level": "REQUIRES_REVIEW"
+      }
+    ],
+    "actions": [
+      {
+        "name": "actions/checkout",
+        "version": "v4",
+        "vendor": "GitHub (first-party)",
+        "trust_level": "HIGH"
+      },
+      {
+        "name": "pnpm/action-setup",
+        "version": "v4",
+        "vendor": "pnpm (official)",
+        "trust_level": "HIGH"
+      },
+      {
+        "name": "actions/setup-node",
+        "version": "v4",
+        "vendor": "GitHub (first-party)",
+        "trust_level": "HIGH"
+      },
+      {
+        "name": "actions/upload-artifact",
+        "version": "v4",
+        "vendor": "GitHub (first-party)",
+        "trust_level": "HIGH"
+      }
+    ]
+  },
+  "missing_security_workflows": [
+    {
+      "name": "CodeQL Analysis",
+      "purpose": "Static code analysis for security vulnerabilities",
+      "priority": "HIGH",
+      "implementation": "Add .github/workflows/codeql.yml"
+    },
+    {
+      "name": "Dependency Review",
+      "purpose": "Check for vulnerable dependencies in PRs",
+      "priority": "HIGH",
+      "implementation": "Add dependency-review-action to PR workflow"
+    },
+    {
+      "name": "Secret Scanning",
+      "purpose": "Detect accidentally committed secrets",
+      "priority": "MEDIUM",
+      "implementation": "Enable secret scanning in repository settings (free for public repos)"
+    }
+  ]
+}

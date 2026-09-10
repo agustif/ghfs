@@ -1,0 +1,17 @@
+{
+  "collection_metadata": {
+    "collected_at": "2026-09-10T09:41:00Z",
+    "repository": "agustif/ghfs",
+    "endpoint": "GET /repos/{owner}/{repo}/secret-scanning/alerts/{alert_number}/locations",
+    "documentation": "https://docs.github.com/rest/secret-scanning/secret-scanning#list-locations-for-a-secret-scanning-alert"
+  },
+  "access_status": {
+    "accessible": false,
+    "error": "Resource not accessible by integration",
+    "http_status": 403
+  },
+  "locations": null,
+  "summary": {
+    "note": "Secret locations would show file paths, line numbers, and commit SHAs where secrets were detected (with values redacted)"
+  }
+}

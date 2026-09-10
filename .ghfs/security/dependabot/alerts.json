@@ -1,0 +1,24 @@
+{
+  "collection_metadata": {
+    "collected_at": "2026-09-10T09:41:00Z",
+    "repository": "agustif/ghfs",
+    "endpoint": "GET /repos/{owner}/{repo}/dependabot/alerts",
+    "documentation": "https://docs.github.com/rest/dependabot/alerts"
+  },
+  "access_status": {
+    "accessible": false,
+    "error": "Dependabot alerts are disabled for this repository",
+    "http_status": 403,
+    "reason": "Dependabot alerts must be enabled in repository settings"
+  },
+  "alerts": null,
+  "graphql_vulnerability_alerts": {
+    "nodes": [],
+    "total_count": 0
+  },
+  "summary": {
+    "note": "Dependabot alerts track known security vulnerabilities in dependencies",
+    "status": "Disabled - no vulnerability alerts configured",
+    "recommendation": "Enable Dependabot alerts in repository settings under Security > Code security and analysis"
+  }
+}
