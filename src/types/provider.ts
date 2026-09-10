@@ -1,5 +1,6 @@
 import type { IssueKind, IssueState } from '../types'
 import type { ReactionContent } from '../utils/reactions'
+import type { AttestationsSummary, DependabotAlert, DependencyGraphSummary, DependencyReview, SbomData } from './security'
 
 export interface ProviderReactions {
   totalCount: number
@@ -642,4 +643,10 @@ export interface RepositoryProvider {
   actionAddReaction: (number: number, reaction: ReactionContent, target: ReactionTarget) => Promise<void>
   actionRemoveReaction: (number: number, reaction: ReactionContent, target: ReactionTarget) => Promise<void>
   fetchViewerReactions: (number: number, target: ReactionTarget) => Promise<ReactionContent[]>
+
+  fetchDependabotAlerts?: () => Promise<DependabotAlert[]>
+  fetchSbom?: (ref?: string) => Promise<SbomData | null>
+  fetchDependencyReview?: (pullNumber: number, baseRef?: string, headRef?: string) => Promise<DependencyReview | null>
+  fetchAttestationsSummary?: (artifactName?: string) => Promise<AttestationsSummary | null>
+  fetchDependencyGraphSummary?: () => Promise<DependencyGraphSummary | null>
 }
