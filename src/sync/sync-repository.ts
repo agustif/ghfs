@@ -9,6 +9,7 @@ import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
 import { writeExtendedMetadata } from './extended-metadata'
 import { loadSyncState, saveSyncState } from './state'
+import { writeMergeQueueEntries } from './sync-merge-queue'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,
@@ -191,6 +192,27 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
           message: `patchesDeleted=${counters.patchesDeleted}`,
         })
       })
+
+      if (options.config.sync.mergeQueue && !targetNumbers) {
+        await runStage('merge-queue', 'Sync merge queue', async () => {
+          try {
+            const mergeQueueEntries = await syncContext.provider.fetchMergeQueue()
+            const entriesWritten = await writeMergeQueueEntries(syncContext.storageDirAbsolute, mergeQueueEntries)
+            reporter?.onStageUpdate?.({
+              stage: 'merge-queue',
+              snapshot: cloneSnapshot(counters),
+              message: `entries=${entriesWritten}`,
+            })
+          }
+          catch {
+            reporter?.onStageUpdate?.({
+              stage: 'merge-queue',
+              snapshot: cloneSnapshot(counters),
+              message: 'skipped (not enabled or no access)',
+            })
+          }
+        })
+      }
     }
 
     await runStage('save', 'Save sync state', async () => {
@@ -297,12 +319,13 @@ function createSyncRunId(): string {
 
 function createStageDurations(): Record<SyncStage, number> {
   return {
-    metadata: 0,
-    pagination: 0,
-    fetch: 0,
-    materialize: 0,
-    prune: 0,
-    save: 0,
+    'metadata': 0,
+    'pagination': 0,
+    'fetch': 0,
+    'materialize': 0,
+    'prune': 0,
+    'merge-queue': 0,
+    'save': 0,
   }
 }
 
