@@ -249,6 +249,69 @@ export interface ProviderUpdateCounts {
   pulls: number
 }
 
+export interface ProviderRelease {
+  id: number
+  tag_name: string
+  name: string | null
+  body: string | null
+  draft: boolean
+  prerelease: boolean
+  created_at: string
+  published_at: string | null
+  author: string | null
+  html_url: string
+}
+
+export interface ProviderBranchProtection {
+  pattern: string
+  required_status_checks: {
+    strict: boolean
+    contexts: string[]
+  } | null
+  required_pull_request_reviews: {
+    dismiss_stale_reviews: boolean
+    require_code_owner_reviews: boolean
+    required_approving_review_count: number
+  } | null
+  enforce_admins: boolean
+  required_linear_history: boolean
+  allow_force_pushes: boolean
+  allow_deletions: boolean
+}
+
+export interface ProviderWorkflowRun {
+  id: number
+  name: string | null
+  head_branch: string | null
+  head_sha: string
+  status: string
+  conclusion: string | null
+  workflow_id: number
+  created_at: string
+  updated_at: string
+  html_url: string
+  event: string
+  actor: string | null
+}
+
+export interface ProviderRepositoryTopics {
+  names: string[]
+}
+
+export interface ProviderRepositoryContent {
+  name: string
+  path: string
+  sha: string
+  size: number
+  url: string
+  html_url: string
+  git_url: string
+  download_url: string | null
+  type: 'file' | 'dir' | 'symlink' | 'submodule'
+  content?: string
+  encoding?: string
+}
+
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
 
 /**
@@ -283,6 +346,12 @@ export interface RepositoryProvider {
   fetchRepositoryMilestones: () => Promise<ProviderMilestone[]>
   fetchAuthenticatedUser: () => Promise<ProviderAuthenticatedUser | null>
   countUpdatedSince: (since: string) => Promise<ProviderUpdateCounts>
+  fetchRepositoryTopics?: () => Promise<ProviderRepositoryTopics>
+  fetchReleases?: (limit?: number) => Promise<ProviderRelease[]>
+  fetchBranchProtection?: (branch: string) => Promise<ProviderBranchProtection | null>
+  fetchRecentWorkflowRuns?: (limit?: number) => Promise<ProviderWorkflowRun[]>
+  fetchRepositoryContent?: (path: string) => Promise<ProviderRepositoryContent | null>
+  fetchPinnedIssues?: () => Promise<number[]>
   getRequestCount: () => number
 
   actionClose: (number: number) => Promise<void>
