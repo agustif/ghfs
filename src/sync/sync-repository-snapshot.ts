@@ -6,6 +6,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'
 import { ISSUES_INDEX_FILE_NAME, PULLS_INDEX_FILE_NAME, REPO_SNAPSHOT_FILE_NAME } from '../constants'
 import { getTimestamp, renderRowsTable } from '../utils/markdown'
+import { redactSensitiveData } from '../utils/redact'
 
 interface IndexRow {
   number: number
@@ -23,10 +24,11 @@ export async function writeRepositorySnapshot(context: SyncContext): Promise<voi
 
 export async function writeRepoSnapshot(context: SyncContext): Promise<void> {
   const repoSnapshot = await buildRepoSnapshot(context)
+  const redactedSnapshot = redactSensitiveData(repoSnapshot)
   await mkdir(context.storageDirAbsolute, { recursive: true })
   await writeFile(
     join(context.storageDirAbsolute, REPO_SNAPSHOT_FILE_NAME),
-    `${JSON.stringify(repoSnapshot, null, 2)}\n`,
+    `${JSON.stringify(redactedSnapshot, null, 2)}\n`,
     'utf8',
   )
 }
@@ -103,10 +105,32 @@ function sortRows(rows: IndexRow[]): IndexRow[] {
 }
 
 async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
-  const [repoResult, labelsResult, milestonesResult] = await Promise.all([
+  const fetchedAt = context.syncedAt
+
+  const [
+    repoResult,
+    labelsResult,
+    milestonesResult,
+    appInstallationsResult,
+    rulesetsResult,
+    ruleSuitesResult,
+    oidcResult,
+    copilotResult,
+    auditLogResult,
+    secretScanningResult,
+    securityConfigResult,
+  ] = await Promise.all([
     context.provider.fetchRepository(),
     context.provider.fetchRepositoryLabels(),
     context.provider.fetchRepositoryMilestones(),
+    context.provider.fetchAppInstallations(),
+    context.provider.fetchRepositoryRulesets(),
+    context.provider.fetchRuleSuites({ time_period: 30 }),
+    context.provider.fetchOidcCustomization(),
+    context.provider.fetchCopilotSeats(),
+    context.provider.fetchAuditLog({ per_page: 100 }),
+    context.provider.fetchSecretScanningSettings(),
+    context.provider.fetchSecurityConfiguration(),
   ])
 
   const repository = repoResult as ProviderRepository
@@ -133,7 +157,7 @@ async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
     }))
     .sort((left, right) => left.number - right.number)
 
-  return {
+  const snapshot: RepoSnapshot = {
     repo: context.repoSlug,
     synced_at: context.syncedAt,
     repository: {
@@ -161,4 +185,50 @@ async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
     labels,
     milestones,
   }
+
+  if (appInstallationsResult.length > 0) {
+    snapshot.apps = {
+      installations: appInstallationsResult,
+      fetched_at: fetchedAt,
+    }
+  }
+
+  if (rulesetsResult.length > 0 || ruleSuitesResult.length > 0) {
+    snapshot.rules = {
+      rulesets: rulesetsResult,
+      recent_suites: ruleSuitesResult,
+      fetched_at: fetchedAt,
+    }
+  }
+
+  if (oidcResult !== null) {
+    snapshot.oidc = {
+      customization: oidcResult,
+      fetched_at: fetchedAt,
+    }
+  }
+
+  if (copilotResult !== null) {
+    snapshot.copilot = {
+      seats: copilotResult,
+      fetched_at: fetchedAt,
+    }
+  }
+
+  if (auditLogResult.length > 0) {
+    snapshot.audit = {
+      entries: auditLogResult,
+      fetched_at: fetchedAt,
+    }
+  }
+
+  if (secretScanningResult !== null || securityConfigResult !== null) {
+    snapshot.security = {
+      secret_scanning: secretScanningResult ?? {},
+      configuration: securityConfigResult ?? {},
+      fetched_at: fetchedAt,
+    }
+  }
+
+  return snapshot
 }

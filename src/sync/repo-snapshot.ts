@@ -1,3 +1,13 @@
+import type {
+  ProviderAppInstallation,
+  ProviderAuditLogEntry,
+  ProviderCopilotSeatInfo,
+  ProviderOidcCustomization,
+  ProviderRuleset,
+  ProviderRuleSuite,
+  ProviderSecretScanningSettings,
+  ProviderSecurityConfiguration,
+} from '../types/provider'
 import { readFile } from 'node:fs/promises'
 import { join } from 'pathe'
 import { REPO_SNAPSHOT_FILE_NAME } from '../constants'
@@ -46,6 +56,32 @@ export interface RepoSnapshot {
     updated_at: string
     closed_at: string | null
   }>
+  apps?: {
+    installations: ProviderAppInstallation[]
+    fetched_at: string
+  }
+  rules?: {
+    rulesets: ProviderRuleset[]
+    recent_suites: ProviderRuleSuite[]
+    fetched_at: string
+  }
+  oidc?: {
+    customization: ProviderOidcCustomization
+    fetched_at: string
+  }
+  copilot?: {
+    seats: ProviderCopilotSeatInfo
+    fetched_at: string
+  }
+  audit?: {
+    entries: ProviderAuditLogEntry[]
+    fetched_at: string
+  }
+  security?: {
+    secret_scanning: ProviderSecretScanningSettings
+    configuration: ProviderSecurityConfiguration
+    fetched_at: string
+  }
 }
 
 export async function loadRepoSnapshot(storageDirAbsolute: string): Promise<RepoSnapshot | null> {
