@@ -1,15 +1,15 @@
-export type GraphNodeType =
-  | 'issue'
-  | 'pull'
-  | 'discussion'
-  | 'commit'
-  | 'check'
-  | 'person'
-  | 'label'
-  | 'milestone'
-  | 'release'
-  | 'workflow'
-  | 'file_path'
+export type GraphNodeType
+  = | 'issue'
+    | 'pull'
+    | 'discussion'
+    | 'commit'
+    | 'check'
+    | 'person'
+    | 'label'
+    | 'milestone'
+    | 'release'
+    | 'workflow'
+    | 'file_path'
 
 export interface GraphNode {
   id: string
@@ -20,17 +20,17 @@ export interface GraphNode {
   metadata?: Record<string, unknown>
 }
 
-export type GraphEdgeType =
-  | 'references'
-  | 'fixes'
-  | 'review_requested'
-  | 'owns'
-  | 'checks'
-  | 'merges'
-  | 'labels'
-  | 'discusses'
-  | 'assigned_to'
-  | 'milestone_tracks'
+export type GraphEdgeType
+  = | 'references'
+    | 'fixes'
+    | 'review_requested'
+    | 'owns'
+    | 'checks'
+    | 'merges'
+    | 'labels'
+    | 'discusses'
+    | 'assigned_to'
+    | 'milestone_tracks'
 
 export interface GraphEdge {
   from: string

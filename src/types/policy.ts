@@ -1,11 +1,11 @@
-export type GatePredicate =
-  | { op: 'requires_review_count', min: number }
-  | { op: 'blocks_paths', patterns: string[] }
-  | { op: 'requires_label', labels: string[] }
-  | { op: 'requires_check', check: string, state: 'success' | 'failure' }
-  | { op: 'author_in', logins: string[] }
-  | { op: 'and', predicates: GatePredicate[] }
-  | { op: 'or', predicates: GatePredicate[] }
+export type GatePredicate
+  = | { op: 'requires_review_count', min: number }
+    | { op: 'blocks_paths', patterns: string[] }
+    | { op: 'requires_label', labels: string[] }
+    | { op: 'requires_check', check: string, state: 'success' | 'failure' }
+    | { op: 'author_in', logins: string[] }
+    | { op: 'and', predicates: GatePredicate[] }
+    | { op: 'or', predicates: GatePredicate[] }
 
 export interface PolicyRule {
   id: string

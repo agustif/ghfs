@@ -4,17 +4,17 @@ import type { ContextPack, PackSize } from '../types/context-pack'
 // Generates .ghfs/packs/{small,medium,large}/{pr|issue}-N.md from synced data
 
 export async function generateContextPack(
-  storageDir: string,
-  itemType: 'issue' | 'pull',
-  number: number,
-  size: PackSize,
+  _storageDir: string,
+  _itemType: 'issue' | 'pull',
+  _number: number,
+  _size: PackSize,
 ): Promise<ContextPack> {
   // Stub: return minimal pack
   return {
     metadata: {
-      pack_size: size,
-      item_type: itemType,
-      number,
+      pack_size: _size,
+      item_type: _itemType,
+      number: _number,
       generated_at: new Date().toISOString(),
     },
     sections: [],
@@ -22,22 +22,22 @@ export async function generateContextPack(
 }
 
 export async function writeContextPack(
-  storageDir: string,
-  pack: ContextPack,
+  _storageDir: string,
+  _pack: ContextPack,
 ): Promise<void> {
   // TODO: Write pack to .ghfs/packs/{size}/{type}-{number}.md
 }
 
-export async function generateAllPacks(storageDir: string): Promise<void> {
+export async function generateAllPacks(_storageDir: string): Promise<void> {
   // TODO: Generate packs for all synced items
 }
 
 export async function extendContextPack(
-  storageDir: string,
-  itemType: 'issue' | 'pull',
-  number: number,
-  size: PackSize,
-  section: { title: string, content: string, chunk_id?: string },
+  _storageDir: string,
+  _itemType: 'issue' | 'pull',
+  _number: number,
+  _size: PackSize,
+  _section: { title: string, content: string, chunk_id?: string },
 ): Promise<void> {
   // TODO: Hook for other sync adapters to extend packs
 }
