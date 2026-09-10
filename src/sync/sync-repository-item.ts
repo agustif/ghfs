@@ -133,6 +133,9 @@ export async function materializePreparedIssue(context: SyncContext, candidate: 
 
   const patchStats = await syncPatchByPlan(context, number, paths.patchPath, patchPlan)
 
+  if (kind === 'pull')
+    await syncPullIntelligence(context, number, paths.targetPath)
+
   return {
     kind,
     action,
@@ -284,6 +287,58 @@ async function syncPatchByPlan(
   return {
     patchesWritten,
     patchesDeleted,
+  }
+}
+
+async function syncPullIntelligence(context: SyncContext, number: number, markdownPath: string): Promise<void> {
+  const config = context.config.sync.pullIntelligence
+  if (!config)
+    return
+
+  const prDir = markdownPath.replace(/\.md$/, '')
+
+  try {
+    if (config.reviews) {
+      const reviews = await context.provider.fetchPullReviews(number)
+      const reviewsPath = join(prDir, 'reviews.json')
+      await writeFileEnsured(reviewsPath, JSON.stringify(reviews, null, 2))
+    }
+  }
+  catch (error) {
+    diagnostics.warn(`Failed to sync reviews for PR #${number}: ${error}`)
+  }
+
+  try {
+    if (config.checks) {
+      const checks = await context.provider.fetchPullChecks(number)
+      const checksPath = join(prDir, 'checks.json')
+      await writeFileEnsured(checksPath, JSON.stringify(checks, null, 2))
+    }
+  }
+  catch (error) {
+    diagnostics.warn(`Failed to sync checks for PR #${number}: ${error}`)
+  }
+
+  try {
+    if (config.files) {
+      const files = await context.provider.fetchPullFiles(number)
+      const filesPath = join(prDir, 'files.json')
+      await writeFileEnsured(filesPath, JSON.stringify(files, null, 2))
+    }
+  }
+  catch (error) {
+    diagnostics.warn(`Failed to sync files for PR #${number}: ${error}`)
+  }
+
+  try {
+    if (config.gate) {
+      const gate = await context.provider.fetchPullGate(number)
+      const gatePath = join(prDir, 'gate.json')
+      await writeFileEnsured(gatePath, JSON.stringify(gate, null, 2))
+    }
+  }
+  catch (error) {
+    diagnostics.warn(`Failed to sync gate for PR #${number}: ${error}`)
   }
 }
 
