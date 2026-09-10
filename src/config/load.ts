@@ -99,6 +99,8 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const assigneeSuggestions = merged.sync?.assigneeSuggestions ?? false
   const traffic = merged.sync?.traffic ?? false
   const vulnerabilityReporting = merged.sync?.vulnerabilityReporting ?? false
+  const actionsEnabled = merged.sync?.actions ?? false
+  const actionsRunsPerWorkflow = merged.sync?.actionsRunsPerWorkflow ?? 30
 
   return {
     cwd,
@@ -156,6 +158,8 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       issueQueries: merged.search?.issueQueries ?? {},
       mentions: merged.search?.mentions ?? false,
       maxResults: merged.search?.maxResults ?? 100,
+      actions: actionsEnabled,
+      actionsRunsPerWorkflow,
     },
   }
 }

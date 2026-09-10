@@ -106,8 +106,16 @@ export interface GhfsUserConfig {
   search?: {
     /**
      * Whether to search code for TODO/FIXME comments and save to .ghfs/search/code-todos.jsonl
+    /**
+     * Whether to sync GitHub Actions workflows, runs, and artifacts.
      *
-     * @default true
+     * @default false
+     */
+    actions?: boolean
+    /**
+     * Number of workflow runs to fetch per workflow.
+     *
+     * @default 30
      */
     codeTodos?: boolean
     /**
@@ -244,14 +252,17 @@ export interface GhfsUserConfig {
      * @default false
      */
     vulnerabilityReporting?: boolean
+    actionsRunsPerWorkflow?: number
   }
 }
 
-export type GhfsResolvedConfig = Required<GhfsUserConfig> & {
+export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended'> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: Required<GhfsUserConfig['sync']>
   search: Required<Omit<NonNullable<GhfsUserConfig['search']>, 'issueQueries'>> & {
     issueQueries: Record<string, string>
   }
+  extended: Required<NonNullable<GhfsUserConfig['extended']>>
+  extended?: GhfsUserConfig['extended']
 }
