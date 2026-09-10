@@ -14,6 +14,7 @@ import type {
   ProviderLockReason,
   ProviderMergeQueueEntry,
   ProviderMilestone,
+  ProviderPagesBuild,
   ProviderPullMetadata,
   ProviderReactions,
   ProviderRelease,
@@ -91,6 +92,7 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchRepository: () => fetchRepository(octokit, owner, repo, bumpRequestCount),
     fetchRepositoryLabels: () => fetchRepositoryLabels(octokit, owner, repo, bumpRequestCount),
     fetchRepositoryMilestones: () => fetchRepositoryMilestones(octokit, owner, repo, bumpRequestCount),
+    fetchPagesBuilds: () => fetchPagesBuilds(octokit, owner, repo, bumpRequestCount),
     fetchAuthenticatedUser: fetchAuthenticatedUserCached,
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
     fetchRepositoryTopics: () => fetchRepositoryTopics(octokit, owner, repo, bumpRequestCount),
@@ -145,13 +147,6 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
       actionRemoveReaction(octokit, owner, repo, number, reaction, target, fetchAuthenticatedUserCached, bumpRequestCount),
     fetchViewerReactions: (number, target) =>
       fetchViewerReactions(octokit, owner, repo, number, target, fetchAuthenticatedUserCached, bumpRequestCount),
-
-    fetchActionsWorkflowRuns: () => fetchActionsWorkflowRuns(octokit, owner, repo, bumpRequestCount),
-    fetchActionsWorkflowJobs: runId => fetchActionsWorkflowJobs(octokit, owner, repo, runId, bumpRequestCount),
-    fetchActionsJobLogs: jobId => fetchActionsJobLogs(octokit, owner, repo, jobId, bumpRequestCount),
-    fetchActionsRunArtifacts: runId => fetchActionsRunArtifacts(octokit, owner, repo, runId, bumpRequestCount),
-    fetchWebhooks: () => fetchWebhooks(octokit, owner, repo, bumpRequestCount),
-    fetchWebhookDeliveries: (hookId, options) => fetchWebhookDeliveries(octokit, owner, repo, hookId, options, bumpRequestCount),
   }
 }
 
@@ -637,6 +632,37 @@ async function fetchRepositoryMilestones(octokit: Octokit, owner: string, repo: 
     state: 'all',
     per_page: 100,
   }) as ProviderMilestone[]
+}
+
+async function fetchPagesBuilds(octokit: Octokit, owner: string, repo: string, bumpRequestCount: BumpRequestCount): Promise<ProviderPagesBuild[]> {
+  bumpRequestCount()
+  try {
+    const builds = await octokit.paginate(octokit.rest.repos.listPagesBuilds, {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return builds.map((build: any): ProviderPagesBuild => ({
+      url: build.url,
+      status: build.status,
+      error: build.error ? { message: build.error.message ?? null } : undefined,
+      commit: build.commit,
+      duration: build.duration ?? null,
+      created_at: build.created_at,
+      updated_at: build.updated_at,
+      pusher: build.pusher
+        ? {
+            login: build.pusher.login,
+            avatarUrl: build.pusher.avatar_url,
+          }
+        : null,
+    }))
+  }
+  catch (error: any) {
+    if (error.status === 404)
+      return []
+    throw error
+  }
 }
 
 async function fetchAuthenticatedUser(octokit: Octokit, bumpRequestCount: BumpRequestCount): Promise<ProviderAuthenticatedUser | null> {
@@ -2148,271 +2174,52 @@ interface GitHubTimelineEvent {
   commit_message?: string
 }
 
-async function fetchActionsWorkflowRuns(
+async function fetchEvents(
   octokit: Octokit,
   owner: string,
   repo: string,
+  limit = 50,
   bumpRequestCount: BumpRequestCount,
-): Promise<import('../../types/provider').ProviderActionsWorkflowRun[]> {
+): Promise<ProviderEvent[]> {
   bumpRequestCount()
-  const runs = await octokit.paginate(octokit.rest.actions.listWorkflowRunsForRepo, {
+  const response = await octokit.rest.activity.listRepoEvents({
     owner,
     repo,
-    per_page: 100,
-  }) as Array<{
-    id: number
-    name?: string
-    display_title?: string
-    status: string | null
-    conclusion: string | null
-    workflow_id: number
-    head_branch: string
-    head_sha: string
-    event: string
-    created_at: string
-    updated_at: string
-    run_started_at?: string | null
-    html_url: string
-  }>
-
-  return runs.map(run => ({
-    id: run.id,
-    name: run.name ?? '',
-    displayTitle: run.display_title ?? run.name ?? '',
-    status: (run.status as 'queued' | 'in_progress' | 'completed') ?? null,
-    conclusion: (run.conclusion as 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required') ?? null,
-    workflowId: run.workflow_id,
-    workflowName: run.name ?? '',
-    headBranch: run.head_branch,
-    headSha: run.head_sha,
-    event: run.event,
-    createdAt: run.created_at,
-    updatedAt: run.updated_at,
-    runStartedAt: run.run_started_at,
-    url: run.html_url,
-  }))
-}
-
-async function fetchActionsWorkflowJobs(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  runId: number,
-  bumpRequestCount: BumpRequestCount,
-): Promise<import('../../types/provider').ProviderActionsWorkflowJob[]> {
-  bumpRequestCount()
-  const jobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRun, {
-    owner,
-    repo,
-    run_id: runId,
-    per_page: 100,
-  }) as Array<{
-    id: number
-    run_id: number
-    name: string
-    status: string
-    conclusion: string | null
-    started_at: string
-    completed_at: string | null
-    html_url: string
-    steps?: Array<{
-      name: string
-      status: string
-      conclusion: string | null
-      number: number
-      started_at?: string | null
-      completed_at?: string | null
-    }>
-  }>
-
-  return jobs.map(job => ({
-    id: job.id,
-    runId: job.run_id,
-    name: job.name,
-    status: job.status as 'queued' | 'in_progress' | 'completed',
-    conclusion: (job.conclusion as 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required') ?? null,
-    startedAt: job.started_at,
-    completedAt: job.completed_at,
-    url: job.html_url,
-    steps: (job.steps ?? []).map(step => ({
-      name: step.name,
-      status: step.status as 'queued' | 'in_progress' | 'completed',
-      conclusion: (step.conclusion as 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required') ?? null,
-      number: step.number,
-      startedAt: step.started_at,
-      completedAt: step.completed_at,
-    })),
-  }))
-}
-
-async function fetchActionsJobLogs(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  jobId: number,
-  bumpRequestCount: BumpRequestCount,
-): Promise<string> {
-  bumpRequestCount()
-  const result = await octokit.request('GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs', {
-    owner,
-    repo,
-    job_id: jobId,
+    per_page: Math.min(limit, 100),
   })
 
-  if (typeof result.data === 'string')
-    return result.data
+  return response.data.slice(0, limit).map((event: any) => ({
+    id: event.id,
+    type: event.type,
+    actor: event.actor?.login ?? null,
+    createdAt: event.created_at,
+    payload: event.payload,
+  }))
+}
 
-  throw diagnostics.GHFS0300({
-    issue: `job ${jobId}`,
+async function fetchDeployments(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderDeployment[]> {
+  bumpRequestCount()
+  const response = await octokit.rest.repos.listDeployments({
+    owner,
+    repo,
+    per_page: 100,
   })
-}
 
-async function fetchActionsRunArtifacts(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  runId: number,
-  bumpRequestCount: BumpRequestCount,
-): Promise<import('../../types/provider').ProviderActionsArtifact[]> {
-  bumpRequestCount()
-  const artifacts = await octokit.paginate(octokit.rest.actions.listWorkflowRunArtifacts, {
-    owner,
-    repo,
-    run_id: runId,
-    per_page: 100,
-  }) as Array<{
-    id: number
-    node_id: string
-    name: string
-    size_in_bytes: number
-    url: string
-    archive_download_url: string
-    expired: boolean
-    created_at: string
-    updated_at: string
-    expires_at: string
-  }>
-
-  return artifacts.map(artifact => ({
-    id: artifact.id,
-    nodeId: artifact.node_id,
-    name: artifact.name,
-    sizeInBytes: artifact.size_in_bytes,
-    url: artifact.url,
-    archiveDownloadUrl: artifact.archive_download_url,
-    expired: artifact.expired,
-    createdAt: artifact.created_at,
-    updatedAt: artifact.updated_at,
-    expiresAt: artifact.expires_at,
-  }))
-}
-
-async function fetchWebhooks(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<import('../../types/provider').ProviderWebhook[]> {
-  bumpRequestCount()
-  const hooks = await octokit.paginate(octokit.rest.repos.listWebhooks, {
-    owner,
-    repo,
-    per_page: 100,
-  }) as Array<{
-    id: number
-    type: string
-    name: string
-    active: boolean
-    events: string[]
-    config: {
-      url?: string
-      content_type?: string
-      insecure_ssl?: string
-    }
-    updated_at: string
-    created_at: string
-    url: string
-    test_url: string
-    ping_url: string
-    deliveries_url: string
-  }>
-
-  return hooks.map(hook => ({
-    id: hook.id,
-    type: hook.type,
-    name: hook.name,
-    active: hook.active,
-    events: hook.events,
-    config: {
-      url: hook.config.url,
-      contentType: hook.config.content_type,
-      insecureSsl: hook.config.insecure_ssl,
-    },
-    updatedAt: hook.updated_at,
-    createdAt: hook.created_at,
-    url: hook.url,
-    testUrl: hook.test_url,
-    pingUrl: hook.ping_url,
-    deliveriesUrl: hook.deliveries_url,
-  }))
-}
-
-async function fetchWebhookDeliveries(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  hookId: number,
-  options: { perPage?: number, status?: 'success' | 'failure' } = {},
-  bumpRequestCount: BumpRequestCount,
-): Promise<import('../../types/provider').ProviderWebhookDelivery[]> {
-  bumpRequestCount()
-  const deliveries = await octokit.paginate(octokit.rest.repos.listWebhookDeliveries, {
-    owner,
-    repo,
-    hook_id: hookId,
-    per_page: options.perPage ?? 100,
-    ...(options.status ? { status: options.status } : {}),
-  }) as Array<{
-    id: number
-    guid: string
-    delivered_at: string
-    redelivery: boolean
-    duration: number
-    status: string
-    status_code: number
-    event: string
-    action: string | null
-    installation_id: number | null
-    repository_id: number | null
-    throttled_at: string | null
-    url: string
-    request?: {
-      headers?: Record<string, string>
-      payload?: Record<string, unknown>
-    }
-    response?: {
-      headers?: Record<string, string>
-      payload?: string
-    }
-  }>
-
-  return deliveries.map(delivery => ({
-    id: delivery.id,
-    guid: delivery.guid,
-    deliveredAt: delivery.delivered_at,
-    redelivery: delivery.redelivery,
-    duration: delivery.duration,
-    status: delivery.status,
-    statusCode: delivery.status_code,
-    event: delivery.event,
-    action: delivery.action,
-    installationId: delivery.installation_id,
-    repositoryId: delivery.repository_id,
-    throttledAt: delivery.throttled_at,
-    url: delivery.url,
-    requestHeaders: delivery.request?.headers,
-    requestPayload: delivery.request?.payload,
-    responseHeaders: delivery.response?.headers,
-    responseBody: delivery.response?.payload,
+  return response.data.map((deployment: any) => ({
+    id: deployment.id,
+    environment: deployment.environment,
+    state: deployment.statuses_url ? 'unknown' : 'pending',
+    description: deployment.description ?? null,
+    createdAt: deployment.created_at,
+    updatedAt: deployment.updated_at,
+    creator: deployment.creator?.login ?? null,
+    ref: deployment.ref,
+    sha: deployment.sha,
+    url: deployment.url,
   }))
 }
