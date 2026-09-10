@@ -98,6 +98,17 @@ function formatDiscussion(
       lines.push(`answer_chosen_by: ${discussion.answerChosenBy}`)
   }
 
+  if (discussion.upvoteCount !== undefined && discussion.upvoteCount > 0)
+    lines.push(`upvotes: ${discussion.upvoteCount}`)
+
+  if (discussion.labels && discussion.labels.length > 0) {
+    lines.push(`labels:`)
+    for (const label of discussion.labels) {
+      lines.push(`  - name: ${JSON.stringify(label.name)}`)
+      lines.push(`    color: "#${label.color}"`)
+    }
+  }
+
   if (discussion.url)
     lines.push(`url: ${discussion.url}`)
 
@@ -123,6 +134,14 @@ function formatDiscussion(
   if (discussion.locked)
     lines.push('**Status**: Locked')
 
+  if (discussion.upvoteCount !== undefined && discussion.upvoteCount > 0)
+    lines.push(`**Upvotes**: ${discussion.upvoteCount} 👍`)
+
+  if (discussion.labels && discussion.labels.length > 0) {
+    const labelTags = discussion.labels.map(l => `\`${l.name}\``).join(' ')
+    lines.push(`**Labels**: ${labelTags}`)
+  }
+
   if (discussion.reactions && discussion.reactions.totalCount > 0) {
     lines.push(`\n**Reactions**: ${formatReactions(discussion.reactions)}`)
   }
@@ -132,6 +151,19 @@ function formatDiscussion(
   if (discussion.body) {
     lines.push(discussion.body)
     lines.push('\n')
+  }
+
+  if (discussion.poll) {
+    lines.push('## 📊 Poll\n')
+    lines.push(`**${discussion.poll.question}**\n`)
+    lines.push(`Total votes: ${discussion.poll.totalVoteCount}\n`)
+    for (const option of discussion.poll.options) {
+      const percentage = discussion.poll.totalVoteCount > 0
+        ? ((option.totalVoteCount / discussion.poll.totalVoteCount) * 100).toFixed(1)
+        : '0.0'
+      lines.push(`- **${option.option}**: ${option.totalVoteCount} votes (${percentage}%)`)
+    }
+    lines.push('')
   }
 
   if (comments.length > 0) {
@@ -149,8 +181,13 @@ function formatComment(comment: ProviderDiscussionComment, depth: number): strin
   const lines: string[] = []
   const indent = '  '.repeat(depth)
 
-  lines.push(`${indent}### Comment by @${comment.author ?? 'unknown'}`)
+  const answerBadge = comment.isAnswer ? ' ✅ **[ANSWER]**' : ''
+  lines.push(`${indent}### Comment by @${comment.author ?? 'unknown'}${answerBadge}`)
   lines.push(`${indent}*Posted: ${new Date(comment.createdAt).toISOString()}*\n`)
+
+  if (comment.upvoteCount !== undefined && comment.upvoteCount > 0) {
+    lines.push(`${indent}**Upvotes**: ${comment.upvoteCount} 👍\n`)
+  }
 
   if (comment.reactions && comment.reactions.totalCount > 0) {
     lines.push(`${indent}**Reactions**: ${formatReactions(comment.reactions)}\n`)
@@ -181,8 +218,14 @@ function formatDiscussionsIndex(
   lines.push(`Last synced: ${new Date().toISOString()}\n`)
 
   const totalDiscussions = categoryIndexes.reduce((acc, cat) => acc + cat.discussions.length, 0)
+  const totalAnswered = categoryIndexes.reduce((acc, cat) =>
+    acc + cat.discussions.filter(d => d.answerChosenAt).length, 0)
+  const totalUnanswered = categoryIndexes.reduce((acc, cat) =>
+    acc + cat.discussions.filter(d => cat.category.isAnswerable && !d.answerChosenAt && !d.closedAt).length, 0)
+
   lines.push(`Total discussions: ${totalDiscussions}`)
-  lines.push(`Total categories: ${categoryIndexes.length}\n`)
+  lines.push(`Total categories: ${categoryIndexes.length}`)
+  lines.push(`Answered: ${totalAnswered} | Unanswered: ${totalUnanswered}\n`)
 
   for (const { category, discussions } of categoryIndexes) {
     lines.push(`## ${category.emoji ? `${category.emoji} ` : ''}${category.name}\n`)
@@ -191,15 +234,60 @@ function formatDiscussionsIndex(
       lines.push(`*${category.description}*\n`)
 
     lines.push(`**Type**: ${category.isAnswerable ? 'Q&A' : 'Discussion'}`)
-    lines.push(`**Count**: ${discussions.length}\n`)
+    lines.push(`**Count**: ${discussions.length}`)
 
-    for (const disc of discussions) {
-      const fileName = `${String(disc.number).padStart(5, '0')}-${sanitizeTitle(disc.title)}.md`
-      const status = disc.closedAt ? '🔒' : (disc.answerChosenAt ? '✅' : '💬')
-      lines.push(`- ${status} [#${disc.number} ${disc.title}](discussions/${sanitizeCategorySlug(category.slug)}/${fileName})`)
+    if (category.isAnswerable) {
+      const answered = discussions.filter(d => d.answerChosenAt).length
+      const unanswered = discussions.filter(d => !d.answerChosenAt && !d.closedAt).length
+      lines.push(`**Answered**: ${answered} | **Unanswered**: ${unanswered}`)
     }
 
     lines.push('')
+
+    if (category.isAnswerable) {
+      const unanswered = discussions.filter(d => !d.answerChosenAt && !d.closedAt)
+      if (unanswered.length > 0) {
+        lines.push('### Unanswered\n')
+        for (const disc of unanswered) {
+          const fileName = `${String(disc.number).padStart(5, '0')}-${sanitizeTitle(disc.title)}.md`
+          const upvotes = disc.upvoteCount ? ` (${disc.upvoteCount} 👍)` : ''
+          lines.push(`- ❓ [#${disc.number} ${disc.title}](discussions/${sanitizeCategorySlug(category.slug)}/${fileName})${upvotes}`)
+        }
+        lines.push('')
+      }
+
+      const answered = discussions.filter(d => d.answerChosenAt)
+      if (answered.length > 0) {
+        lines.push('### Answered\n')
+        for (const disc of answered) {
+          const fileName = `${String(disc.number).padStart(5, '0')}-${sanitizeTitle(disc.title)}.md`
+          const upvotes = disc.upvoteCount ? ` (${disc.upvoteCount} 👍)` : ''
+          lines.push(`- ✅ [#${disc.number} ${disc.title}](discussions/${sanitizeCategorySlug(category.slug)}/${fileName})${upvotes}`)
+        }
+        lines.push('')
+      }
+
+      const closed = discussions.filter(d => d.closedAt && !d.answerChosenAt)
+      if (closed.length > 0) {
+        lines.push('### Closed (No Answer)\n')
+        for (const disc of closed) {
+          const fileName = `${String(disc.number).padStart(5, '0')}-${sanitizeTitle(disc.title)}.md`
+          lines.push(`- 🔒 [#${disc.number} ${disc.title}](discussions/${sanitizeCategorySlug(category.slug)}/${fileName})`)
+        }
+        lines.push('')
+      }
+    }
+    else {
+      for (const disc of discussions) {
+        const fileName = `${String(disc.number).padStart(5, '0')}-${sanitizeTitle(disc.title)}.md`
+        const status = disc.closedAt ? '🔒' : '💬'
+        const upvotes = disc.upvoteCount ? ` (${disc.upvoteCount} 👍)` : ''
+        const poll = disc.poll ? ' 📊' : ''
+        lines.push(`- ${status} [#${disc.number} ${disc.title}](discussions/${sanitizeCategorySlug(category.slug)}/${fileName})${upvotes}${poll}`)
+      }
+
+      lines.push('')
+    }
   }
 
   return lines.join('\n')

@@ -25,7 +25,22 @@ export async function syncWiki(context: SyncContext): Promise<{
     indexLines.push('# Wiki Pages\n')
     indexLines.push(`Last synced: ${new Date().toISOString()}\n`)
     indexLines.push(`Total pages: ${pages.length}\n`)
-    indexLines.push('')
+
+    const specialPages = ['_Sidebar', '_Footer', '_Header']
+    const hasSpecialPages = pages.filter(p => specialPages.includes(p.name))
+
+    if (hasSpecialPages.length > 0) {
+      indexLines.push(`\n## Special Pages\n`)
+      for (const page of hasSpecialPages) {
+        const fileName = `${sanitizeWikiPageName(page.name)}.md`
+        indexLines.push(`- [${page.title}](wiki/${fileName})`)
+      }
+    }
+
+    const regularPages = pages.filter(p => !specialPages.includes(p.name))
+    if (regularPages.length > 0) {
+      indexLines.push(`\n## Content Pages\n`)
+    }
 
     let written = 0
     for (const page of pages) {
@@ -36,7 +51,9 @@ export async function syncWiki(context: SyncContext): Promise<{
       await writeFile(filePath, content, 'utf8')
       written++
 
-      indexLines.push(`- [${page.title}](wiki/${fileName})`)
+      if (!specialPages.includes(page.name)) {
+        indexLines.push(`- [${page.title}](wiki/${fileName})`)
+      }
     }
 
     const indexPath = join(context.storageDirAbsolute, 'wiki.md')
@@ -68,6 +85,23 @@ function formatWikiPage(page: ProviderWikiPage): string {
   if (page.updatedAt) {
     const date = new Date(page.updatedAt)
     lines.push(`**Last Updated**: ${date.toISOString()}`)
+  }
+
+  if (page.history && page.history.length > 0) {
+    lines.push(`\n## 📝 Page History\n`)
+    lines.push(`Total revisions: ${page.history.length}\n`)
+
+    for (const rev of page.history.slice(0, 10)) {
+      const author = rev.author ? `@${rev.author}` : 'Unknown'
+      const date = rev.authoredDate ? new Date(rev.authoredDate).toISOString() : 'Unknown date'
+      const message = rev.message || 'No commit message'
+      lines.push(`- **${rev.sha.slice(0, 7)}** by ${author} on ${date}`)
+      lines.push(`  *${message}*`)
+    }
+
+    if (page.history.length > 10) {
+      lines.push(`\n*...and ${page.history.length - 10} more revisions*`)
+    }
   }
 
   lines.push('')
