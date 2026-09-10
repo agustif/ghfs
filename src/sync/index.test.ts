@@ -70,7 +70,7 @@ describe('syncRepository', () => {
     expect(summary.updatedIssues).toBe(0)
     expect(summary.updatedPulls).toBe(0)
     expect(summary.durationMs).toBeGreaterThanOrEqual(0)
-    expect(summary.written).toBe(0)
+    expect(summary.written).toBe(1) // metadata.json
     expect(fetchComments).not.toHaveBeenCalled()
 
     const syncState = await loadSyncState(storageDir)
@@ -196,8 +196,6 @@ describe('syncRepository', () => {
         isDraft: false,
         merged: false,
         mergedAt: null,
-        mergeCommitSha: null,
-        headSha: 'abc123',
         baseRef: 'main',
         headRef: 'feature',
         requestedReviewers: [],
@@ -226,7 +224,7 @@ describe('syncRepository', () => {
     expect(summary.selected).toBe(1)
     expect(summary.processed).toBe(1)
     expect(summary.skipped).toBe(0)
-    expect(summary.written).toBe(1)
+    expect(summary.written).toBe(2) // 1 PR + metadata.json
     expect(summary.updatedIssues).toBe(0)
     expect(summary.updatedPulls).toBe(1)
     expect(fetchPullMetadata).toHaveBeenCalledTimes(1)
@@ -273,7 +271,7 @@ describe('syncRepository', () => {
     })
 
     expect(summary.processed).toBe(1)
-    expect(summary.written).toBe(1)
+    expect(summary.written).toBe(2) // renamed issue + metadata.json
 
     const renamedPath = join(storageDir, 'issues', '00001-new-title.md')
     await expect(stat(renamedPath)).resolves.toBeDefined()
@@ -409,8 +407,6 @@ function createMockProvider(overrides: Partial<RepositoryProvider> = {}): Reposi
       isDraft: false,
       merged: false,
       mergedAt: null,
-      mergeCommitSha: null,
-      headSha: 'abc123',
       baseRef: 'main',
       headRef: 'feature',
       requestedReviewers: [],
@@ -419,8 +415,6 @@ function createMockProvider(overrides: Partial<RepositoryProvider> = {}): Reposi
     fetchPullCommits: vi.fn(async () => []),
     fetchReviewComments: vi.fn(async () => []),
     fetchTimeline: vi.fn(async () => []),
-    fetchCheckRuns: vi.fn(async () => []),
-    fetchCombinedStatus: vi.fn(async () => ({ state: 'success', sha: 'abc123', totalCount: 0, statuses: [] })),
     fetchItemSnapshot: vi.fn(async number => ({
       number,
       kind: 'issue' as const,
@@ -432,6 +426,24 @@ function createMockProvider(overrides: Partial<RepositoryProvider> = {}): Reposi
     fetchAuthenticatedUser: vi.fn(async () => null),
     countUpdatedSince: vi.fn(async () => ({ issues: 0, pulls: 0 })),
     getRequestCount: vi.fn(() => 0),
+    fetchWikiPages: vi.fn(async () => []),
+    fetchWikiPage: vi.fn(async () => null),
+    fetchDiscussionCategories: vi.fn(async () => []),
+    fetchDiscussions: vi.fn(async () => []),
+    fetchDiscussionComments: vi.fn(async () => []),
+    fetchMergeQueueEntries: vi.fn(async () => []),
+    fetchReleases: vi.fn(async () => []),
+    fetchRecentWorkflowRuns: vi.fn(async () => []),
+    fetchCodeOwners: vi.fn(async () => null),
+    fetchSecurityAdvisories: vi.fn(async () => []),
+    fetchCommitComments: vi.fn(async () => []),
+    fetchRepoInvitations: vi.fn(async () => []),
+    fetchViewerStatus: vi.fn(async () => ({ starred: false, subscription: null })),
+    fetchTemplateInfo: vi.fn(async () => ({ isTemplate: false, templateRepository: null })),
+    fetchForkStatus: vi.fn(async () => ({ isFork: false, parent: null, source: null })),
+    fetchNetworkSummary: vi.fn(async () => ({ forks: 0, subscribers: 0, watchers: 0, networkCount: 0 })),
+    fetchActivityEvents: vi.fn(async () => []),
+    fetchFeeds: vi.fn(async () => ({ timelineUrl: null, userUrl: null })),
     actionClose: vi.fn(async () => {}),
     actionReopen: vi.fn(async () => {}),
     actionSetTitle: vi.fn(async () => {}),
@@ -459,13 +471,6 @@ function createMockProvider(overrides: Partial<RepositoryProvider> = {}): Reposi
     actionAddReaction: vi.fn(async () => {}),
     actionRemoveReaction: vi.fn(async () => {}),
     fetchViewerReactions: vi.fn(async () => []),
-    fetchWorkflowDispatchInputs: vi.fn(async () => null),
-    fetchReusableWorkflows: vi.fn(async () => []),
-    fetchEnvironments: vi.fn(async () => []),
-    fetchActionsCaches: vi.fn(async () => []),
-    fetchWorkflowRuns: vi.fn(async () => []),
-    fetchCheckRunAnnotations: vi.fn(async () => []),
-    fetchCheckRuns: vi.fn(async () => []),
     ...overrides,
   }
 }
@@ -482,6 +487,12 @@ function createConfig(cwd: string, sync: Partial<GhfsResolvedConfig['sync']> = {
     sync: {
       issues: sync.issues ?? true,
       pulls: sync.pulls ?? true,
+      discussions: sync.discussions ?? true,
+      wiki: sync.wiki ?? true,
+      mergeQueue: sync.mergeQueue ?? true,
+      releases: sync.releases ?? true,
+      workflows: sync.workflows ?? true,
+      metadata: sync.metadata ?? true,
       closed: sync.closed ?? false,
       patches: sync.patches ?? 'open',
       actions: false,
