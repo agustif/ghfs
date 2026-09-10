@@ -1,6 +1,7 @@
 import type { SyncItemState } from '../types'
 
 export interface SearchIndexEntry {
+  id: string
   number: number
   kind: 'issue' | 'pull'
   title: string
@@ -15,6 +16,7 @@ export interface SearchIndexEntry {
 
 export function buildSearchIndex(items: Record<string, SyncItemState>): SearchIndexEntry[] {
   return Object.values(items).map(item => ({
+    id: `ghfs:${item.kind}:${item.number}`,
     number: item.number,
     kind: item.kind,
     title: item.data.item.title,
