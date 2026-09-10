@@ -472,6 +472,34 @@ export interface PaginateItemsOptions {
   since?: string
 }
 
+export interface ProviderCollaborator {
+  login: string
+  name: string | null
+  avatarUrl: string
+  permission: 'pull' | 'push' | 'maintain' | 'admin'
+  roleName?: string
+}
+
+export interface ProviderTeam {
+  name: string
+  slug: string
+  description: string | null
+  permission: 'pull' | 'push' | 'maintain' | 'admin'
+  members: string[]
+}
+
+export interface ProviderAppInstallation {
+  name: string
+  slug: string
+  description: string | null
+  permissions: Record<string, string>
+}
+
+export interface ProviderCodeowners {
+  path: string
+  owners: string[]
+}
+
 export interface RepositoryProvider {
   paginateItems: (options: PaginateItemsOptions) => AsyncIterable<ProviderItem[]>
   fetchItems: (options: PaginateItemsOptions) => Promise<ProviderItem[]>
@@ -495,6 +523,10 @@ export interface RepositoryProvider {
   fetchRecentWorkflowRuns?: (limit?: number) => Promise<ProviderWorkflowRun[]>
   fetchRepositoryContent?: (path: string) => Promise<ProviderRepositoryContent | null>
   fetchPinnedIssues?: () => Promise<number[]>
+  fetchCollaborators: () => Promise<ProviderCollaborator[]>
+  fetchTeams: () => Promise<ProviderTeam[]>
+  fetchAppInstallations: () => Promise<ProviderAppInstallation[]>
+  fetchCodeowners: () => Promise<ProviderCodeowners | null>
   getRequestCount: () => number
   fetchPullReviews: (number: number) => Promise<ProviderPullReview[]>
   fetchPullReviewThreads: (number: number) => Promise<ProviderPullReviewThread[]>
