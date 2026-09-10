@@ -3,31 +3,27 @@ import type {
   MergeOptions,
   PaginateItemsOptions,
   ProviderAuthenticatedUser,
-  ProviderBranchProtection,
   ProviderComment,
   ProviderCommit,
   ProviderDeployment,
   ProviderEvent,
+  ProviderInteractionLimits,
   ProviderItem,
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
   ProviderMergeQueueEntry,
   ProviderMilestone,
-  ProviderPullFile,
+  ProviderPagesBuild,
   ProviderPullMetadata,
   ProviderReactions,
-  ProviderRelease,
   ProviderRepository,
-  ProviderRepositoryContent,
-  ProviderRepositoryTopics,
   ProviderReviewComment,
   ProviderReviewDecision,
   ProviderReviewState,
   ProviderTimelineEvent,
   ProviderTimelineSource,
   ProviderUpdateCounts,
-  ProviderWorkflowRun,
   ReactionTarget,
   RepositoryProvider,
 } from '../../types/provider'
@@ -37,13 +33,6 @@ import { randomHexColor } from '../../utils/color'
 import { formatIssueNumber } from '../../utils/format'
 import { createEmptyReactions, isReactionContent, normalizeReactions, reactionKeyFromContent } from '../../utils/reactions'
 import { collectPages, iteratePages } from '../helpers'
-import {
-  fetchAutolinks,
-  fetchLatestPagesBuild,
-  fetchRuleSuites,
-  fetchWorkflowPermissions,
-  fetchWorkflows,
-} from './actions'
 import { createGitHubClient } from './client'
 import {
   fetchBranchProtection,
@@ -53,21 +42,6 @@ import {
   fetchRepositoryContent,
   fetchRepositoryTopics,
 } from './enhanced'
-import {
-  fetchCodeOwners,
-  fetchDiscussionCategories,
-  fetchDiscussionPolls,
-  fetchFundingLinks,
-  fetchItemProjectConnections,
-  fetchMergeQueueEntries,
-  fetchOrganizationTeams,
-  fetchProjectsV2,
-  fetchProjectV2Fields,
-  fetchProjectV2Items,
-  fetchPullReviewThreads,
-  fetchPullStatusCheckRollup,
-  fetchSponsorships,
-} from './provider-graphql'
 
 type BumpRequestCount = () => void
 
@@ -101,13 +75,14 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchPullMetadata: number => fetchPullMetadata(octokit, owner, repo, number, bumpRequestCount),
     fetchPullPatch: number => fetchPullPatch(octokit, owner, repo, number, bumpRequestCount),
     fetchPullCommits: number => fetchPullCommits(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullFiles: number => fetchPullFiles(octokit, owner, repo, number, bumpRequestCount),
     fetchReviewComments: number => fetchReviewComments(octokit, owner, repo, number, bumpRequestCount),
     fetchTimeline: number => fetchTimeline(octokit, owner, repo, number, bumpRequestCount),
     fetchItemSnapshot: number => fetchItemSnapshot(octokit, owner, repo, number, bumpRequestCount),
     fetchRepository: () => fetchRepository(octokit, owner, repo, bumpRequestCount),
     fetchRepositoryLabels: () => fetchRepositoryLabels(octokit, owner, repo, bumpRequestCount),
     fetchRepositoryMilestones: () => fetchRepositoryMilestones(octokit, owner, repo, bumpRequestCount),
+    fetchPagesBuilds: () => fetchPagesBuilds(octokit, owner, repo, bumpRequestCount),
+    fetchInteractionLimits: () => fetchInteractionLimits(octokit, owner, repo, bumpRequestCount),
     fetchAuthenticatedUser: fetchAuthenticatedUserCached,
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
     fetchRepositoryTopics: () => fetchRepositoryTopics(octokit, owner, repo, bumpRequestCount),
@@ -125,27 +100,6 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
 
     fetchEvents: limit => fetchEvents(octokit, owner, repo, limit, bumpRequestCount),
     fetchDeployments: () => fetchDeployments(octokit, owner, repo, bumpRequestCount),
-
-    fetchWorkflows: () => fetchWorkflows(octokit, owner, repo, bumpRequestCount),
-    fetchWorkflowPermissions: workflowId => fetchWorkflowPermissions(octokit, owner, repo, workflowId, bumpRequestCount),
-    fetchRuleSuites: params => fetchRuleSuites(octokit, owner, repo, params, bumpRequestCount),
-    fetchLatestPagesBuild: () => fetchLatestPagesBuild(octokit, owner, repo, bumpRequestCount),
-    fetchAutolinks: () => fetchAutolinks(octokit, owner, repo, bumpRequestCount),
-
-    fetchCustomProperties: () => fetchCustomProperties(octokit, owner, repo, bumpRequestCount),
-    fetchAutolinks: () => fetchAutolinks(octokit, owner, repo, bumpRequestCount),
-    fetchBranchRenames: () => fetchBranchRenames(octokit, owner, repo, bumpRequestCount),
-    fetchCommitActivity: () => fetchCommitActivity(octokit, owner, repo, bumpRequestCount),
-    fetchParticipationStats: () => fetchParticipationStats(octokit, owner, repo, bumpRequestCount),
-    fetchRepositoryTags: () => fetchRepositoryTags(octokit, owner, repo, bumpRequestCount),
-    fetchGitRefs: namespace => fetchGitRefs(octokit, owner, repo, namespace, bumpRequestCount),
-    fetchGitTree: (treeSha, recursive) => fetchGitTree(octokit, owner, repo, treeSha, recursive, bumpRequestCount),
-    fetchAssigneeSuggestions: () => fetchAssigneeSuggestions(octokit, owner, repo, bumpRequestCount),
-    fetchTrafficReferrers: () => fetchTrafficReferrers(octokit, owner, repo, bumpRequestCount),
-    fetchTrafficPaths: () => fetchTrafficPaths(octokit, owner, repo, bumpRequestCount),
-    fetchTrafficViews: () => fetchTrafficViews(octokit, owner, repo, bumpRequestCount),
-    fetchTrafficClones: () => fetchTrafficClones(octokit, owner, repo, bumpRequestCount),
-    fetchVulnerabilityReporting: () => fetchVulnerabilityReporting(octokit, owner, repo, bumpRequestCount),
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
@@ -177,20 +131,6 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
       actionRemoveReaction(octokit, owner, repo, number, reaction, target, fetchAuthenticatedUserCached, bumpRequestCount),
     fetchViewerReactions: (number, target) =>
       fetchViewerReactions(octokit, owner, repo, number, target, fetchAuthenticatedUserCached, bumpRequestCount),
-
-    fetchMergeQueueEntries: () => fetchMergeQueueEntries(octokit, owner, repo, bumpRequestCount),
-    fetchProjectsV2: () => fetchProjectsV2(octokit, owner, repo, bumpRequestCount),
-    fetchProjectV2Fields: projectId => fetchProjectV2Fields(octokit, projectId, bumpRequestCount),
-    fetchProjectV2Items: projectId => fetchProjectV2Items(octokit, projectId, bumpRequestCount),
-    fetchDiscussionCategories: () => fetchDiscussionCategories(octokit, owner, repo, bumpRequestCount),
-    fetchDiscussionPolls: () => fetchDiscussionPolls(octokit, owner, repo, bumpRequestCount),
-    fetchSponsorships: () => fetchSponsorships(octokit, owner, bumpRequestCount),
-    fetchFundingLinks: () => fetchFundingLinks(octokit, owner, repo, bumpRequestCount),
-    fetchItemProjectConnections: number => fetchItemProjectConnections(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullStatusCheckRollup: number => fetchPullStatusCheckRollup(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullReviewThreads: number => fetchPullReviewThreads(octokit, owner, repo, number, bumpRequestCount),
-    fetchCodeOwners: () => fetchCodeOwners(octokit, owner, repo, bumpRequestCount),
-    fetchOrganizationTeams: () => fetchOrganizationTeams(octokit, owner, bumpRequestCount),
   }
 }
 
@@ -676,6 +616,62 @@ async function fetchRepositoryMilestones(octokit: Octokit, owner: string, repo: 
     state: 'all',
     per_page: 100,
   }) as ProviderMilestone[]
+}
+
+async function fetchPagesBuilds(octokit: Octokit, owner: string, repo: string, bumpRequestCount: BumpRequestCount): Promise<ProviderPagesBuild[]> {
+  bumpRequestCount()
+  try {
+    const builds = await octokit.paginate(octokit.rest.repos.listPagesBuilds, {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return builds.map((build: any): ProviderPagesBuild => ({
+      url: build.url,
+      status: build.status,
+      error: build.error ? { message: build.error.message ?? null } : undefined,
+      commit: build.commit,
+      duration: build.duration ?? null,
+      created_at: build.created_at,
+      updated_at: build.updated_at,
+      pusher: build.pusher
+        ? {
+            login: build.pusher.login,
+            avatarUrl: build.pusher.avatar_url,
+          }
+        : null,
+    }))
+  }
+  catch (error: any) {
+    if (error.status === 404)
+      return []
+    throw error
+  }
+}
+
+async function fetchInteractionLimits(octokit: Octokit, owner: string, repo: string, bumpRequestCount: BumpRequestCount): Promise<ProviderInteractionLimits> {
+  bumpRequestCount()
+  try {
+    const response = await octokit.rest.interactions.getRestrictionsForRepo({
+      owner,
+      repo,
+    })
+    return {
+      limit: response.data.limit as ProviderInteractionLimits['limit'],
+      origin: response.data.origin,
+      expires_at: response.data.expires_at ?? null,
+    }
+  }
+  catch (error: any) {
+    if (error.status === 404) {
+      return {
+        limit: null,
+        origin: 'repository',
+        expires_at: null,
+      }
+    }
+    throw error
+  }
 }
 
 async function fetchAuthenticatedUser(octokit: Octokit, bumpRequestCount: BumpRequestCount): Promise<ProviderAuthenticatedUser | null> {
@@ -2030,308 +2026,6 @@ function mapGraphQLReactions(reactions: { totalCount: number, nodes: Array<{ con
       result.eyes = (result.eyes ?? 0) + 1
   }
   return result
-async function fetchCustomProperties(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any[] | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.request('GET /repos/{owner}/{repo}/properties/values', {
-      owner,
-      repo,
-    })
-    return result.data as any[]
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
-}
-
-async function fetchAutolinks(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any[] | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.request('GET /repos/{owner}/{repo}/autolinks', {
-      owner,
-      repo,
-    })
-    return result.data as any[]
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
-}
-
-async function fetchBranchRenames(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any[] | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.request('GET /repos/{owner}/{repo}/branches', {
-      owner,
-      repo,
-      per_page: 100,
-    })
-    return result.data as any[]
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
-}
-
-async function fetchCommitActivity(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any[] | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.request('GET /repos/{owner}/{repo}/stats/commit_activity', {
-      owner,
-      repo,
-    })
-    return result.data as any[]
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403 || error.status === 202)
-      return null
-    throw error
-  }
-}
-
-async function fetchParticipationStats(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.request('GET /repos/{owner}/{repo}/stats/participation', {
-      owner,
-      repo,
-    })
-    return result.data as any
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403 || error.status === 202)
-      return null
-    throw error
-  }
-}
-
-async function fetchRepositoryTags(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any[] | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.paginate('GET /repos/{owner}/{repo}/tags', {
-      owner,
-      repo,
-      per_page: 100,
-    })
-    return result as any[]
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
-}
-
-async function fetchGitRefs(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  namespace: string | undefined,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any[] | null> {
-  try {
-    bumpRequestCount()
-    const path = namespace ? `GET /repos/{owner}/{repo}/git/matching-refs/${namespace}` : 'GET /repos/{owner}/{repo}/git/refs'
-    const result = await octokit.paginate(path as any, {
-      owner,
-      repo,
-      per_page: 100,
-    })
-    return result as any[]
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
-}
-
-async function fetchGitTree(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  treeSha: string,
-  recursive: boolean | undefined,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.request('GET /repos/{owner}/{repo}/git/trees/{tree_sha}', {
-      owner,
-      repo,
-      tree_sha: treeSha,
-      recursive: recursive ? '1' : undefined,
-    } as any)
-    return result.data as any
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
-}
-
-async function fetchAssigneeSuggestions(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any[] | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.paginate('GET /repos/{owner}/{repo}/assignees', {
-      owner,
-      repo,
-      per_page: 100,
-    })
-    return result as any[]
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
-}
-
-async function fetchTrafficReferrers(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any[] | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.request('GET /repos/{owner}/{repo}/traffic/popular/referrers', {
-      owner,
-      repo,
-    })
-    return result.data as any[]
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
-}
-
-async function fetchTrafficPaths(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any[] | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.request('GET /repos/{owner}/{repo}/traffic/popular/paths', {
-      owner,
-      repo,
-    })
-    return result.data as any[]
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
-}
-
-async function fetchTrafficViews(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.request('GET /repos/{owner}/{repo}/traffic/views', {
-      owner,
-      repo,
-    })
-    return result.data as any
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
-}
-
-async function fetchTrafficClones(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.request('GET /repos/{owner}/{repo}/traffic/clones', {
-      owner,
-      repo,
-    })
-    return result.data as any
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
-}
-
-async function fetchVulnerabilityReporting(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<any | null> {
-  try {
-    bumpRequestCount()
-    const result = await octokit.request('GET /repos/{owner}/{repo}/private-vulnerability-reporting', {
-      owner,
-      repo,
-    })
-    return result.data as any
-  }
-  catch (error: any) {
-    if (error.status === 404 || error.status === 403)
-      return null
-    throw error
-  }
 }
 
 interface GitHubIssue {

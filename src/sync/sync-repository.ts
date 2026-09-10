@@ -7,15 +7,18 @@ import { GHFS_VERSION } from '../meta'
 import { createRepositoryProvider } from '../providers/factory'
 import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
-import { runSearchCoverage } from './search'
+import { writeExtendedMetadata } from './extended-metadata'
 import { loadSyncState, saveSyncState } from './state'
+import { syncCollaborators } from './sync-collaborators'
+import { writeInteractionLimits } from './sync-interaction-limits'
+import { writePagesBuilds } from './sync-pages-builds'
+import { syncPeople } from './sync-people'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,
   reconcileMarkdownFilesByScan,
   rematerializeTrackedMarkdown,
 } from './sync-repository-item'
-import { writeKitchenSinkData } from './sync-repository-kitchen-sink'
 import { fetchIssueCandidatesByNumbers, fetchIssueCandidatesByPagination } from './sync-repository-provider'
 import { writeRepositoryIndexes, writeRepoSnapshot } from './sync-repository-snapshot'
 import { pruneMissingOpenTrackedItems, pruneTrackedClosedItems } from './sync-repository-storage'
@@ -216,19 +219,47 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       if (!shouldEarlyReturn)
         await writeRepoSnapshot(syncContext)
 
-      if (!shouldEarlyReturn || ghfsVersionMismatch)
+      if (!shouldEarlyReturn || ghfsVersionMismatch) {
         await writeRepositoryIndexes(syncContext)
-
-      if (!shouldEarlyReturn && !targetNumbers) {
-        try {
-          await runSearchCoverage(options.config, provider)
-        }
-        catch {
-        }
+        await writeExtendedMetadata(syncContext).catch(() => {})
       }
 
-      if (!shouldEarlyReturn)
-        await writeKitchenSinkData(syncContext)
+      await writePagesBuilds(syncContext)
+      await writeInteractionLimits(syncContext)
+
+      if (!targetNumbers) {
+        try {
+          await syncPeople(syncContext)
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: 'people sync complete',
+          })
+        }
+        catch (error) {
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: `people sync skipped: ${(error as Error).message}`,
+          })
+        }
+
+        try {
+          await syncCollaborators(syncContext)
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: 'collaborators sync complete',
+          })
+        }
+        catch (error) {
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: `collaborators sync skipped: ${(error as Error).message}`,
+          })
+        }
+      }
 
       syncContext.syncState.ghfsVersion = GHFS_VERSION
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)

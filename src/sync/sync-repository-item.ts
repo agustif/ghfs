@@ -358,6 +358,39 @@ async function syncPullIntelligence(context: SyncContext, number: number, markdo
   catch (error) {
     diagnostics.warn(`Failed to sync gate for PR #${number}: ${error}`)
   }
+
+  try {
+    if (config.compare) {
+      const compare = await context.provider.fetchPullCompare(number)
+      const comparePath = join(prDir, 'compare.json')
+      await writeFileEnsured(comparePath, JSON.stringify(compare, null, 2))
+    }
+  }
+  catch (error) {
+    diagnostics.warn(`Failed to sync compare for PR #${number}: ${error}`)
+  }
+
+  try {
+    if (config.stack) {
+      const stack = await context.provider.fetchPullStack(number)
+      const stackPath = join(prDir, 'stack.json')
+      await writeFileEnsured(stackPath, JSON.stringify(stack, null, 2))
+    }
+  }
+  catch (error) {
+    diagnostics.warn(`Failed to sync stack for PR #${number}: ${error}`)
+  }
+
+  if (config.statusCheckRollup) {
+    try {
+      const rollup = await context.provider.fetchPullStatusCheckRollup(number)
+      const rollupPath = join(prDir, 'check-rollup.json')
+      await writeFileEnsured(rollupPath, JSON.stringify(rollup, null, 2))
+    }
+    catch (error) {
+      diagnostics.warn(`Failed to sync status check rollup for PR #${number}: ${error}`)
+    }
+  }
 }
 
 function buildTrackedMarkdown(context: SyncContext, tracked: SyncItemState): string {
@@ -438,45 +471,3 @@ async function resolveUniqueClosedTarget(closedDirAbsolute: string, fileName: st
 
   return candidate
 }
-
-async function syncPullIntelligence(context: SyncContext, number: number, markdownPath: string): Promise<void> {
-  const config = context.config.sync.pullIntelligence
-  if (!config)
-    return
-
-  const prDir = markdownPath.replace(/\.md$/, '')
-
-  try {
-    if (config.compare) {
-      const compare = await context.provider.fetchPullCompare(number)
-      const comparePath = join(prDir, 'compare.json')
-      await writeFileEnsured(comparePath, JSON.stringify(compare, null, 2))
-    }
-  }
-  catch (error) {
-    diagnostics.warn(`Failed to sync compare for PR #${number}: ${error}`)
-  }
-
-  try {
-    if (config.stack) {
-      const stack = await context.provider.fetchPullStack(number)
-      const stackPath = join(prDir, 'stack.json')
-      await writeFileEnsured(stackPath, JSON.stringify(stack, null, 2))
-    }
-  }
-  catch (error) {
-    diagnostics.warn(`Failed to sync stack for PR #${number}: ${error}`)
-  }
-
-  if (config.statusCheckRollup) {
-    try {
-      const rollup = await context.provider.fetchPullStatusCheckRollup(number)
-      const rollupPath = join(prDir, 'check-rollup.json')
-      await writeFileEnsured(rollupPath, JSON.stringify(rollup, null, 2))
-    }
-    catch (error) {
-      diagnostics.warn(`Failed to sync status check rollup for PR #${number}: ${error}`)
-    }
-  }
-}
-
