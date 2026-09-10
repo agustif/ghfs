@@ -1,5 +1,6 @@
 import type { IssueKind, IssueState } from '../types'
 import type { ReactionContent } from '../utils/reactions'
+import type { AttestationsSummary, DependabotAlert, DependencyGraphSummary, DependencyReview, SbomData } from './security'
 
 export interface ProviderReactions {
   totalCount: number
@@ -289,6 +290,27 @@ export interface ProviderAuthenticatedUser {
   avatarUrl: string
 }
 
+export interface ProviderEvent {
+  id: string
+  type: string
+  actor: string | null
+  createdAt: string
+  payload?: Record<string, any>
+}
+
+export interface ProviderDeployment {
+  id: number
+  environment: string
+  state: string
+  description: string | null
+  createdAt: string
+  updatedAt: string
+  creator: string | null
+  ref: string
+  sha: string
+  url?: string
+}
+
 export interface ProviderMilestone {
   number: number
   title: string
@@ -521,6 +543,50 @@ export interface ProviderPackage {
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
 
 /**
+ * Compare data for a pull request: ahead/behind commits relative to base branch,
+ * merge-base SHA, and commit lists for visualization.
+ */
+export interface ProviderPullCompare {
+  /** Merge base SHA (common ancestor of head and base). */
+  mergeBaseSha: string
+  /** Commits ahead of base (unique to this PR's head branch). */
+  aheadBy: number
+  /** Commits behind base (base branch commits not in PR). */
+  behindBy: number
+  /** List of commits ahead (in chronological order, oldest first). */
+  commits: ProviderCommit[]
+  /** Whether the branches can be merged without conflicts. */
+  mergeable?: boolean | null
+}
+
+/**
+ * Stacked PR relationship data: PRs this PR depends on (base PRs),
+ * and PRs that depend on this PR (dependent PRs).
+ */
+export interface ProviderPullStack {
+  /** PR numbers this PR is stacked on top of (base PRs, in order from base to head). */
+  basePRs: number[]
+  /** PR numbers that are stacked on top of this PR (dependent PRs). */
+  dependentPRs: number[]
+}
+
+/**
+ * Status check rollup from GitHub GraphQL API, providing aggregate
+ * check state and individual check contexts.
+ */
+export interface ProviderPullStatusCheckRollup {
+  /** Aggregate state: SUCCESS, FAILURE, PENDING, EXPECTED, or null if no checks. */
+  state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | null
+  /** Individual check contexts (both StatusContext and CheckRun). */
+  contexts: Array<{
+    context: string
+    state: string
+    targetUrl: string | null
+    description: string | null
+  }>
+}
+
+/**
  * Where a reaction is applied. `item` = issue/PR body (uses `op.number`).
  * `comment` = issue/PR conversation comment. `review` = a PR review body
  * (review reactions go through GraphQL and need the review's node ID).
@@ -533,6 +599,34 @@ export type ReactionTarget
 export interface PaginateItemsOptions {
   state: IssueState | 'all'
   since?: string
+}
+
+export interface ProviderCollaborator {
+  login: string
+  name: string | null
+  avatarUrl: string
+  permission: 'pull' | 'push' | 'maintain' | 'admin'
+  roleName?: string
+}
+
+export interface ProviderTeam {
+  name: string
+  slug: string
+  description: string | null
+  permission: 'pull' | 'push' | 'maintain' | 'admin'
+  members: string[]
+}
+
+export interface ProviderAppInstallation {
+  name: string
+  slug: string
+  description: string | null
+  permissions: Record<string, string>
+}
+
+export interface ProviderCodeowners {
+  path: string
+  owners: string[]
 }
 
 export interface RepositoryProvider {
@@ -558,6 +652,10 @@ export interface RepositoryProvider {
   fetchRecentWorkflowRuns?: (limit?: number) => Promise<ProviderWorkflowRun[]>
   fetchRepositoryContent?: (path: string) => Promise<ProviderRepositoryContent | null>
   fetchPinnedIssues?: () => Promise<number[]>
+  fetchCollaborators: () => Promise<ProviderCollaborator[]>
+  fetchTeams: () => Promise<ProviderTeam[]>
+  fetchAppInstallations: () => Promise<ProviderAppInstallation[]>
+  fetchCodeowners: () => Promise<ProviderCodeowners | null>
   getRequestCount: () => number
   fetchPullReviews: (number: number) => Promise<ProviderPullReview[]>
   fetchPullReviewThreads: (number: number) => Promise<ProviderPullReviewThread[]>
@@ -574,6 +672,20 @@ export interface RepositoryProvider {
   fetchCollaborators?: () => Promise<ProviderCollaborator[]>
   fetchTeams?: () => Promise<ProviderTeam[]>
   fetchInstalledApps?: () => Promise<ProviderApp[]>
+  fetchPullCompare: (number: number) => Promise<ProviderPullCompare>
+  fetchPullStack: (number: number) => Promise<ProviderPullStack>
+  fetchPullStatusCheckRollup: (number: number) => Promise<ProviderPullStatusCheckRollup>
+
+  fetchEvents?: (limit?: number) => Promise<ProviderEvent[]>
+  fetchDeployments?: () => Promise<ProviderDeployment[]>
+
+  fetchIssueDependenciesBlockedBy: (number: number) => Promise<ProviderIssueDependency[]>
+  fetchIssueDependenciesBlocking: (number: number) => Promise<ProviderIssueDependency[]>
+  fetchIssueSubIssues: (number: number) => Promise<ProviderSubIssue[]>
+  fetchIssueParent: (number: number) => Promise<ProviderParentIssue | null>
+  fetchIssueFieldValues: (number: number) => Promise<ProviderIssueFieldValue[]>
+  fetchRepositoryIssueTypes: () => Promise<ProviderIssueType[]>
+  fetchOrganizationIssueFields: (org: string) => Promise<ProviderIssueField[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>

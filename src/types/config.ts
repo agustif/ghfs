@@ -174,9 +174,10 @@ export interface GhfsUserConfig {
   }
 }
 
-export type GhfsResolvedConfig = Required<GhfsUserConfig> & {
+export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended'> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: Required<GhfsUserConfig['sync']>
   extended: Required<NonNullable<GhfsUserConfig['extended']>>
+  extended?: GhfsUserConfig['extended']
 }
