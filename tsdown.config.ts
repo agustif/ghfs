@@ -1,6 +1,6 @@
 import { access, cp, rm } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'pathe'
 import { defineConfig } from 'tsdown'
 
 const here = dirname(fileURLToPath(import.meta.url))

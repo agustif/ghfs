@@ -80,7 +80,6 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const extendedMe = merged.extended?.me ?? true
   const extendedSecurity = merged.extended?.security ?? true
   const extendedSyncState = merged.extended?.syncState ?? true
-  const releasesEnabled = merged.sync?.releases ?? true
   const packagesEnabled = merged.sync?.packages ?? true
   const pullIntelligence = {
     reviews: merged.sync?.pullIntelligence?.reviews ?? true,
