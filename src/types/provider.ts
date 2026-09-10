@@ -238,6 +238,85 @@ export interface ProviderMilestone {
   closed_at: string | null
 }
 
+export interface ProviderSecurityAlert {
+  number: number
+  state: 'open' | 'dismissed' | 'fixed'
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  createdAt: string
+  dismissedAt: string | null
+  fixedAt: string | null
+}
+
+export interface ProviderDependabotAlert extends ProviderSecurityAlert {
+  package: string
+  ecosystem: string
+  vulnerableVersionRange: string | null
+}
+
+export interface ProviderCodeScanningAlert extends ProviderSecurityAlert {
+  rule: string
+  tool: string
+  location: {
+    path: string
+    startLine: number
+    endLine: number
+  }
+}
+
+export interface ProviderSecretScanningAlert extends ProviderSecurityAlert {
+  secretType: string
+  resolution: string | null
+}
+
+export interface ProviderDeployment {
+  id: number
+  ref: string
+  sha: string
+  environment: string
+  state: 'queued' | 'in_progress' | 'success' | 'failure' | 'error' | 'inactive'
+  createdAt: string
+  updatedAt: string
+  creator: string | null
+  description: string | null
+  url: string | null
+}
+
+export interface ProviderEnvironment {
+  name: string
+  url: string | null
+}
+
+export interface ProviderRepoEvent {
+  id: string
+  type: string
+  actor: string | null
+  createdAt: string
+  payload: Record<string, unknown>
+}
+
+export interface ProviderCollaborator {
+  login: string
+  permissions: {
+    admin: boolean
+    maintain: boolean
+    push: boolean
+    triage: boolean
+    pull: boolean
+  }
+}
+
+export interface ProviderTeam {
+  name: string
+  slug: string
+  permission: string
+}
+
+export interface ProviderApp {
+  id: number
+  name: string
+  slug: string
+}
+
 export interface ProviderItemSnapshot {
   number: number
   kind: IssueKind
@@ -353,6 +432,16 @@ export interface RepositoryProvider {
   fetchRepositoryContent?: (path: string) => Promise<ProviderRepositoryContent | null>
   fetchPinnedIssues?: () => Promise<number[]>
   getRequestCount: () => number
+
+  fetchDependabotAlerts?: (options?: { state?: 'open' | 'dismissed' | 'fixed', limit?: number }) => Promise<ProviderDependabotAlert[]>
+  fetchCodeScanningAlerts?: (options?: { state?: 'open' | 'dismissed' | 'fixed', limit?: number }) => Promise<ProviderCodeScanningAlert[]>
+  fetchSecretScanningAlerts?: (options?: { state?: 'open' | 'resolved', limit?: number }) => Promise<ProviderSecretScanningAlert[]>
+  fetchDeployments?: (options?: { ref?: string, environment?: string, limit?: number }) => Promise<ProviderDeployment[]>
+  fetchEnvironments?: () => Promise<ProviderEnvironment[]>
+  fetchRepoEvents?: (limit?: number) => Promise<ProviderRepoEvent[]>
+  fetchCollaborators?: () => Promise<ProviderCollaborator[]>
+  fetchTeams?: () => Promise<ProviderTeam[]>
+  fetchInstalledApps?: () => Promise<ProviderApp[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>

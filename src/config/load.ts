@@ -65,6 +65,12 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const closedMode = merged.sync?.closed ?? false
   const patchesMode = merged.sync?.patches ?? 'open'
 
+  const extendedGraph = merged.extended?.graph ?? true
+  const extendedSearch = merged.extended?.search ?? true
+  const extendedMe = merged.extended?.me ?? true
+  const extendedSecurity = merged.extended?.security ?? true
+  const extendedSyncState = merged.extended?.syncState ?? true
+
   return {
     cwd,
     repo,
@@ -84,6 +90,13 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       rulesets: merged.sync?.rulesets ?? true,
       constitution: merged.sync?.constitution ?? true,
       actions: merged.sync?.actions ?? true,
+    },
+    extended: {
+      graph: extendedGraph,
+      search: extendedSearch,
+      me: extendedMe,
+      security: extendedSecurity,
+      syncState: extendedSyncState,
     },
   }
 }
@@ -117,6 +130,10 @@ function mergeUserConfig(base: GhfsUserConfig, overrides: Partial<GhfsUserConfig
     sync: {
       ...base.sync,
       ...overrides.sync,
+    },
+    extended: {
+      ...base.extended,
+      ...overrides.extended,
     },
   }
 }

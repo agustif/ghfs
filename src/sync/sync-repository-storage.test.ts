@@ -360,6 +360,13 @@ function createSyncContext(storageDirAbsolute: string, syncOverrides: Partial<Sy
         constitution: true,
         actions: true,
       },
+      extended: {
+        graph: true,
+        search: true,
+        me: true,
+        security: true,
+        syncState: true,
+      },
     },
     syncState: {
       version: 2,

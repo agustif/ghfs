@@ -190,6 +190,13 @@ function createContext(overrides: {
         constitution: true,
         actions: true,
       },
+      extended: {
+        graph: true,
+        search: true,
+        me: true,
+        security: true,
+        syncState: true,
+      },
     },
     syncState: {
       version: 2,

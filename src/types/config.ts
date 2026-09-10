@@ -100,10 +100,48 @@ export interface GhfsUserConfig {
      */
     actions?: boolean
   }
+  /**
+   * Extended metadata generation for agent ergonomics.
+   */
+  extended?: {
+    /**
+     * Generate graph.jsonl with nodes and edges for agent navigation.
+     *
+     * @default true
+     */
+    graph?: boolean
+    /**
+     * Generate search.jsonl for fast local lookup.
+     *
+     * @default true
+     */
+    search?: boolean
+    /**
+     * Generate me.md with personal work summary (assigned, review-requested, mentions).
+     * Only created if authenticated user is available.
+     *
+     * @default true
+     */
+    me?: boolean
+    /**
+     * Generate security/summary.json with Dependabot, code scanning, and secret scanning alerts.
+     * Gracefully skips if features unavailable or no permissions.
+     *
+     * @default true
+     */
+    security?: boolean
+    /**
+     * Generate sync-state.json with full sync state for staleness detection.
+     *
+     * @default true
+     */
+    syncState?: boolean
+  }
 }
 
 export type GhfsResolvedConfig = Required<GhfsUserConfig> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: Required<GhfsUserConfig['sync']>
+  extended: Required<NonNullable<GhfsUserConfig['extended']>>
 }
