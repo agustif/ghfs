@@ -75,6 +75,12 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const extendedSecurity = merged.extended?.security ?? true
   const extendedSyncState = merged.extended?.syncState ?? true
 
+  const extendedGraph = merged.extended?.graph ?? true
+  const extendedSearch = merged.extended?.search ?? true
+  const extendedMe = merged.extended?.me ?? true
+  const extendedSecurity = merged.extended?.security ?? true
+  const extendedSyncState = merged.extended?.syncState ?? true
+
   return {
     cwd,
     repo,
@@ -100,6 +106,13 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
         files: pullIntelligenceFiles,
         gate: pullIntelligenceGate,
       },
+    },
+    extended: {
+      graph: extendedGraph,
+      search: extendedSearch,
+      me: extendedMe,
+      security: extendedSecurity,
+      syncState: extendedSyncState,
     },
     extended: {
       graph: extendedGraph,
