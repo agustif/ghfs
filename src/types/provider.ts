@@ -453,6 +453,161 @@ export interface ProviderRepositoryContent {
   type: 'file' | 'dir' | 'symlink' | 'submodule'
   content?: string
   encoding?: string
+export interface ProviderNotification {
+  id: string
+  subject: {
+    title: string
+    type: string
+    url: string | null
+  }
+  reason: string
+  unread: boolean
+  updated_at: string
+  last_read_at: string | null
+  url: string
+}
+
+export interface ProviderRateLimit {
+  resources: {
+    core: {
+      limit: number
+      remaining: number
+      reset: number
+      used: number
+    }
+    graphql: {
+      limit: number
+      remaining: number
+      reset: number
+      used: number
+    }
+    search: {
+      limit: number
+      remaining: number
+      reset: number
+      used: number
+    }
+  }
+  rate: {
+    limit: number
+    remaining: number
+    reset: number
+    used: number
+  }
+}
+
+export interface ProviderPermission {
+  permission: 'admin' | 'push' | 'pull' | 'none'
+  role_name: string
+}
+
+export interface ProviderCommunityProfile {
+  health_percentage: number
+  description: string | null
+  documentation: string | null
+  files: {
+    code_of_conduct: { name: string, key: string, url: string, html_url: string } | null
+    code_of_conduct_file: { url: string, html_url: string } | null
+    contributing: { url: string, html_url: string } | null
+    issue_template: { url: string, html_url: string } | null
+    pull_request_template: { url: string, html_url: string } | null
+    license: { name: string, key: string, spdx_id: string, url: string, html_url: string } | null
+    readme: { url: string, html_url: string } | null
+  }
+  updated_at: string | null
+  content_reports_enabled: boolean | null
+}
+
+export interface ProviderInteractionLimits {
+  limit: 'existing_users' | 'contributors_only' | 'collaborators_only' | null
+  origin: string
+  expires_at: string | null
+}
+
+export interface ProviderCustomProperty {
+  property_name: string
+  value: string | number | string[] | null
+}
+
+export interface ProviderEnvironment {
+  id: number
+  node_id: string
+  name: string
+  url: string
+  html_url: string
+  created_at: string
+  updated_at: string
+  protection_rules?: Array<{
+    id: number
+    node_id: string
+    type: string
+    wait_timer?: number
+    reviewers?: Array<{
+      type: 'User' | 'Team'
+      reviewer: {
+        login?: string
+        name?: string
+      }
+    }>
+    deployment_branch_policy?: {
+      protected_branches: boolean
+      custom_branch_policies: boolean
+    }
+  }>
+  deployment_branch_policy: {
+    protected_branches: boolean
+    custom_branch_policies: boolean
+  } | null
+}
+
+export interface ProviderDeployKey {
+  id: number
+  key: string
+  url: string
+  title: string
+  verified: boolean
+  created_at: string
+  read_only: boolean
+}
+
+export interface ProviderActionsCache {
+  id: number
+  ref: string
+  key: string
+  version: string
+  last_accessed_at: string
+  created_at: string
+  size_in_bytes: number
+}
+
+export interface ProviderPagesBuild {
+  url: string
+  status: string
+  error: {
+    message: string | null
+  }
+  pusher: {
+    login: string
+    avatar_url: string
+  }
+  commit: string
+  duration: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ProviderTagProtection {
+  id: number
+  pattern: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ProviderAutolink {
+  id: number
+  key_prefix: string
+  url_template: string
+  is_alphanumeric: boolean
 }
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
@@ -511,6 +666,20 @@ export interface RepositoryProvider {
   fetchCollaborators?: () => Promise<ProviderCollaborator[]>
   fetchTeams?: () => Promise<ProviderTeam[]>
   fetchInstalledApps?: () => Promise<ProviderApp[]>
+
+  fetchNotifications: () => Promise<ProviderNotification[]>
+  fetchRateLimit: () => Promise<ProviderRateLimit>
+  fetchPermission: () => Promise<ProviderPermission>
+  fetchCommunityProfile: () => Promise<ProviderCommunityProfile>
+  fetchInteractionLimits: () => Promise<ProviderInteractionLimits | null>
+  fetchCustomProperties: () => Promise<ProviderCustomProperty[]>
+  fetchTopics: () => Promise<string[]>
+  fetchEnvironments: () => Promise<ProviderEnvironment[]>
+  fetchDeployKeys: () => Promise<ProviderDeployKey[]>
+  fetchActionsCaches: () => Promise<ProviderActionsCache[]>
+  fetchPagesBuilds: () => Promise<ProviderPagesBuild[]>
+  fetchTagProtection: () => Promise<ProviderTagProtection[]>
+  fetchAutolinks: () => Promise<ProviderAutolink[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>

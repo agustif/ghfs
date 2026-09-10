@@ -15,6 +15,7 @@ import {
   reconcileMarkdownFilesByScan,
   rematerializeTrackedMarkdown,
 } from './sync-repository-item'
+import { syncRepositoryMetadata } from './sync-repository-metadata'
 import { fetchIssueCandidatesByNumbers, fetchIssueCandidatesByPagination } from './sync-repository-provider'
 import { writeRepositoryIndexes, writeRepoSnapshot } from './sync-repository-snapshot'
 import { pruneMissingOpenTrackedItems, pruneTrackedClosedItems } from './sync-repository-storage'
@@ -219,6 +220,13 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
         await writeRepositoryIndexes(syncContext)
         await writeExtendedMetadata(syncContext).catch(() => {})
       }
+
+      await syncRepositoryMetadata({
+        provider: syncContext.provider,
+        storageDirAbsolute: syncContext.storageDirAbsolute,
+        config: syncContext.config,
+        syncedAt: syncContext.syncedAt,
+      })
 
       syncContext.syncState.ghfsVersion = GHFS_VERSION
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)

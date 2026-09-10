@@ -107,6 +107,21 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       me: extendedMe,
       security: extendedSecurity,
       syncState: extendedSyncState,
+      metadata: {
+        notifications: merged.sync?.metadata?.notifications ?? true,
+        rateLimit: merged.sync?.metadata?.rateLimit ?? true,
+        permissions: merged.sync?.metadata?.permissions ?? true,
+        communityProfile: merged.sync?.metadata?.communityProfile ?? true,
+        interactionLimits: merged.sync?.metadata?.interactionLimits ?? true,
+        customProperties: merged.sync?.metadata?.customProperties ?? true,
+        topics: merged.sync?.metadata?.topics ?? true,
+        environments: merged.sync?.metadata?.environments ?? true,
+        deployKeys: merged.sync?.metadata?.deployKeys ?? true,
+        actionsCaches: merged.sync?.metadata?.actionsCaches ?? true,
+        pagesBuilds: merged.sync?.metadata?.pagesBuilds ?? true,
+        tagProtection: merged.sync?.metadata?.tagProtection ?? true,
+        autolinks: merged.sync?.metadata?.autolinks ?? true,
+      },
     },
   }
 }
@@ -140,6 +155,10 @@ function mergeUserConfig(base: GhfsUserConfig, overrides: Partial<GhfsUserConfig
     sync: {
       ...base.sync,
       ...overrides.sync,
+      metadata: {
+        ...base.sync?.metadata,
+        ...overrides.sync?.metadata,
+      },
     },
     extended: {
       ...base.extended,
