@@ -251,6 +251,220 @@ export interface ProviderUpdateCounts {
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
 
+export interface ProviderBillingUsageSummary {
+  date: string
+  product: string
+  usage: number
+  unit_amount_in_cents: number | null
+  cost_in_cents: number | null
+}
+
+export interface ProviderPackage {
+  id: number
+  name: string
+  package_type: string
+  visibility: string
+  created_at: string
+  updated_at: string
+  html_url: string | null
+  repository?: {
+    id: number
+    name: string
+    full_name: string
+  } | null
+}
+
+export interface ProviderCodespace {
+  id: number
+  name: string
+  display_name?: string | null
+  environment_id: string | null
+  owner: {
+    login: string
+    avatar_url?: string
+  }
+  billable_owner: {
+    login: string
+  }
+  repository: {
+    id: number
+    name: string
+    full_name: string
+  }
+  machine: {
+    name: string
+    display_name: string
+    operating_system: string
+    storage_in_bytes: number
+    memory_in_bytes: number
+    cpus: number
+  } | null
+  state: string
+  created_at: string
+  updated_at: string
+  last_used_at: string
+  git_status: {
+    ahead?: number
+    behind?: number
+    has_unpushed_changes?: boolean
+    has_uncommitted_changes?: boolean
+  }
+}
+
+export interface ProviderSecretScanningAlert {
+  number: number
+  created_at: string
+  updated_at: string | null
+  url: string
+  html_url: string
+  state: string
+  resolution: string | null
+  resolved_at: string | null
+  resolved_by: {
+    login: string
+    avatar_url?: string
+  } | null
+  secret_type: string
+  secret_type_display_name: string
+  secret: string
+  validity?: string | null
+  push_protection_bypassed?: boolean
+  push_protection_bypassed_by?: {
+    login: string
+    avatar_url?: string
+  } | null
+  push_protection_bypassed_at?: string | null
+}
+
+export interface ProviderSecretScanningLocation {
+  type: string
+  details: {
+    path: string
+    start_line: number
+    end_line: number
+    start_column: number
+    end_column: number
+    blob_sha: string
+    blob_url: string
+    commit_sha: string
+    commit_url: string
+  }
+}
+
+export interface ProviderDependabotAlert {
+  number: number
+  state: string
+  dependency: {
+    package: {
+      ecosystem: string
+      name: string
+    }
+    manifest_path: string
+    scope: string | null
+  }
+  security_advisory: {
+    ghsa_id: string
+    cve_id: string | null
+    summary: string
+    description: string
+    severity: string
+    identifiers: Array<{
+      type: string
+      value: string
+    }>
+    references: Array<{
+      url: string
+    }>
+    published_at: string
+    updated_at: string
+    withdrawn_at: string | null
+    cvss: {
+      vector_string: string | null
+      score: number | null
+    }
+    cwes: Array<{
+      cwe_id: string
+      name: string
+    }>
+  }
+  security_vulnerability: {
+    package: {
+      ecosystem: string
+      name: string
+    }
+    severity: string
+    vulnerable_version_range: string
+    first_patched_version: {
+      identifier: string
+    } | null
+  }
+  url: string
+  html_url: string
+  created_at: string
+  updated_at: string
+  dismissed_at: string | null
+  dismissed_by: {
+    login: string
+    avatar_url?: string
+  } | null
+  dismissed_reason: string | null
+  dismissed_comment: string | null
+  fixed_at: string | null
+  auto_dismissed_at: string | null
+}
+
+export interface ProviderCodeScanningAlert {
+  number: number
+  created_at: string
+  updated_at: string | null
+  url: string
+  html_url: string
+  state: string
+  fixed_at: string | null
+  dismissed_by: {
+    login: string
+    avatar_url?: string
+  } | null
+  dismissed_at: string | null
+  dismissed_reason: string | null
+  dismissed_comment: string | null
+  rule: {
+    id: string
+    severity: string
+    security_severity_level: string | null
+    description: string
+    name: string
+    tags: string[]
+    full_description?: string
+    help?: string
+    help_uri?: string
+  }
+  tool: {
+    name: string
+    version: string | null
+    guid: string | null
+  }
+  most_recent_instance: {
+    ref: string
+    analysis_key: string
+    environment: string
+    category: string
+    state: string
+    commit_sha: string
+    message: {
+      text: string
+    }
+    location: {
+      path: string
+      start_line: number
+      end_line: number
+      start_column: number
+      end_column: number
+    }
+    classifications: string[]
+  }
+}
+
 /**
  * Where a reaction is applied. `item` = issue/PR body (uses `op.number`).
  * `comment` = issue/PR conversation comment. `review` = a PR review body
@@ -284,6 +498,14 @@ export interface RepositoryProvider {
   fetchAuthenticatedUser: () => Promise<ProviderAuthenticatedUser | null>
   countUpdatedSince: (since: string) => Promise<ProviderUpdateCounts>
   getRequestCount: () => number
+
+  fetchBillingUsageSummary: () => Promise<ProviderBillingUsageSummary[] | null>
+  fetchPackages: () => Promise<ProviderPackage[]>
+  fetchCodespaces: () => Promise<ProviderCodespace[]>
+  fetchSecretScanningAlerts: () => Promise<ProviderSecretScanningAlert[]>
+  fetchSecretScanningAlertLocations: (alertNumber: number) => Promise<ProviderSecretScanningLocation[]>
+  fetchDependabotAlerts: () => Promise<ProviderDependabotAlert[]>
+  fetchCodeScanningAlerts: () => Promise<ProviderCodeScanningAlert[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>

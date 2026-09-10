@@ -8,6 +8,7 @@ import { createRepositoryProvider } from '../providers/factory'
 import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
 import { loadSyncState, saveSyncState } from './state'
+import { writeRepositoryFeatures } from './sync-repository-features'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,
@@ -211,8 +212,10 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
         message: `scan-fixed written=${scanStats.written} moved=${scanStats.moved}`,
       })
 
-      if (!shouldEarlyReturn)
+      if (!shouldEarlyReturn) {
         await writeRepoSnapshot(syncContext)
+        await writeRepositoryFeatures(syncContext)
+      }
 
       if (!shouldEarlyReturn || ghfsVersionMismatch)
         await writeRepositoryIndexes(syncContext)

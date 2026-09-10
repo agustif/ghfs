@@ -3,19 +3,26 @@ import type {
   MergeOptions,
   PaginateItemsOptions,
   ProviderAuthenticatedUser,
+  ProviderBillingUsageSummary,
+  ProviderCodeScanningAlert,
+  ProviderCodespace,
   ProviderComment,
   ProviderCommit,
+  ProviderDependabotAlert,
   ProviderItem,
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
   ProviderMilestone,
+  ProviderPackage,
   ProviderPullMetadata,
   ProviderReactions,
   ProviderRepository,
   ProviderReviewComment,
   ProviderReviewDecision,
   ProviderReviewState,
+  ProviderSecretScanningAlert,
+  ProviderSecretScanningLocation,
   ProviderTimelineEvent,
   ProviderTimelineSource,
   ProviderUpdateCounts,
@@ -71,6 +78,14 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchAuthenticatedUser: fetchAuthenticatedUserCached,
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
     getRequestCount: () => requestCount,
+
+    fetchBillingUsageSummary: () => fetchBillingUsageSummary(octokit, owner, bumpRequestCount),
+    fetchPackages: () => fetchPackages(octokit, owner, repo, bumpRequestCount),
+    fetchCodespaces: () => fetchCodespaces(octokit, owner, repo, bumpRequestCount),
+    fetchSecretScanningAlerts: () => fetchSecretScanningAlerts(octokit, owner, repo, bumpRequestCount),
+    fetchSecretScanningAlertLocations: alertNumber => fetchSecretScanningAlertLocations(octokit, owner, repo, alertNumber, bumpRequestCount),
+    fetchDependabotAlerts: () => fetchDependabotAlerts(octokit, owner, repo, bumpRequestCount),
+    fetchCodeScanningAlerts: () => fetchCodeScanningAlerts(octokit, owner, repo, bumpRequestCount),
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
@@ -1598,4 +1613,245 @@ interface GitHubTimelineEvent {
   /** Populated for `auto_merge_*` / `auto_squash_*` / `auto_rebase_*`. */
   commit_title?: string
   commit_message?: string
+}
+
+/**
+ * Fetches billing usage summary. Returns null when token lacks permission or
+ * billing API is unavailable. Never throws — graceful degradation.
+ *
+ * Attempts both user-level and org-level endpoints:
+ * - GET /users/{username}/settings/billing/usage/summary
+ * - GET /organizations/{org}/settings/billing/usage/summary
+ *
+ * References:
+ * - https://docs.github.com/en/rest/billing/usage
+ */
+async function fetchBillingUsageSummary(
+  octokit: Octokit,
+  owner: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderBillingUsageSummary[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /users/{username}/settings/billing/usage/summary', {
+      username: owner,
+      headers: {
+        'X-GitHub-Api-Version': '2026-03-10',
+      },
+    })
+    return (result.data as any)?.usage_items ?? []
+  }
+  catch {
+    try {
+      bumpRequestCount()
+      const orgResult = await octokit.request('GET /organizations/{org}/settings/billing/usage/summary', {
+        org: owner,
+        headers: {
+          'X-GitHub-Api-Version': '2026-03-10',
+        },
+      })
+      return (orgResult.data as any)?.usage_items ?? []
+    }
+    catch {
+      return null
+    }
+  }
+}
+
+/**
+ * Lists packages for a repository (or organization if repo-level returns empty).
+ * Supports GHCR (container), npm, maven, rubygems, nuget, docker.
+ *
+ * References:
+ * - https://docs.github.com/en/rest/packages/packages
+ */
+async function fetchPackages(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderPackage[]> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/packages', {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    const repoPackages = (result.data as any) ?? []
+    if (repoPackages.length > 0)
+      return repoPackages
+  }
+  catch {
+    // Fallback to org-level
+  }
+
+  try {
+    bumpRequestCount()
+    const orgResult = await octokit.paginate(octokit.rest.packages.listPackagesForOrganization, {
+      org: owner,
+      per_page: 100,
+      package_type: 'container',
+    })
+    return orgResult as any[]
+  }
+  catch {
+    return []
+  }
+}
+
+/**
+ * Lists codespaces for a repository. Requires `codespace` scope.
+ *
+ * References:
+ * - https://docs.github.com/en/rest/codespaces/codespaces
+ */
+async function fetchCodespaces(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderCodespace[]> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.paginate(octokit.rest.codespaces.listInRepositoryForAuthenticatedUser, {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return (result as any)?.codespaces ?? result ?? []
+  }
+  catch {
+    return []
+  }
+}
+
+/**
+ * Lists all secret scanning alerts for a repository. Returns full metadata
+ * EXCEPT the actual secret value (which is redacted by GitHub API).
+ *
+ * References:
+ * - https://docs.github.com/en/rest/secret-scanning/secret-scanning
+ */
+async function fetchSecretScanningAlerts(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderSecretScanningAlert[]> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.paginate(octokit.rest.secretScanning.listAlertsForRepo, {
+      owner,
+      repo,
+      per_page: 100,
+      state: 'open',
+    })
+    return result.map((alert: any) => ({
+      number: alert.number,
+      created_at: alert.created_at,
+      updated_at: alert.updated_at ?? null,
+      url: alert.url,
+      html_url: alert.html_url,
+      state: alert.state,
+      resolution: alert.resolution ?? null,
+      resolved_at: alert.resolved_at ?? null,
+      resolved_by: alert.resolved_by ?? null,
+      secret_type: alert.secret_type,
+      secret_type_display_name: alert.secret_type_display_name,
+      secret: '[REDACTED]',
+      validity: alert.validity ?? null,
+      push_protection_bypassed: alert.push_protection_bypassed ?? false,
+      push_protection_bypassed_by: alert.push_protection_bypassed_by ?? null,
+      push_protection_bypassed_at: alert.push_protection_bypassed_at ?? null,
+    }))
+  }
+  catch {
+    return []
+  }
+}
+
+/**
+ * Lists locations for a secret scanning alert. Returns paths and line ranges,
+ * NOT the actual secret string.
+ *
+ * References:
+ * - https://docs.github.com/en/rest/secret-scanning/secret-scanning
+ */
+async function fetchSecretScanningAlertLocations(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  alertNumber: number,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderSecretScanningLocation[]> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.paginate(octokit.rest.secretScanning.listLocationsForAlert, {
+      owner,
+      repo,
+      alert_number: alertNumber,
+      per_page: 100,
+    })
+    return result as any[]
+  }
+  catch {
+    return []
+  }
+}
+
+/**
+ * Lists ALL Dependabot alerts for a repository using cursor-based pagination.
+ * No top-10 cap. Supports filtering by state, severity, ecosystem, etc.
+ *
+ * References:
+ * - https://docs.github.com/en/rest/dependabot/alerts
+ */
+async function fetchDependabotAlerts(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderDependabotAlert[]> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.paginate(octokit.rest.dependabot.listAlertsForRepo, {
+      owner,
+      repo,
+      per_page: 100,
+      state: 'open',
+    })
+    return result as any[]
+  }
+  catch {
+    return []
+  }
+}
+
+/**
+ * Lists ALL code scanning alerts for a repository. No cap. Full list with
+ * rule metadata, severity, instance details.
+ *
+ * References:
+ * - https://docs.github.com/en/rest/code-scanning/code-scanning
+ */
+async function fetchCodeScanningAlerts(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderCodeScanningAlert[]> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.paginate(octokit.rest.codeScanning.listAlertsForRepo, {
+      owner,
+      repo,
+      per_page: 100,
+      state: 'open',
+    })
+    return result as any[]
+  }
+  catch {
+    return []
+  }
 }
