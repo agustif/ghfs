@@ -289,6 +289,27 @@ export interface ProviderAuthenticatedUser {
   avatarUrl: string
 }
 
+export interface ProviderEvent {
+  id: string
+  type: string
+  actor: string | null
+  createdAt: string
+  payload?: Record<string, any>
+}
+
+export interface ProviderDeployment {
+  id: number
+  environment: string
+  state: string
+  description: string | null
+  createdAt: string
+  updatedAt: string
+  creator: string | null
+  ref: string
+  sha: string
+  url?: string
+}
+
 export interface ProviderMilestone {
   number: number
   title: string
@@ -543,6 +564,9 @@ export interface RepositoryProvider {
   fetchCollaborators?: () => Promise<ProviderCollaborator[]>
   fetchTeams?: () => Promise<ProviderTeam[]>
   fetchInstalledApps?: () => Promise<ProviderApp[]>
+
+  fetchEvents?: (limit?: number) => Promise<ProviderEvent[]>
+  fetchDeployments?: () => Promise<ProviderDeployment[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>
