@@ -66,6 +66,7 @@
     "@effect/platform-node": "catalog:",
     "@octokit/plugin-retry": "catalog:",
     "@octokit/plugin-throttling": "catalog:",
+    "alchemy": "github:agustif/alchemy#main",
     "ansis": "catalog:",
     "cac": "catalog:",
     "devframe": "catalog:",

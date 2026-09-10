@@ -314,12 +314,64 @@ export default defineConfig({
 })
 ```
 
+## Alchemy Fork Integration (Apply Path)
+
+`ghfs` now integrates with the [agustif/alchemy](https://github.com/agustif/alchemy) fork for **declarative GitHub resource management**. This enables Infrastructure-as-Code style apply operations:
+
+```
+Two-way Sync Pattern:
+  ghfs sync  → Read GitHub state → .ghfs/ filesystem (observe)
+  ghfs apply → .ghfs/ → alchemy Stack → GitHub API (apply)
+```
+
+### Alchemy Resources Available
+
+The fork provides Effect-based GitHub resources:
+
+**Core Resources**: Label, Milestone, Issue, PullRequest, WikiPage, Release, Collaborator, TeamAccess, Ruleset, BranchProtection, Environment, Secret, Variable, Webhook, Comment
+
+**Status**: Apply/Declare phase ✅ Complete ([alchemy#6](https://github.com/agustif/alchemy/issues/6))
+
+### Installation
+
+```bash
+pnpm install  # alchemy fork included as dependency
+```
+
+### Example Usage
+
+See [examples/alchemy/ghfs.run.ts](examples/alchemy/ghfs.run.ts) for a complete Stack example.
+
+```typescript
+import { Alchemy } from "alchemy"
+import * as GitHub from "alchemy/GitHub"
+
+export default Alchemy.Stack(
+  "my-repo",
+  { providers: [GitHub.Providers] },
+  Effect.gen(function* () {
+    yield* GitHub.Label({
+      name: "priority:high",
+      color: "d93f0b",
+      description: "High priority issues"
+    })
+  })
+)
+```
+
+**Resources**:
+- [Alchemy Fork Inventory](docs/alchemy-fork-inventory.md) - Complete resource list
+- [Alchemy Fork](https://github.com/agustif/alchemy) - GitHub provider implementation
+- [Epic #6](https://github.com/agustif/alchemy/issues/6) - Two-way sync roadmap
+
+> **Note**: Upstream PRs to alchemy-run/alchemy are optional/non-blocking. ghfs consumes the fork directly for GitHub apply operations.
+
 ## TODOs
 
 - [x] `execute.md` file with human-friendly instructions (`close #123 #234`, `set-title #125 "New title"`).
 - [x] Directly editing the `<5-digit-number>-<slug>.md` file to apply the operations.
+- [x] Effect-based desired-state workflow - via alchemy fork integration
 - [ ] Add a VS Code extension for guided sync/execute.
-- [ ] Effect-based desired-state workflow (`ghfs plan` / `ghfs apply`) - see [#115](https://github.com/agustif/ghfs/pull/115), [#120](https://github.com/agustif/ghfs/pull/120), [#137](https://github.com/agustif/ghfs/pull/137)
 - [x] Index page, and basic repo info
 - [x] Agent Skills.
 - [x] Local Web UI for managing the local mirror (`ghfs ui` and `ghfs hub`).
