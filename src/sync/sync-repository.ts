@@ -220,6 +220,17 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
 
       await writePagesBuilds(syncContext)
 
+      if (!shouldEarlyReturn && !targetNumbers) {
+        try {
+          await runSearchCoverage(options.config, provider)
+        }
+        catch {
+        }
+      }
+
+      if (!shouldEarlyReturn)
+        await writeKitchenSinkData(syncContext)
+
       syncContext.syncState.ghfsVersion = GHFS_VERSION
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)
     })
