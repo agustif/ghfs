@@ -258,14 +258,46 @@ const withFile = Effect.fn("withFile")(function*(path: string) {
 └─────────────────────────────────────┘
 ```
 
+## CLI: effect/unstable/cli (First-Class)
+
+**The CLI is a primary product surface built with `effect/unstable/cli` (bleeding edge / unstable is intentional).**
+
+- Typed commands with `Command.make`
+- Args with `Args.text`, `Args.integer`, `Args.optional`
+- Options with `Options.boolean`, `Options.text`, `Options.withDefault`
+- Nested subcommands with `Command.withSubcommands`
+- Help text with `Command.withDescription`, `Command.withHelp`
+- Single edge execution with `NodeRuntime.runMain`
+
+### Commands
+
+- `ghfs sync [repo] [--full] [--since ISO] [--watch] [--concurrency N]`
+- `ghfs status` - Mirror freshness / sync state
+- `ghfs watch [--interval DURATION]` - Schedule-based repeat sync
+- `ghfs doctor [--fix]` - Validate `.ghfs` artifacts via Schema
+- `ghfs config` - Show effective Config (redacts secrets)
+- `ghfs execute [--run] [--continue-on-error]` - Execute operations
+
+### Environment Config
+
+All configuration via Effect Config (no config file parser needed):
+- `GITHUB_TOKEN` / `GH_TOKEN` - Auth token (Redacted)
+- `GHFS_REPO` - Repository (owner/repo)
+- `GHFS_DIRECTORY` - Mirror directory (default: .ghfs)
+- `GHFS_SYNC_ISSUES` - Sync issues (default: true)
+- `GHFS_SYNC_PULLS` - Sync PRs (default: true)
+- `GHFS_SYNC_CLOSED` - Sync closed (existing/all/false)
+- `GHFS_SYNC_PATCHES` - Sync patches (open/all/false)
+
+No parallel hand-rolled argv parser. No old CLI wrapped in Effect.runPromise. Pure effect/unstable/cli.
+
 ## Package Versions
 
-- `effect@^4.0.0-rc` (v4 RC/canary)
-- `@effect/platform@^0.x.x` (latest RC)
-- `@effect/platform-node@^0.x.x` (latest RC)
-- `effect/unstable/cli` (bleeding edge, OK per user)
-- `@effect/vitest@^0.x.x`
-- `@effect/schema@^0.x.x`
+- `effect@^4.0.0-rc.113` (v4 RC)
+- `@effect/platform@^0.97.2`
+- `@effect/platform-node@^0.108.2`
+- `@effect/cli@^0.77.1` (`effect/unstable/cli` - bleeding edge OK)
+- `@effect/vitest@^0.14.9`
 
 ## Migration from Old Codebase
 
@@ -372,3 +404,6 @@ The Effect rewrite unlocks capabilities the old codebase never had. These are **
 **Last Updated**: 2026-09-10  
 **Author**: Cloud Agent  
 **Phase**: 0 (Principles Documentation) + 2 (Enhanced Implementation)
+**This document is the architectural foundation for all ghfs Effect code.**
+
+**Last Updated**: 2026-09-10
