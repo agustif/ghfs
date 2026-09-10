@@ -93,7 +93,7 @@ export class GitHubClient extends Context.Service<
       const fetchRepo = Effect.fn("GitHubClient.fetchRepo")(function* () {
         const response = yield* client.get(`/repos/${owner}/${name}`)
         const json = yield* HttpClientResponse.json(response)
-        return json as Repo
+        return yield* Schema.decodeUnknown(Repo)(json)
       }).pipe(Effect.catchAll(handleError))
 
       const fetchIssues = Effect.fn("GitHubClient.fetchIssues")(function* (params: {
@@ -111,13 +111,13 @@ export class GitHubClient extends Context.Service<
           `/repos/${owner}/${name}/issues?${searchParams.toString()}`
         )
         const json = yield* HttpClientResponse.json(response)
-        return json as Array<Issue>
+        return yield* Schema.decodeUnknown(Schema.Array(Issue))(json)
       }).pipe(Effect.catchAll(handleError))
 
       const fetchIssue = Effect.fn("GitHubClient.fetchIssue")(function* (number: number) {
         const response = yield* client.get(`/repos/${owner}/${name}/issues/${number}`)
         const json = yield* HttpClientResponse.json(response)
-        return json as Issue
+        return yield* Schema.decodeUnknown(Issue)(json)
       }).pipe(Effect.catchAll(handleError))
 
       const fetchPullRequests = Effect.fn("GitHubClient.fetchPullRequests")(function* (params: {
@@ -133,14 +133,14 @@ export class GitHubClient extends Context.Service<
           `/repos/${owner}/${name}/pulls?${searchParams.toString()}`
         )
         const json = yield* HttpClientResponse.json(response)
-        return json as Array<PullRequest>
+        return yield* Schema.decodeUnknown(Schema.Array(PullRequest))(json)
       }).pipe(Effect.catchAll(handleError))
 
       const fetchPullRequest = Effect.fn("GitHubClient.fetchPullRequest")(
         function* (number: number) {
           const response = yield* client.get(`/repos/${owner}/${name}/pulls/${number}`)
           const json = yield* HttpClientResponse.json(response)
-          return json as PullRequest
+          return yield* Schema.decodeUnknown(PullRequest)(json)
         }
       ).pipe(Effect.catchAll(handleError))
 

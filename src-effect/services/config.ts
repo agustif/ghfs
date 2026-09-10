@@ -1,4 +1,5 @@
-import { Config, Context, Effect, Layer, Redacted } from "effect"
+import { Config, Context, Effect, Layer, Redacted, Schema } from "effect"
+import type { ConfigError } from "../domain"
 
 export class GhfsConfig extends Context.Service<
   GhfsConfig,
