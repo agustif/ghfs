@@ -1,0 +1,18 @@
+{
+  "collection_metadata": {
+    "collected_at": "2026-09-10T09:41:00Z",
+    "repository": "agustif/ghfs",
+    "endpoint": "GET /repos/{owner}/{repo}/secret-scanning/push-protection-bypasses",
+    "documentation": "https://docs.github.com/rest/secret-scanning/secret-scanning#list-push-protection-bypass-requests"
+  },
+  "access_status": {
+    "accessible": false,
+    "error": "Not Found",
+    "http_status": 404,
+    "reason": "Push protection bypasses endpoint not available"
+  },
+  "bypasses": null,
+  "summary": {
+    "note": "Push protection bypass requests would show instances where developers requested to bypass secret scanning push protection, including justification and approval status"
+  }
+}

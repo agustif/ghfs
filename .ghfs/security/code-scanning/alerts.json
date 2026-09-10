@@ -1,0 +1,24 @@
+{
+  "collection_metadata": {
+    "collected_at": "2026-09-10T09:41:00Z",
+    "repository": "agustif/ghfs",
+    "endpoint": "GET /repos/{owner}/{repo}/code-scanning/alerts",
+    "documentation": "https://docs.github.com/rest/code-scanning/code-scanning"
+  },
+  "access_status": {
+    "accessible": false,
+    "error": "Resource not accessible by integration",
+    "http_status": 403,
+    "reason": "Code scanning may not be configured or requires specific permissions"
+  },
+  "alerts": null,
+  "summary": {
+    "note": "Code scanning alerts would include security vulnerabilities and coding errors detected by static analysis tools like CodeQL",
+    "possible_reasons": [
+      "Code scanning is not configured for this repository",
+      "No code scanning workflow has been run",
+      "Insufficient API permissions"
+    ],
+    "setup_instructions": "To enable code scanning, add a CodeQL workflow in .github/workflows/ or enable it through repository security settings"
+  }
+}

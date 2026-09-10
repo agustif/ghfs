@@ -1,0 +1,13 @@
+{
+  "collection_metadata": {
+    "collected_at": "2026-09-10T09:41:00Z",
+    "repository": "agustif/ghfs",
+    "endpoint": "GET /repos/{owner}/{repo}/security-advisories",
+    "documentation": "https://docs.github.com/rest/security-advisories/repository-advisories"
+  },
+  "advisories": [],
+  "summary": {
+    "total_count": 0,
+    "status": "No published security advisories found"
+  }
+}
