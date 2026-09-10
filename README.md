@@ -338,7 +338,7 @@ export default defineConfig({
 - [x] `execute.md` file with human-friendly instructions (`close #123 #234`, `set-title #125 "New title"`).
 - [x] Directly editing the `<5-digit-number>-<slug>.md` file to apply the operations.
 - [ ] Add a VS Code extension for guided sync/execute.
-- [ ] Documentation.
+- [ ] Effect-based desired-state workflow (`ghfs plan` / `ghfs apply`) - see [#115](https://github.com/agustif/ghfs/pull/115), [#120](https://github.com/agustif/ghfs/pull/120), [#137](https://github.com/agustif/ghfs/pull/137)
 - [x] Index page, and basic repo info
 - [x] Agent Skills.
 - [x] Local Web UI for managing the local mirror (`ghfs ui` and `ghfs hub`).
