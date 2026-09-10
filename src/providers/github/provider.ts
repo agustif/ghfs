@@ -9,6 +9,7 @@ import type {
   ProviderCheckRun,
   ProviderCheckStatusState,
   ProviderCombinedStatus,
+  ProviderBranchProtection,
   ProviderComment,
   ProviderCommit,
   ProviderCommitStatus,
@@ -20,6 +21,7 @@ import type {
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
+  ProviderMergeQueueEntry,
   ProviderMilestone,
   ProviderPullMetadata,
   ProviderReactions,
@@ -43,7 +45,22 @@ import { randomHexColor } from '../../utils/color'
 import { formatIssueNumber } from '../../utils/format'
 import { createEmptyReactions, isReactionContent, normalizeReactions, reactionKeyFromContent } from '../../utils/reactions'
 import { collectPages, iteratePages } from '../helpers'
+import {
+  fetchAutolinks,
+  fetchLatestPagesBuild,
+  fetchRuleSuites,
+  fetchWorkflowPermissions,
+  fetchWorkflows,
+} from './actions'
 import { createGitHubClient } from './client'
+import {
+  fetchBranchProtection,
+  fetchPinnedIssues,
+  fetchRecentWorkflowRuns,
+  fetchReleases,
+  fetchRepositoryContent,
+  fetchRepositoryTopics,
+} from './enhanced'
 
 type BumpRequestCount = () => void
 
@@ -87,7 +104,27 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
     fetchCheckRuns: ref => fetchCheckRuns(octokit, owner, repo, ref, bumpRequestCount),
     fetchCombinedStatus: ref => fetchCombinedStatus(octokit, owner, repo, ref, bumpRequestCount),
+    fetchRepositoryTopics: () => fetchRepositoryTopics(octokit, owner, repo, bumpRequestCount),
+    fetchReleases: limit => fetchReleases(octokit, owner, repo, limit, bumpRequestCount),
+    fetchBranchProtection: branch => fetchBranchProtection(octokit, owner, repo, branch, bumpRequestCount),
+    fetchRecentWorkflowRuns: limit => fetchRecentWorkflowRuns(octokit, owner, repo, limit, bumpRequestCount),
+    fetchRepositoryContent: path => fetchRepositoryContent(octokit, owner, repo, path, bumpRequestCount),
+    fetchPinnedIssues: () => fetchPinnedIssues(octokit, owner, repo, bumpRequestCount),
     getRequestCount: () => requestCount,
+    fetchPullReviews: number => fetchPullReviews(octokit, owner, repo, number, bumpRequestCount),
+    fetchPullReviewThreads: number => fetchPullReviewThreads(octokit, owner, repo, number, bumpRequestCount),
+    fetchPullChecks: number => fetchPullChecks(octokit, owner, repo, number, bumpRequestCount),
+    fetchPullFiles: number => fetchPullFiles(octokit, owner, repo, number, bumpRequestCount),
+    fetchPullGate: number => fetchPullGate(octokit, owner, repo, number, bumpRequestCount),
+
+    fetchEvents: limit => fetchEvents(octokit, owner, repo, limit, bumpRequestCount),
+    fetchDeployments: () => fetchDeployments(octokit, owner, repo, bumpRequestCount),
+
+    fetchWorkflows: () => fetchWorkflows(octokit, owner, repo, bumpRequestCount),
+    fetchWorkflowPermissions: workflowId => fetchWorkflowPermissions(octokit, owner, repo, workflowId, bumpRequestCount),
+    fetchRuleSuites: params => fetchRuleSuites(octokit, owner, repo, params, bumpRequestCount),
+    fetchLatestPagesBuild: () => fetchLatestPagesBuild(octokit, owner, repo, bumpRequestCount),
+    fetchAutolinks: () => fetchAutolinks(octokit, owner, repo, bumpRequestCount),
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
@@ -235,6 +272,7 @@ async function fetchPullMetadata(
   const requestedReviewers = pull.requested_reviewers.map(reviewer => reviewer.login)
   const reviewDecision = await fetchPullReviewDecision(octokit, owner, repo, number, requestedReviewers.length > 0, bumpRequestCount)
   const autoMerge = await fetchAutoMergeInfo(octokit, owner, repo, number, bumpRequestCount)
+  const mergeQueueEntry = await fetchMergeQueueEntry(octokit, owner, repo, number, bumpRequestCount)
 
   return {
     isDraft: pull.draft,
@@ -249,6 +287,7 @@ async function fetchPullMetadata(
     mergeableState: pull.mergeable_state ?? 'unknown',
     reviewDecision,
     autoMerge,
+    mergeQueueEntry,
   }
 }
 
@@ -530,6 +569,75 @@ async function fetchMergeQueueEnabled(
   catch {
     return null
   }
+}
+
+/**
+ * Fetch merge queue entry details for a PR. Returns `null` when the PR is not
+ * in the queue or when permissions are insufficient. GraphQL-only API — merge
+ * queue entries are not exposed via REST.
+ */
+async function fetchMergeQueueEntry(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  number: number,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderMergeQueueEntry | null> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.graphql<{
+      repository: {
+        pullRequest: {
+          mergeQueueEntry: {
+            position: number
+            state: string
+            enqueuedAt: string
+            estimatedTimeToMerge: number | null
+            enqueuer: { login: string } | null
+          } | null
+        } | null
+      } | null
+    }>(
+      `query MergeQueueEntry($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            mergeQueueEntry {
+              position
+              state
+              enqueuedAt
+              estimatedTimeToMerge
+              enqueuer {
+                login
+              }
+            }
+          }
+        }
+      }`,
+      { owner, repo, number },
+    )
+
+    const entry = result.repository?.pullRequest?.mergeQueueEntry
+    if (!entry)
+      return null
+
+    return {
+      position: entry.position,
+      state: normalizeMergeQueueState(entry.state),
+      enqueuedAt: entry.enqueuedAt,
+      estimatedTimeToMerge: entry.estimatedTimeToMerge,
+      enqueuer: entry.enqueuer?.login ?? null,
+    }
+  }
+  catch {
+    return null
+  }
+}
+
+function normalizeMergeQueueState(state: string): ProviderMergeQueueEntry['state'] {
+  const upper = state.toUpperCase()
+  if (upper === 'QUEUED' || upper === 'AWAITING_CHECKS' || upper === 'MERGEABLE' || upper === 'UNMERGEABLE' || upper === 'LOCKED')
+    return upper
+  return 'QUEUED'
 }
 
 async function fetchRepositoryLabels(octokit: Octokit, owner: string, repo: string, bumpRequestCount: BumpRequestCount): Promise<ProviderLabel[]> {
