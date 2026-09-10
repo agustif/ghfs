@@ -57,6 +57,30 @@ export interface GhfsUserConfig {
      */
     wiki?: boolean
     /**
+     * Whether to sync merge queue entries.
+     *
+     * @default true
+     */
+    mergeQueue?: boolean
+    /**
+     * Whether to sync releases and tags.
+     *
+     * @default true
+     */
+    releases?: boolean
+    /**
+     * Whether to sync recent workflow runs for open PRs.
+     *
+     * @default true
+     */
+    workflows?: boolean
+    /**
+     * Whether to sync repository metadata (topics, features, CODEOWNERS, security advisories).
+     *
+     * @default true
+     */
+    metadata?: boolean
+    /**
      * When to sync closed issues and pull requests.
      *
      * - `true`: sync all closed issues and pull requests.
