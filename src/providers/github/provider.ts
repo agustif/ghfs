@@ -36,6 +36,13 @@ import { randomHexColor } from '../../utils/color'
 import { formatIssueNumber } from '../../utils/format'
 import { createEmptyReactions, isReactionContent, normalizeReactions, reactionKeyFromContent } from '../../utils/reactions'
 import { collectPages, iteratePages } from '../helpers'
+import {
+  fetchAutolinks,
+  fetchLatestPagesBuild,
+  fetchRuleSuites,
+  fetchWorkflowPermissions,
+  fetchWorkflows,
+} from './actions'
 import { createGitHubClient } from './client'
 import {
   fetchBranchProtection,
@@ -101,6 +108,12 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
 
     fetchEvents: limit => fetchEvents(octokit, owner, repo, limit, bumpRequestCount),
     fetchDeployments: () => fetchDeployments(octokit, owner, repo, bumpRequestCount),
+
+    fetchWorkflows: () => fetchWorkflows(octokit, owner, repo, bumpRequestCount),
+    fetchWorkflowPermissions: workflowId => fetchWorkflowPermissions(octokit, owner, repo, workflowId, bumpRequestCount),
+    fetchRuleSuites: params => fetchRuleSuites(octokit, owner, repo, params, bumpRequestCount),
+    fetchLatestPagesBuild: () => fetchLatestPagesBuild(octokit, owner, repo, bumpRequestCount),
+    fetchAutolinks: () => fetchAutolinks(octokit, owner, repo, bumpRequestCount),
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
