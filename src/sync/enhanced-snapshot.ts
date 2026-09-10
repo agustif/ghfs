@@ -1,4 +1,5 @@
 import type { SyncContext } from './sync-repository-types'
+import { Buffer } from 'node:buffer'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'
 import {
@@ -13,12 +14,19 @@ import {
   RULESETS_DIR_NAME,
   RULESETS_FILE_NAME,
 } from '../constants'
+import { generateAgentHints } from './agent-hints'
+import { buildMetaGraph } from './meta-graph'
+import { buildPolicyInputs } from './policy-builder'
 
 export async function writeEnhancedSnapshots(context: SyncContext): Promise<void> {
   const tasks: Promise<void>[] = []
 
-  if (context.config.sync.meta !== false)
+  if (context.config.sync.meta !== false) {
     tasks.push(writeMetaFile(context))
+    tasks.push(writePolicyFile(context))
+    tasks.push(writeGraphFile(context))
+    tasks.push(writeAgentHintsFile(context))
+  }
 
   if (context.config.sync.labelsAndMilestones !== false) {
     tasks.push(writeLabelsFile(context))
@@ -236,6 +244,39 @@ async function writeActionsFile(context: SyncContext): Promise<void> {
   await writeFile(
     join(actionsDir, ACTIONS_FILE_NAME),
     `${JSON.stringify({ synced_at: context.syncedAt, runs }, null, 2)}\n`,
+    'utf8',
+  )
+}
+
+async function writePolicyFile(context: SyncContext): Promise<void> {
+  const policy = await buildPolicyInputs(context)
+
+  await mkdir(context.storageDirAbsolute, { recursive: true })
+  await writeFile(
+    join(context.storageDirAbsolute, 'policy.json'),
+    `${JSON.stringify(policy, null, 2)}\n`,
+    'utf8',
+  )
+}
+
+async function writeGraphFile(context: SyncContext): Promise<void> {
+  const graph = await buildMetaGraph(context)
+
+  await mkdir(context.storageDirAbsolute, { recursive: true })
+  await writeFile(
+    join(context.storageDirAbsolute, 'graph.json'),
+    `${JSON.stringify(graph, null, 2)}\n`,
+    'utf8',
+  )
+}
+
+async function writeAgentHintsFile(context: SyncContext): Promise<void> {
+  const hints = await generateAgentHints(context)
+
+  await mkdir(context.storageDirAbsolute, { recursive: true })
+  await writeFile(
+    join(context.storageDirAbsolute, 'agent-hints.md'),
+    hints,
     'utf8',
   )
 }
