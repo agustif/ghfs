@@ -1,6 +1,7 @@
 import { Context, Effect, Layer } from "effect"
 import { FileSystem } from "@effect/platform"
-import type { ExecuteOp, ExecuteError } from "../domain"
+import type { ExecuteOp } from "../domain"
+import { ExecuteError } from "../domain"
 import { GitHubClient } from "./github-client"
 import { GhfsConfig } from "./config"
 
@@ -44,9 +45,11 @@ export class ExecutionEngine extends Context.Service<
 
         const content = yield* fs.readFileString(filePath)
 
-        const YAML = await import("yaml")
-        const yaml = yield* Effect.try({
-          try: () => YAML.parse(content),
+        const yaml = yield* Effect.tryPromise({
+          try: async () => {
+            const YAML = await import("yaml")
+            return YAML.parse(content)
+          },
           catch: (error) =>
             new ExecuteError({
               message: "Failed to parse execute.yml",
