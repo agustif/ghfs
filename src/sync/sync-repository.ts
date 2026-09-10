@@ -11,13 +11,13 @@ import { writeExtendedMetadata } from './extended-metadata'
 import { loadSyncState, saveSyncState } from './state'
 import { syncCollaborators } from './sync-collaborators'
 import { syncPeople } from './sync-people'
-import { syncActions, syncWebhooks } from './sync-actions-webhooks'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,
   reconcileMarkdownFilesByScan,
   rematerializeTrackedMarkdown,
 } from './sync-repository-item'
+import { writeKitchenSinkData } from './sync-repository-kitchen-sink'
 import { fetchIssueCandidatesByNumbers, fetchIssueCandidatesByPagination } from './sync-repository-provider'
 import { writeRepositoryIndexes, writeRepoSnapshot } from './sync-repository-snapshot'
 import { pruneMissingOpenTrackedItems, pruneTrackedClosedItems } from './sync-repository-storage'
@@ -257,9 +257,6 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
         }
       }
 
-      if (!shouldEarlyReturn)
-        await writeKitchenSinkData(syncContext)
-
       if (!shouldEarlyReturn && !targetNumbers) {
         try {
           await runSearchCoverage(options.config, provider)
@@ -273,30 +270,6 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
 
       syncContext.syncState.ghfsVersion = GHFS_VERSION
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)
-    })
-
-    await runStage('prune', 'Sync Actions & Webhooks', async () => {
-      if (options.config.sync.actionsLogs || options.config.sync.actionsArtifacts) {
-        await syncActions({
-          provider,
-          storageDirAbsolute,
-          config: options.config,
-        })
-      }
-
-      if (options.config.sync.webhooks) {
-        await syncWebhooks({
-          provider,
-          storageDirAbsolute,
-          config: options.config,
-        })
-      }
-
-      reporter?.onStageUpdate?.({
-        stage: 'prune',
-        snapshot: cloneSnapshot(counters),
-        message: 'actions and webhooks synced',
-      })
     })
 
     const totals = computeTotals(syncContext.syncState.items)
