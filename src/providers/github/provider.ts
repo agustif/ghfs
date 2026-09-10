@@ -10,6 +10,7 @@ import type {
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
+  ProviderMergeQueueEntry,
   ProviderMilestone,
   ProviderPullMetadata,
   ProviderReactions,
@@ -229,6 +230,7 @@ async function fetchPullMetadata(
   const pull = result.data as GitHubPull
   const requestedReviewers = pull.requested_reviewers.map(reviewer => reviewer.login)
   const reviewDecision = await fetchPullReviewDecision(octokit, owner, repo, number, requestedReviewers.length > 0, bumpRequestCount)
+  const mergeQueueEntry = await fetchMergeQueueEntry(octokit, owner, repo, number, bumpRequestCount)
 
   return {
     isDraft: pull.draft,
@@ -240,6 +242,7 @@ async function fetchPullMetadata(
     mergeable: pull.mergeable ?? null,
     mergeableState: pull.mergeable_state ?? 'unknown',
     reviewDecision,
+    mergeQueueEntry,
   }
 }
 
@@ -521,6 +524,75 @@ async function fetchMergeQueueEnabled(
   catch {
     return null
   }
+}
+
+/**
+ * Fetch merge queue entry details for a PR. Returns `null` when the PR is not
+ * in the queue or when permissions are insufficient. GraphQL-only API — merge
+ * queue entries are not exposed via REST.
+ */
+async function fetchMergeQueueEntry(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  number: number,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderMergeQueueEntry | null> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.graphql<{
+      repository: {
+        pullRequest: {
+          mergeQueueEntry: {
+            position: number
+            state: string
+            enqueuedAt: string
+            estimatedTimeToMerge: number | null
+            enqueuer: { login: string } | null
+          } | null
+        } | null
+      } | null
+    }>(
+      `query MergeQueueEntry($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            mergeQueueEntry {
+              position
+              state
+              enqueuedAt
+              estimatedTimeToMerge
+              enqueuer {
+                login
+              }
+            }
+          }
+        }
+      }`,
+      { owner, repo, number },
+    )
+
+    const entry = result.repository?.pullRequest?.mergeQueueEntry
+    if (!entry)
+      return null
+
+    return {
+      position: entry.position,
+      state: normalizeMergeQueueState(entry.state),
+      enqueuedAt: entry.enqueuedAt,
+      estimatedTimeToMerge: entry.estimatedTimeToMerge,
+      enqueuer: entry.enqueuer?.login ?? null,
+    }
+  }
+  catch {
+    return null
+  }
+}
+
+function normalizeMergeQueueState(state: string): ProviderMergeQueueEntry['state'] {
+  const upper = state.toUpperCase()
+  if (upper === 'QUEUED' || upper === 'AWAITING_CHECKS' || upper === 'MERGEABLE' || upper === 'UNMERGEABLE' || upper === 'LOCKED')
+    return upper
+  return 'QUEUED'
 }
 
 async function fetchRepositoryLabels(octokit: Octokit, owner: string, repo: string, bumpRequestCount: BumpRequestCount): Promise<ProviderLabel[]> {

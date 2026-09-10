@@ -117,14 +117,22 @@ describe('createGitHubProvider', () => {
       },
     )
 
-    const graphql = vi.fn(async () => ({
-      repository: {
-        pullRequest: {
-          reviewDecision: 'REVIEW_REQUIRED',
-          latestOpinionatedReviews: { nodes: [] },
+    const graphql = vi.fn()
+      .mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            reviewDecision: 'REVIEW_REQUIRED',
+            latestOpinionatedReviews: { nodes: [] },
+          },
         },
-      },
-    }))
+      })
+      .mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            mergeQueueEntry: null,
+          },
+        },
+      })
 
     mockedCreateGitHubClient.mockReturnValue({
       rest: {
@@ -238,6 +246,7 @@ describe('createGitHubProvider', () => {
       mergeable: true,
       mergeableState: 'clean',
       reviewDecision: 'review_required',
+      mergeQueueEntry: null,
     })
   })
 
@@ -906,6 +915,7 @@ describe('createGitHubProvider', () => {
     ])
   })
 
+<<<<<<< HEAD
   it('fetches PR reviews', async () => {
     const listReviews = vi.fn()
     const paginate = vi.fn(async () => [
@@ -1082,5 +1092,167 @@ describe('createGitHubProvider', () => {
       checksGreen: true,
       inMergeQueue: false,
     })
+  })
+
+  it('fetches merge queue entry details when PR is in queue', async () => {
+    const pullsGet = vi.fn(async () => ({
+      data: {
+        draft: false,
+        merged: false,
+        merged_at: null,
+        base: { ref: 'main' },
+        head: { ref: 'feature' },
+        requested_reviewers: [],
+        mergeable: true,
+        mergeable_state: 'clean',
+      },
+    }))
+
+    const graphql = vi.fn()
+      .mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            reviewDecision: null,
+            latestOpinionatedReviews: null,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            mergeQueueEntry: {
+              position: 3,
+              state: 'AWAITING_CHECKS',
+              enqueuedAt: '2026-01-10T10:00:00.000Z',
+              estimatedTimeToMerge: 180,
+              enqueuer: { login: 'enqueuer-user' },
+            },
+          },
+        },
+      })
+
+    mockedCreateGitHubClient.mockReturnValue({
+      rest: {
+        pulls: {
+          get: pullsGet,
+        },
+      },
+      graphql,
+    } as unknown as Octokit)
+
+    const provider = createGitHubProvider({
+      token: 'test-token',
+      owner: 'owner',
+      repo: 'repo',
+    })
+
+    const metadata = await provider.fetchPullMetadata(5)
+
+    expect(metadata.mergeQueueEntry).toEqual({
+      position: 3,
+      state: 'AWAITING_CHECKS',
+      enqueuedAt: '2026-01-10T10:00:00.000Z',
+      estimatedTimeToMerge: 180,
+      enqueuer: 'enqueuer-user',
+    })
+    expect(graphql).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns null merge queue entry when PR not in queue', async () => {
+    const pullsGet = vi.fn(async () => ({
+      data: {
+        draft: false,
+        merged: false,
+        merged_at: null,
+        base: { ref: 'main' },
+        head: { ref: 'feature' },
+        requested_reviewers: [],
+        mergeable: true,
+        mergeable_state: 'clean',
+      },
+    }))
+
+    const graphql = vi.fn()
+      .mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            reviewDecision: null,
+            latestOpinionatedReviews: null,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            mergeQueueEntry: null,
+          },
+        },
+      })
+
+    mockedCreateGitHubClient.mockReturnValue({
+      rest: {
+        pulls: {
+          get: pullsGet,
+        },
+      },
+      graphql,
+    } as unknown as Octokit)
+
+    const provider = createGitHubProvider({
+      token: 'test-token',
+      owner: 'owner',
+      repo: 'repo',
+    })
+
+    const metadata = await provider.fetchPullMetadata(6)
+
+    expect(metadata.mergeQueueEntry).toBeNull()
+    expect(graphql).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns null merge queue entry when GraphQL fails (insufficient scope)', async () => {
+    const pullsGet = vi.fn(async () => ({
+      data: {
+        draft: false,
+        merged: false,
+        merged_at: null,
+        base: { ref: 'main' },
+        head: { ref: 'feature' },
+        requested_reviewers: [],
+        mergeable: true,
+        mergeable_state: 'clean',
+      },
+    }))
+
+    const graphql = vi.fn()
+      .mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            reviewDecision: null,
+            latestOpinionatedReviews: null,
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('Resource not accessible by integration'))
+
+    mockedCreateGitHubClient.mockReturnValue({
+      rest: {
+        pulls: {
+          get: pullsGet,
+        },
+      },
+      graphql,
+    } as unknown as Octokit)
+
+    const provider = createGitHubProvider({
+      token: 'test-token',
+      owner: 'owner',
+      repo: 'repo',
+    })
+
+    const metadata = await provider.fetchPullMetadata(7)
+
+    expect(metadata.mergeQueueEntry).toBeNull()
+    expect(graphql).toHaveBeenCalledTimes(2)
   })
 })
