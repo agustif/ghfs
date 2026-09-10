@@ -1,7 +1,7 @@
 import type { SyncContext } from './sync-repository-types'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'
-import { buildCrossRefsGraph } from './refs-graph'
+import { buildGraph } from './refs-graph'
 import { buildMeSummary, renderMeSummary } from './me-summary'
 import { buildSearchIndex, renderSearchIndex } from './search-index'
 import { buildSecuritySummary } from './security-summary'
@@ -10,10 +10,13 @@ export async function writeExtendedMetadata(context: SyncContext): Promise<void>
   const storageDirAbsolute = context.storageDirAbsolute
   await mkdir(storageDirAbsolute, { recursive: true })
 
-  const refsGraph = buildCrossRefsGraph(context.syncState.items, context.syncedAt)
+  const graph = buildGraph(context.syncState.items, context.syncedAt)
   await writeFile(
-    join(storageDirAbsolute, 'refs.json'),
-    JSON.stringify(refsGraph, null, 2) + '\n',
+    join(storageDirAbsolute, 'graph.jsonl'),
+    graph.nodes.map(n => JSON.stringify({ type: 'node', ...n })).join('\n')
+      + '\n'
+      + graph.edges.map(e => JSON.stringify({ type: 'edge', ...e })).join('\n')
+      + '\n',
     'utf8',
   )
 
