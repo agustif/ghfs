@@ -453,6 +453,156 @@ export interface ProviderRepositoryContent {
   type: 'file' | 'dir' | 'symlink' | 'submodule'
   content?: string
   encoding?: string
+export interface ProviderCollaborator {
+  login: string
+  avatar_url: string
+  role_name: string
+  permissions: {
+    admin: boolean
+    maintain: boolean
+    push: boolean
+    triage: boolean
+    pull: boolean
+  }
+}
+
+export interface ProviderTeam {
+  slug: string
+  name: string
+  description: string | null
+  permission: string
+  privacy: string
+}
+
+export interface ProviderInvitation {
+  id: number
+  login: string | null
+  email: string | null
+  role: string
+  created_at: string
+  inviter: {
+    login: string
+  }
+}
+
+export interface ProviderAssignableUser {
+  login: string
+  avatar_url: string
+}
+
+export interface ProviderContributor {
+  login: string | null
+  avatar_url: string | null
+  contributions: number
+  type: string
+}
+
+export interface ProviderCommitActivity {
+  days: number[]
+  total: number
+  week: number
+}
+
+export interface ProviderCodeFrequency {
+  week: number
+  additions: number
+  deletions: number
+}
+
+export interface ProviderParticipation {
+  all: number[]
+  owner: number[]
+}
+
+export interface ProviderPunchCard {
+  day: number
+  hour: number
+  commits: number
+}
+
+export interface ProviderRuleset {
+  id: number
+  name: string
+  target?: string
+  source_type?: string
+  source?: string
+  enforcement: string
+  conditions?: unknown
+  rules?: unknown[]
+  bypass_actors?: unknown[]
+  node_id?: string
+}
+
+export interface ProviderBranchProtection {
+  url?: string
+  required_status_checks?: {
+    url?: string
+    strict?: boolean
+    contexts?: string[]
+    contexts_url?: string
+    checks?: Array<{
+      context: string
+      app_id: number | null
+    }>
+  } | null
+  required_pull_request_reviews?: {
+    url?: string
+    dismiss_stale_reviews?: boolean
+    require_code_owner_reviews?: boolean
+    required_approving_review_count?: number
+    require_last_push_approval?: boolean
+    dismissal_restrictions?: {
+      url?: string
+      users?: Array<{ login: string }>
+      teams?: Array<{ slug: string }>
+      apps?: Array<{ slug: string }>
+    }
+  } | null
+  required_signatures?: {
+    url?: string
+    enabled?: boolean
+  } | null
+  enforce_admins?: {
+    url?: string
+    enabled?: boolean
+  } | null
+  required_linear_history?: {
+    enabled?: boolean
+  } | null
+  allow_force_pushes?: {
+    enabled?: boolean
+  } | null
+  allow_deletions?: {
+    enabled?: boolean
+  } | null
+  block_creations?: {
+    enabled?: boolean
+  } | null
+  required_conversation_resolution?: {
+    enabled?: boolean
+  } | null
+  lock_branch?: {
+    enabled?: boolean
+  } | null
+  allow_fork_syncing?: {
+    enabled?: boolean
+  } | null
+  restrictions?: {
+    url?: string
+    users?: Array<{ login: string }>
+    teams?: Array<{ slug: string }>
+    apps?: Array<{ slug: string }>
+  } | null
+}
+
+export interface ProviderCodeownersError {
+  line: number
+  column: number
+  source: string | null
+  kind: string
+  suggestion: string | null
+  message: string
+  path: string
 }
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
@@ -511,6 +661,24 @@ export interface RepositoryProvider {
   fetchCollaborators?: () => Promise<ProviderCollaborator[]>
   fetchTeams?: () => Promise<ProviderTeam[]>
   fetchInstalledApps?: () => Promise<ProviderApp[]>
+
+  // People & Collaboration
+  fetchCollaborators: () => Promise<ProviderCollaborator[] | null>
+  fetchTeams: () => Promise<ProviderTeam[] | null>
+  fetchInvitations: () => Promise<ProviderInvitation[] | null>
+  fetchAssignableUsers: () => Promise<ProviderAssignableUser[] | null>
+  fetchContributors: () => Promise<ProviderContributor[] | null>
+
+  // Repository rules & protection
+  fetchRulesets: () => Promise<ProviderRuleset[] | null>
+  fetchBranchProtection: (branch: string) => Promise<ProviderBranchProtection | null>
+  fetchCodeownersErrors: () => Promise<ProviderCodeownersError[] | null>
+
+  // Statistics
+  fetchCommitActivity: () => Promise<ProviderCommitActivity[] | null>
+  fetchCodeFrequency: () => Promise<ProviderCodeFrequency[] | null>
+  fetchParticipation: () => Promise<ProviderParticipation | null>
+  fetchPunchCard: () => Promise<ProviderPunchCard[] | null>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>

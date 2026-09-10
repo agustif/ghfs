@@ -7,6 +7,9 @@ const BaseOctokit = Octokit.plugin(retry, throttling)
 export function createGitHubClient(token: string): Octokit {
   return new BaseOctokit({
     auth: token,
+    headers: {
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
     throttle: {
       onRateLimit: (retryAfter, options) => {
         const retries = (options.request.retryCount ?? 0)
