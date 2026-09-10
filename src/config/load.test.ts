@@ -52,6 +52,8 @@ export default {
     pulls: true,
     closed: false,
     patches: 'all',
+      traffic: false,
+      social: false,
   },
 }
 `.trimStart(), 'utf8')

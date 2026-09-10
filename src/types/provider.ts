@@ -263,6 +263,11 @@ export interface ProviderRepository {
   owner: {
     login: string
   }
+  stargazers_count: number
+  watchers_count: number
+  forks_count: number
+  subscribers_count?: number
+  network_count?: number
   /** Whether the repo allows merge commits (`Create a merge commit`). */
   allow_merge_commit?: boolean
   /** Whether the repo allows squash-merging (`Squash and merge`). */
@@ -538,6 +543,51 @@ export interface ProviderIssueType {
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
 
+export interface ProviderTrafficViews {
+  count: number
+  uniques: number
+  views: Array<{
+    timestamp: string
+    count: number
+    uniques: number
+  }>
+}
+
+export interface ProviderTrafficClones {
+  count: number
+  uniques: number
+  clones: Array<{
+    timestamp: string
+    count: number
+    uniques: number
+  }>
+}
+
+export interface ProviderTrafficReferrer {
+  referrer: string
+  count: number
+  uniques: number
+}
+
+export interface ProviderTrafficPath {
+  path: string
+  title: string
+  count: number
+  uniques: number
+}
+
+export interface ProviderStarHistory {
+  week: string
+  total: number
+  days: [number, number, number, number, number, number, number]
+}
+
+export interface ProviderContributor {
+  login: string
+  contributions: number
+  avatar_url?: string
+}
+
 /**
  * Compare data for a pull request: ahead/behind commits relative to base branch,
  * merge-base SHA, and commit lists for visualization.
@@ -682,6 +732,13 @@ export interface RepositoryProvider {
   fetchIssueFieldValues: (number: number) => Promise<ProviderIssueFieldValue[]>
   fetchRepositoryIssueTypes: () => Promise<ProviderIssueType[]>
   fetchOrganizationIssueFields: (org: string) => Promise<ProviderIssueField[]>
+
+  fetchTrafficViews: () => Promise<ProviderTrafficViews | null>
+  fetchTrafficClones: () => Promise<ProviderTrafficClones | null>
+  fetchTrafficReferrers: () => Promise<ProviderTrafficReferrer[]>
+  fetchTrafficPaths: () => Promise<ProviderTrafficPath[]>
+  fetchStarHistory: () => Promise<ProviderStarHistory[]>
+  fetchContributors: () => Promise<ProviderContributor[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>

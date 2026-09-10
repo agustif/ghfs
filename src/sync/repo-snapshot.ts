@@ -17,6 +17,11 @@ export interface RepoSnapshot {
     html_url: string
     fork: boolean
     open_issues_count: number
+    stargazers_count: number
+    watchers_count: number
+    forks_count: number
+    subscribers_count?: number
+    network_count?: number
     has_issues: boolean
     has_projects: boolean
     has_wiki: boolean
