@@ -24,6 +24,9 @@
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.mts",
+  "bin": {
+    "ghfs": "./dist/cli.mjs"
+  },
   "files": [
     "dist",
     "skills/ghfs"
@@ -82,6 +85,7 @@
     "tsx": "catalog:",
     "typescript": "catalog:",
     "unimport": "catalog:",
+    "unrun": "catalog:",
     "vitest": "catalog:"
   },
   "simple-git-hooks": {
