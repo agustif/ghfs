@@ -140,6 +140,110 @@ export interface GhfsUserConfig {
      * @default 100
      */
     maxResults?: number
+    syncState?: boolean
+      /**
+       * Whether to sync PR compare data: ahead/behind commits, merge-base (compare.json).
+       *
+       * @default true
+       */
+      compare?: boolean
+      /**
+       * Whether to sync PR stack relationships: base and dependent PRs (stack.json).
+       *
+       * @default true
+       */
+      stack?: boolean
+      /**
+       * Whether to use GraphQL statusCheckRollup for check status (more comprehensive).
+       * When true, check status is fetched via GraphQL; when false, uses REST API.
+       *
+       * @default true
+       */
+      statusCheckRollup?: boolean
+    }
+  }
+  /**
+   * Extended metadata generation for agent ergonomics.
+   */
+  extended?: {
+    /**
+     * Generate activity.md with last N repository events.
+     *
+     * @default true
+     */
+    activity?: boolean
+    /**
+     * Generate agent-hints.md with detected test/lint/build commands.
+     *
+     * @default true
+     */
+    agentHints?: boolean
+    /**
+     * Generate deployments/ with environment and deployment status.
+     * Gracefully skips if deployments unavailable.
+     *
+     * @default true
+     */
+    deployments?: boolean
+     * Whether to sync custom repository properties.
+     *
+     * @default false
+     */
+    customProperties?: boolean
+    /**
+     * Whether to sync autolink references.
+     *
+     * @default false
+     */
+    autolinks?: boolean
+    /**
+     * Whether to sync commit activity stats.
+     *
+     * @default false
+     */
+    commitActivity?: boolean
+    /**
+     * Whether to sync participation stats.
+     *
+     * @default false
+     */
+    participationStats?: boolean
+    /**
+     * Whether to sync repository tags.
+     *
+     * @default false
+     */
+    tags?: boolean
+    /**
+     * Whether to sync git refs.
+     *
+     * @default false
+     */
+    gitRefs?: boolean
+    /**
+     * Whether to sync docs tree (recursive tree of docs/ directory).
+     *
+     * @default false
+     */
+    docsTree?: boolean
+    /**
+     * Whether to sync assignee suggestions.
+     *
+     * @default false
+     */
+    assigneeSuggestions?: boolean
+    /**
+     * Whether to sync traffic data (referrers, paths, views, clones).
+     *
+     * @default false
+     */
+    traffic?: boolean
+    /**
+     * Whether to sync private vulnerability reporting status.
+     *
+     * @default false
+     */
+    vulnerabilityReporting?: boolean
   }
 }
 

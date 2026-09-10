@@ -295,7 +295,6 @@ import type { GhfsUserConfig } from '@ghfs/cli'
 export default defineConfig({
   repo: 'owner/name',
   sync: {
-<<<<<<< HEAD
     // Core sync
     issues: true,              // Issues sync
     pulls: true,               // Pull requests sync
@@ -318,7 +317,6 @@ export default defineConfig({
       checks: true,            // checks.json per PR
       files: true,             // files.json per PR
       gate: true,              // gate.json per PR
-=======
     issues: true, // set false to skip issue sync
     pulls: true, // set false to skip pull request sync
     pullIntelligence: {
@@ -326,7 +324,6 @@ export default defineConfig({
       checks: true,    // sync CI/check status
       files: true,     // sync file list
       gate: true,      // sync merge-readiness
->>>>>>> 224a2bf (docs: update README and skill with PR intelligence layout)
     },
   },
   // other options...

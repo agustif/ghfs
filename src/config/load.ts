@@ -89,6 +89,16 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
     stack: merged.sync?.pullIntelligence?.stack ?? true,
     statusCheckRollup: merged.sync?.pullIntelligence?.statusCheckRollup ?? true,
   }
+  const customProperties = merged.sync?.customProperties ?? false
+  const autolinks = merged.sync?.autolinks ?? false
+  const commitActivity = merged.sync?.commitActivity ?? false
+  const participationStats = merged.sync?.participationStats ?? false
+  const tags = merged.sync?.tags ?? false
+  const gitRefs = merged.sync?.gitRefs ?? false
+  const docsTree = merged.sync?.docsTree ?? false
+  const assigneeSuggestions = merged.sync?.assigneeSuggestions ?? false
+  const traffic = merged.sync?.traffic ?? false
+  const vulnerabilityReporting = merged.sync?.vulnerabilityReporting ?? false
 
   return {
     cwd,
@@ -129,6 +139,16 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       security: extendedSecurity,
       syncState: extendedSyncState,
       pullIntelligence,
+      customProperties,
+      autolinks,
+      commitActivity,
+      participationStats,
+      tags,
+      gitRefs,
+      docsTree,
+      assigneeSuggestions,
+      traffic,
+      vulnerabilityReporting,
     },
     search: {
       codeTodos: merged.search?.codeTodos ?? true,
