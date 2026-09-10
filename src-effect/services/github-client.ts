@@ -93,7 +93,7 @@ export class GitHubClient extends Context.Service<
       const fetchRepo = Effect.fn("GitHubClient.fetchRepo")(function* () {
         const response = yield* client.get(`/repos/${owner}/${name}`)
         const json = yield* HttpClientResponse.json(response)
-        return yield* Schema.decodeUnknown(Repo)(json)
+        return json as Repo
       }).pipe(Effect.catchAll(handleError))
 
       const fetchIssues = Effect.fn("GitHubClient.fetchIssues")(function* (params: {
@@ -111,13 +111,13 @@ export class GitHubClient extends Context.Service<
           `/repos/${owner}/${name}/issues?${searchParams.toString()}`
         )
         const json = yield* HttpClientResponse.json(response)
-        return yield* Schema.decodeUnknown(Schema.Array(Issue))(json)
+        return json as Array<Issue>
       }).pipe(Effect.catchAll(handleError))
 
       const fetchIssue = Effect.fn("GitHubClient.fetchIssue")(function* (number: number) {
         const response = yield* client.get(`/repos/${owner}/${name}/issues/${number}`)
         const json = yield* HttpClientResponse.json(response)
-        return yield* Schema.decodeUnknown(Issue)(json)
+        return json as Issue
       }).pipe(Effect.catchAll(handleError))
 
       const fetchPullRequests = Effect.fn("GitHubClient.fetchPullRequests")(function* (params: {
@@ -133,14 +133,14 @@ export class GitHubClient extends Context.Service<
           `/repos/${owner}/${name}/pulls?${searchParams.toString()}`
         )
         const json = yield* HttpClientResponse.json(response)
-        return yield* Schema.decodeUnknown(Schema.Array(PullRequest))(json)
+        return json as Array<PullRequest>
       }).pipe(Effect.catchAll(handleError))
 
       const fetchPullRequest = Effect.fn("GitHubClient.fetchPullRequest")(
         function* (number: number) {
           const response = yield* client.get(`/repos/${owner}/${name}/pulls/${number}`)
           const json = yield* HttpClientResponse.json(response)
-          return yield* Schema.decodeUnknown(PullRequest)(json)
+          return json as PullRequest
         }
       ).pipe(Effect.catchAll(handleError))
 
