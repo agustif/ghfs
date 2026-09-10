@@ -322,6 +322,13 @@ function createProviderMock(overrides: Partial<RepositoryProvider> = {}): Reposi
     actionAddReaction: vi.fn(async () => {}),
     actionRemoveReaction: vi.fn(async () => {}),
     fetchViewerReactions: vi.fn(async () => []),
+    fetchIssueDependenciesBlockedBy: vi.fn(async () => []),
+    fetchIssueDependenciesBlocking: vi.fn(async () => []),
+    fetchIssueSubIssues: vi.fn(async () => []),
+    fetchIssueParent: vi.fn(async () => null),
+    fetchIssueFieldValues: vi.fn(async () => []),
+    fetchRepositoryIssueTypes: vi.fn(async () => []),
+    fetchOrganizationIssueFields: vi.fn(async () => []),
     ...overrides,
   }
 }
