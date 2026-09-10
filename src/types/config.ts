@@ -166,11 +166,36 @@ export interface GhfsUserConfig {
      */
     syncState?: boolean
   }
+  /**
+   * Extended metadata generation for agent ergonomics.
+   */
+  extended?: {
+    /**
+     * Generate activity.md with last N repository events.
+     *
+     * @default true
+     */
+    activity?: boolean
+    /**
+     * Generate agent-hints.md with detected test/lint/build commands.
+     *
+     * @default true
+     */
+    agentHints?: boolean
+    /**
+     * Generate deployments/ with environment and deployment status.
+     * Gracefully skips if deployments unavailable.
+     *
+     * @default true
+     */
+    deployments?: boolean
+  }
 }
 
-export type GhfsResolvedConfig = Required<GhfsUserConfig> & {
+export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended'> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: Required<GhfsUserConfig['sync']>
   extended: Required<NonNullable<GhfsUserConfig['extended']>>
+  extended?: GhfsUserConfig['extended']
 }

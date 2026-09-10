@@ -6,6 +6,8 @@ import type {
   ProviderBranchProtection,
   ProviderComment,
   ProviderCommit,
+  ProviderDeployment,
+  ProviderEvent,
   ProviderItem,
   ProviderItemSnapshot,
   ProviderLabel,
@@ -96,6 +98,9 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchPullChecks: number => fetchPullChecks(octokit, owner, repo, number, bumpRequestCount),
     fetchPullFiles: number => fetchPullFiles(octokit, owner, repo, number, bumpRequestCount),
     fetchPullGate: number => fetchPullGate(octokit, owner, repo, number, bumpRequestCount),
+
+    fetchEvents: limit => fetchEvents(octokit, owner, repo, limit, bumpRequestCount),
+    fetchDeployments: () => fetchDeployments(octokit, owner, repo, bumpRequestCount),
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
@@ -2121,4 +2126,54 @@ interface GitHubTimelineEvent {
   /** Populated for `auto_merge_*` / `auto_squash_*` / `auto_rebase_*`. */
   commit_title?: string
   commit_message?: string
+}
+
+async function fetchEvents(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  limit = 50,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderEvent[]> {
+  bumpRequestCount()
+  const response = await octokit.rest.activity.listRepoEvents({
+    owner,
+    repo,
+    per_page: Math.min(limit, 100),
+  })
+
+  return response.data.slice(0, limit).map((event: any) => ({
+    id: event.id,
+    type: event.type,
+    actor: event.actor?.login ?? null,
+    createdAt: event.created_at,
+    payload: event.payload,
+  }))
+}
+
+async function fetchDeployments(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderDeployment[]> {
+  bumpRequestCount()
+  const response = await octokit.rest.repos.listDeployments({
+    owner,
+    repo,
+    per_page: 100,
+  })
+
+  return response.data.map((deployment: any) => ({
+    id: deployment.id,
+    environment: deployment.environment,
+    state: deployment.statuses_url ? 'unknown' : 'pending',
+    description: deployment.description ?? null,
+    createdAt: deployment.created_at,
+    updatedAt: deployment.updated_at,
+    creator: deployment.creator?.login ?? null,
+    ref: deployment.ref,
+    sha: deployment.sha,
+    url: deployment.url,
+  }))
 }
