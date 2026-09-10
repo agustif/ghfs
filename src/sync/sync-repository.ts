@@ -1,4 +1,4 @@
-import type { SyncOptions, SyncProgressSnapshot, SyncStage, SyncSummary } from './contracts'
+import type { SyncOptions, SyncProgressSnapshot, SyncReporter, SyncStage, SyncSummary } from './contracts'
 import type { IssueCandidates, PreparedIssueCandidate, SyncContext, SyncCounters } from './sync-repository-types'
 import { randomBytes } from 'node:crypto'
 import { resolve } from 'pathe'
@@ -7,15 +7,16 @@ import { GHFS_VERSION } from '../meta'
 import { createRepositoryProvider } from '../providers/factory'
 import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
-import { runSearchCoverage } from './search'
+import { writeExtendedMetadata } from './extended-metadata'
 import { loadSyncState, saveSyncState } from './state'
+import { syncPackages } from './sync-packages'
+import { syncReleases } from './sync-releases'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,
   reconcileMarkdownFilesByScan,
   rematerializeTrackedMarkdown,
 } from './sync-repository-item'
-import { writeKitchenSinkData } from './sync-repository-kitchen-sink'
 import { fetchIssueCandidatesByNumbers, fetchIssueCandidatesByPagination } from './sync-repository-provider'
 import { writeRepositoryIndexes, writeRepoSnapshot } from './sync-repository-snapshot'
 import { pruneMissingOpenTrackedItems, pruneTrackedClosedItems } from './sync-repository-storage'
@@ -216,19 +217,18 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       if (!shouldEarlyReturn)
         await writeRepoSnapshot(syncContext)
 
-      if (!shouldEarlyReturn || ghfsVersionMismatch)
+      if (!shouldEarlyReturn || ghfsVersionMismatch) {
         await writeRepositoryIndexes(syncContext)
-
-      if (!shouldEarlyReturn && !targetNumbers) {
-        try {
-          await runSearchCoverage(options.config, provider)
-        }
-        catch {
-        }
+        await writeExtendedMetadata(syncContext).catch(() => {})
       }
 
-      if (!shouldEarlyReturn)
-        await writeKitchenSinkData(syncContext)
+      if (!shouldEarlyReturn && options.config.sync.releases !== false) {
+        await syncReleasesIfEnabled(syncContext, counters, reporter)
+      }
+
+      if (!shouldEarlyReturn && options.config.sync.packages !== false) {
+        await syncPackagesIfEnabled(syncContext, counters, reporter)
+      }
 
       syncContext.syncState.ghfsVersion = GHFS_VERSION
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)
@@ -371,5 +371,62 @@ function computeTotals(items: SyncContext['syncState']['items']): {
     totalIssues,
     totalPulls,
     trackedItems: totalIssues + totalPulls,
+  }
+}
+
+async function syncReleasesIfEnabled(context: SyncContext, counters: SyncCounters, reporter?: SyncReporter): Promise<void> {
+  try {
+    reporter?.onStageUpdate?.({
+      stage: 'save',
+      message: 'syncing releases',
+      snapshot: cloneSnapshot(counters),
+    })
+    await syncReleases(
+      context.storageDirAbsolute,
+      context.repoSlug,
+      context.syncedAt,
+      () => context.provider.fetchReleases(),
+    )
+    reporter?.onStageUpdate?.({
+      stage: 'save',
+      message: 'releases synced',
+      snapshot: cloneSnapshot(counters),
+    })
+  }
+  catch (error) {
+    reporter?.onStageUpdate?.({
+      stage: 'save',
+      message: `releases sync failed: ${error}`,
+      snapshot: cloneSnapshot(counters),
+    })
+  }
+}
+
+async function syncPackagesIfEnabled(context: SyncContext, counters: SyncCounters, reporter?: SyncReporter): Promise<void> {
+  try {
+    reporter?.onStageUpdate?.({
+      stage: 'save',
+      message: 'syncing packages',
+      snapshot: cloneSnapshot(counters),
+    })
+    await syncPackages(
+      context.storageDirAbsolute,
+      context.repoSlug,
+      context.syncedAt,
+      () => context.provider.fetchPackages(),
+      (packageType, packageName) => context.provider.fetchPackageVersions(packageType, packageName),
+    )
+    reporter?.onStageUpdate?.({
+      stage: 'save',
+      message: 'packages synced',
+      snapshot: cloneSnapshot(counters),
+    })
+  }
+  catch (error) {
+    reporter?.onStageUpdate?.({
+      stage: 'save',
+      message: `packages sync failed: ${error}`,
+      snapshot: cloneSnapshot(counters),
+    })
   }
 }
