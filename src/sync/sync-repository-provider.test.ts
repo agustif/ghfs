@@ -99,6 +99,12 @@ function createContext(overrides: {
   fetchItemsByNumbers?: RepositoryProvider['fetchItemsByNumbers']
   issues?: boolean
   pulls?: boolean
+  discussions?: boolean
+  wiki?: boolean
+  mergeQueue?: boolean
+  releases?: boolean
+  workflows?: boolean
+  metadata?: boolean
   closed?: boolean
 }): SyncContext {
   return {

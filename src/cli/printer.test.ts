@@ -304,12 +304,17 @@ describe('createCliPrinter', () => {
         durationMs: 100,
       },
       stages: {
-        metadata: 1,
-        pagination: 1,
-        fetch: 1,
-        materialize: 1,
-        prune: 1,
-        save: 1,
+        'metadata': 1,
+        'pagination': 1,
+        'fetch': 1,
+        'materialize': 1,
+        'prune': 1,
+        'wiki': 0,
+        'discussions': 0,
+        'merge-queue': 0,
+        'releases': 0,
+        'workflows': 0,
+        'save': 1,
       },
     })
 
