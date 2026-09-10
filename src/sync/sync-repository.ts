@@ -18,6 +18,7 @@ import {
   reconcileMarkdownFilesByScan,
   rematerializeTrackedMarkdown,
 } from './sync-repository-item'
+import { writeKitchenSinkData } from './sync-repository-kitchen-sink'
 import { fetchIssueCandidatesByNumbers, fetchIssueCandidatesByPagination } from './sync-repository-provider'
 import { writeRepositoryIndexes, writeRepoSnapshot } from './sync-repository-snapshot'
 import { pruneMissingOpenTrackedItems, pruneTrackedClosedItems } from './sync-repository-storage'
@@ -265,6 +266,17 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
           message: 'extended metadata written',
         })
       }
+
+      if (!shouldEarlyReturn && !targetNumbers) {
+        try {
+          await runSearchCoverage(options.config, provider)
+        }
+        catch {
+        }
+      }
+
+      if (!shouldEarlyReturn)
+        await writeKitchenSinkData(syncContext)
 
       syncContext.syncState.ghfsVersion = GHFS_VERSION
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)
