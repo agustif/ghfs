@@ -63,6 +63,30 @@ export interface GhfsUserConfig {
      * @default 'open'
      */
     patches?: 'open' | 'all' | false
+    /**
+     * Whether to fetch repository activity data.
+     *
+     * @default true
+     */
+    activity?: boolean
+    /**
+     * Whether to fetch CODEOWNERS errors.
+     *
+     * @default true
+     */
+    codeownersErrors?: boolean
+    /**
+     * Whether to fetch repository languages summary.
+     *
+     * @default true
+     */
+    languages?: boolean
+    /**
+     * Whether to fetch repository contributors summary.
+     *
+     * @default true
+     */
+    contributors?: boolean
   }
 }
 

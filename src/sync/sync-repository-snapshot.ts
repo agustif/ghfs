@@ -3,8 +3,8 @@ import type { ProviderRepository } from '../types/provider'
 import type { RepoSnapshot } from './repo-snapshot'
 import type { SyncContext } from './sync-repository-types'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'pathe'
-import { ISSUES_INDEX_FILE_NAME, PULLS_INDEX_FILE_NAME, REPO_SNAPSHOT_FILE_NAME } from '../constants'
+import { dirname, join } from 'pathe'
+import { ACTIVITY_FILE_NAME, CODEOWNERS_ERRORS_FILE_NAME, CONTRIBUTORS_FILE_NAME, ISSUES_INDEX_FILE_NAME, LANGUAGES_FILE_NAME, PULLS_INDEX_FILE_NAME, REPO_SNAPSHOT_FILE_NAME } from '../constants'
 import { getTimestamp, renderRowsTable } from '../utils/markdown'
 
 interface IndexRow {
@@ -19,6 +19,7 @@ interface IndexRow {
 export async function writeRepositorySnapshot(context: SyncContext): Promise<void> {
   await writeRepoSnapshot(context)
   await writeRepositoryIndexes(context)
+  await writeRepositoryExtras(context)
 }
 
 export async function writeRepoSnapshot(context: SyncContext): Promise<void> {
@@ -102,15 +103,104 @@ function sortRows(rows: IndexRow[]): IndexRow[] {
   })
 }
 
+async function writeRepositoryExtras(context: SyncContext): Promise<void> {
+  const promises: Promise<void>[] = []
+
+  if (context.config.sync.activity) {
+    promises.push(
+      context.provider.fetchRepositoryActivity({ perPage: 100 })
+        .then(activity => writeActivityFile(context, activity))
+        .catch(() => {}),
+    )
+  }
+
+  if (context.config.sync.codeownersErrors) {
+    promises.push(
+      context.provider.fetchCodeownersErrors()
+        .then(errors => writeCodeownersErrorsFile(context, errors))
+        .catch(() => {}),
+    )
+  }
+
+  if (context.config.sync.languages) {
+    promises.push(
+      context.provider.fetchRepositoryLanguages()
+        .then(languages => writeLanguagesFile(context, languages))
+        .catch(() => {}),
+    )
+  }
+
+  if (context.config.sync.contributors) {
+    promises.push(
+      context.provider.fetchRepositoryContributors({ perPage: 100 })
+        .then(contributors => writeContributorsFile(context, contributors))
+        .catch(() => {}),
+    )
+  }
+
+  await Promise.all(promises)
+}
+
+async function writeActivityFile(context: SyncContext, activity: unknown[]): Promise<void> {
+  const activityPath = join(context.storageDirAbsolute, ACTIVITY_FILE_NAME)
+  const activityLines = [
+    '# Repository Activity',
+    '',
+    `- repo: ${context.repoSlug}`,
+    `- synced_at: ${context.syncedAt}`,
+    `- total: ${activity.length}`,
+    '',
+    '## Recent Activity',
+    '',
+  ]
+
+  for (const item of activity) {
+    const act = item as { timestamp: string, activity_type: string, ref: string, actor: { login: string } | null }
+    activityLines.push(`- **${act.activity_type}** on \`${act.ref}\` by @${act.actor?.login ?? 'unknown'} at ${act.timestamp}`)
+  }
+
+  await writeFile(activityPath, activityLines.join('\n') + '\n', 'utf8')
+}
+
+async function writeCodeownersErrorsFile(context: SyncContext, errors: { errors: unknown[] }): Promise<void> {
+  const codeownersErrorsPath = join(context.storageDirAbsolute, CODEOWNERS_ERRORS_FILE_NAME)
+  await mkdir(dirname(codeownersErrorsPath), { recursive: true })
+  await writeFile(codeownersErrorsPath, `${JSON.stringify(errors, null, 2)}\n`, 'utf8')
+}
+
+async function writeLanguagesFile(context: SyncContext, languages: Record<string, number>): Promise<void> {
+  const languagesPath = join(context.storageDirAbsolute, LANGUAGES_FILE_NAME)
+  await writeFile(languagesPath, `${JSON.stringify(languages, null, 2)}\n`, 'utf8')
+}
+
+async function writeContributorsFile(context: SyncContext, contributors: unknown[]): Promise<void> {
+  const contributorsPath = join(context.storageDirAbsolute, CONTRIBUTORS_FILE_NAME)
+  await writeFile(contributorsPath, `${JSON.stringify(contributors, null, 2)}\n`, 'utf8')
+}
+
 async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
-  const [repoResult, labelsResult, milestonesResult] = await Promise.all([
+  const promises: [
+    Promise<ProviderRepository>,
+    Promise<unknown>,
+    Promise<unknown>,
+    Promise<unknown>,
+    Promise<unknown>,
+    Promise<unknown>,
+    Promise<unknown>,
+  ] = [
     context.provider.fetchRepository(),
     context.provider.fetchRepositoryLabels(),
     context.provider.fetchRepositoryMilestones(),
-  ])
+    context.config.sync.activity ? context.provider.fetchRepositoryActivity({ perPage: 100 }).catch(() => []) : Promise.resolve([]),
+    context.config.sync.codeownersErrors ? context.provider.fetchCodeownersErrors().catch(() => ({ errors: [] })) : Promise.resolve({ errors: [] }),
+    context.config.sync.languages ? context.provider.fetchRepositoryLanguages().catch(() => ({})) : Promise.resolve({}),
+    context.config.sync.contributors ? context.provider.fetchRepositoryContributors({ perPage: 100 }).catch(() => []) : Promise.resolve([]),
+  ]
+
+  const [repoResult, labelsResult, milestonesResult, activityResult, codeownersErrorsResult, languagesResult, contributorsResult] = await Promise.all(promises)
 
   const repository = repoResult as ProviderRepository
-  const labels = labelsResult
+  const labels = (labelsResult as typeof labelsResult)
     .map(label => ({
       name: label.name,
       color: label.color,
@@ -118,7 +208,7 @@ async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
       default: Boolean(label.default),
     }))
     .sort((left, right) => left.name.localeCompare(right.name))
-  const milestones = milestonesResult
+  const milestones = (milestonesResult as typeof milestonesResult)
     .map(milestone => ({
       number: milestone.number,
       title: milestone.title,
@@ -160,5 +250,9 @@ async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
     },
     labels,
     milestones,
+    ...(activityResult && Array.isArray(activityResult) && activityResult.length > 0 ? { activity: activityResult } : {}),
+    ...(codeownersErrorsResult && typeof codeownersErrorsResult === 'object' ? { codeowners_errors: codeownersErrorsResult } : {}),
+    ...(languagesResult && typeof languagesResult === 'object' ? { languages: languagesResult } : {}),
+    ...(contributorsResult && Array.isArray(contributorsResult) && contributorsResult.length > 0 ? { contributors: contributorsResult } : {}),
   }
 }

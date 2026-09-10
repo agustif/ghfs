@@ -64,6 +64,10 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const pullsEnabled = merged.sync?.pulls ?? true
   const closedMode = merged.sync?.closed ?? false
   const patchesMode = merged.sync?.patches ?? 'open'
+  const activityEnabled = merged.sync?.activity ?? true
+  const codeownersErrorsEnabled = merged.sync?.codeownersErrors ?? true
+  const languagesEnabled = merged.sync?.languages ?? true
+  const contributorsEnabled = merged.sync?.contributors ?? true
 
   return {
     cwd,
@@ -78,6 +82,10 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       pulls: pullsEnabled,
       closed: closedMode,
       patches: patchesMode,
+      activity: activityEnabled,
+      codeownersErrors: codeownersErrorsEnabled,
+      languages: languagesEnabled,
+      contributors: contributorsEnabled,
     },
   }
 }

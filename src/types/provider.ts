@@ -249,6 +249,63 @@ export interface ProviderUpdateCounts {
   pulls: number
 }
 
+export type RepositoryActivityType =
+  | 'push'
+  | 'force_push'
+  | 'branch_creation'
+  | 'branch_deletion'
+  | 'pr_merge'
+  | 'merge_queue_merge'
+
+export interface RepositoryActivity {
+  id: number
+  node_id: string
+  before: string
+  after: string
+  ref: string
+  timestamp: string
+  activity_type: RepositoryActivityType
+  actor: {
+    login: string
+    id: number
+    avatar_url: string
+    url: string
+  } | null
+}
+
+export interface CodeownersError {
+  line: number
+  column: number
+  source: string
+  kind: string
+  suggestion?: string | null
+  message: string
+  path: string
+}
+
+export interface CodeownersErrors {
+  errors: CodeownersError[]
+}
+
+export interface RepositoryLanguages {
+  [language: string]: number
+}
+
+export interface RepositoryContributor {
+  login?: string
+  id?: number
+  node_id?: string
+  avatar_url?: string
+  gravatar_id?: string | null
+  url?: string
+  html_url?: string
+  type?: string
+  site_admin?: boolean
+  contributions: number
+  name?: string
+  email?: string
+}
+
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
 
 /**
@@ -284,6 +341,10 @@ export interface RepositoryProvider {
   fetchAuthenticatedUser: () => Promise<ProviderAuthenticatedUser | null>
   countUpdatedSince: (since: string) => Promise<ProviderUpdateCounts>
   getRequestCount: () => number
+  fetchRepositoryActivity: (options?: { perPage?: number, before?: string, after?: string }) => Promise<RepositoryActivity[]>
+  fetchCodeownersErrors: (ref?: string) => Promise<CodeownersErrors>
+  fetchRepositoryLanguages: () => Promise<RepositoryLanguages>
+  fetchRepositoryContributors: (options?: { anon?: boolean, perPage?: number }) => Promise<RepositoryContributor[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>
