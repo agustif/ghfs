@@ -3,6 +3,7 @@ import type {
   MergeOptions,
   PaginateItemsOptions,
   ProviderAuthenticatedUser,
+  ProviderBranchProtection,
   ProviderComment,
   ProviderCommit,
   ProviderItem,
@@ -12,13 +13,17 @@ import type {
   ProviderMilestone,
   ProviderPullMetadata,
   ProviderReactions,
+  ProviderRelease,
   ProviderRepository,
+  ProviderRepositoryContent,
+  ProviderRepositoryTopics,
   ProviderReviewComment,
   ProviderReviewDecision,
   ProviderReviewState,
   ProviderTimelineEvent,
   ProviderTimelineSource,
   ProviderUpdateCounts,
+  ProviderWorkflowRun,
   ReactionTarget,
   RepositoryProvider,
 } from '../../types/provider'
@@ -29,6 +34,14 @@ import { formatIssueNumber } from '../../utils/format'
 import { createEmptyReactions, isReactionContent, normalizeReactions, reactionKeyFromContent } from '../../utils/reactions'
 import { collectPages, iteratePages } from '../helpers'
 import { createGitHubClient } from './client'
+import {
+  fetchBranchProtection,
+  fetchPinnedIssues,
+  fetchRecentWorkflowRuns,
+  fetchReleases,
+  fetchRepositoryContent,
+  fetchRepositoryTopics,
+} from './enhanced'
 
 type BumpRequestCount = () => void
 
@@ -70,6 +83,12 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchRepositoryMilestones: () => fetchRepositoryMilestones(octokit, owner, repo, bumpRequestCount),
     fetchAuthenticatedUser: fetchAuthenticatedUserCached,
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
+    fetchRepositoryTopics: () => fetchRepositoryTopics(octokit, owner, repo, bumpRequestCount),
+    fetchReleases: limit => fetchReleases(octokit, owner, repo, limit, bumpRequestCount),
+    fetchBranchProtection: branch => fetchBranchProtection(octokit, owner, repo, branch, bumpRequestCount),
+    fetchRecentWorkflowRuns: limit => fetchRecentWorkflowRuns(octokit, owner, repo, limit, bumpRequestCount),
+    fetchRepositoryContent: path => fetchRepositoryContent(octokit, owner, repo, path, bumpRequestCount),
+    fetchPinnedIssues: () => fetchPinnedIssues(octokit, owner, repo, bumpRequestCount),
     getRequestCount: () => requestCount,
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
