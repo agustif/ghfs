@@ -100,70 +100,69 @@ export interface GhfsUserConfig {
      */
     patches?: 'open' | 'all' | false
     /**
-     * Whether to sync repository metadata (meta.json).
-     *
-     * @default true
-     */
-    meta?: boolean
+     * Whether to search code for TODO/FIXME comments and save to .ghfs/search/code-todos.jsonl
     /**
-     * Whether to sync separate labels.json and milestones.json files.
+     * Whether to sync GitHub Actions workflows, runs, and artifacts.
      *
-     * @default true
-     */
-    labelsAndMilestones?: boolean
-    /**
-     * Whether to sync releases to releases/ directory.
-     * Whether to sync releases.
-     *
-     * @default true
-     */
-    releases?: boolean
-    /**
-     * Whether to sync branch protection rules to rulesets/ directory.
-     *
-     * @default true
-     */
-    rulesets?: boolean
-    /**
-     * Whether to sync repository constitution files (CONTRIBUTING, SECURITY, etc.) to constitution/ directory.
-     *
-     * @default true
-     */
-    constitution?: boolean
-    /**
-     * Whether to sync recent workflow runs to actions/ directory.
-     *
-     * @default true
+     * @default false
      */
     actions?: boolean
     /**
-     * Pull request intelligence features.
+     * Number of workflow runs to fetch per workflow.
+     *
+     * @default 30
      */
-    pullIntelligence?: {
+    codeTodos?: boolean
+    /**
+     * Whether to search commits for "fixes #" references and save to .ghfs/search/commit-refs.jsonl
+     *
+     * @default true
+     */
+    commitRefs?: boolean
+    /**
+     * Optional saved issue searches to run. Each query is saved to .ghfs/search/issues-<key>.jsonl
+     *
+     * @example
+     * {
+     *   'p1-bugs': 'is:issue is:open label:bug label:p1',
+     *   'needs-triage': 'is:issue is:open no:label'
+     * }
+     *
+     * @default {}
+     */
+    issueQueries?: Record<string, string>
+    /**
+     * Whether to search for mentions of the repository name in other issues (heavy operation)
+     *
+     * @default false
+     */
+    mentions?: boolean
+    /**
+     * Maximum number of search results per query to avoid rate limits
+     *
+     * @default 100
+     */
+    maxResults?: number
+    syncState?: boolean
       /**
-       * Whether to sync PR review state (reviews.json).
+       * Whether to sync PR compare data: ahead/behind commits, merge-base (compare.json).
        *
        * @default true
        */
-      reviews?: boolean
+      compare?: boolean
       /**
-       * Whether to sync PR CI/check status (checks.json).
+       * Whether to sync PR stack relationships: base and dependent PRs (stack.json).
        *
        * @default true
        */
-      checks?: boolean
+      stack?: boolean
       /**
-       * Whether to sync PR file list (files.json).
+       * Whether to use GraphQL statusCheckRollup for check status (more comprehensive).
+       * When true, check status is fetched via GraphQL; when false, uses REST API.
        *
        * @default true
        */
-      files?: boolean
-      /**
-       * Whether to sync PR merge gate status (gate.json).
-       *
-       * @default true
-       */
-      gate?: boolean
+      statusCheckRollup?: boolean
     }
   }
   /**
@@ -171,40 +170,45 @@ export interface GhfsUserConfig {
    */
   extended?: {
     /**
-     * Generate graph.jsonl with nodes and edges for agent navigation.
+     * Generate activity.md with last N repository events.
      *
      * @default true
      */
-    graph?: boolean
+    activity?: boolean
     /**
-     * Generate search.jsonl for fast local lookup.
+     * Generate agent-hints.md with detected test/lint/build commands.
      *
      * @default true
      */
-    search?: boolean
+    agentHints?: boolean
     /**
-     * Generate me.md with personal work summary (assigned, review-requested, mentions).
-     * Only created if authenticated user is available.
+     * Generate deployments/ with environment and deployment status.
+     * Gracefully skips if deployments unavailable.
      *
      * @default true
      */
-    me?: boolean
+    deployments?: boolean
+     * Whether to sync custom repository properties.
+     *
+     * @default false
+     */
+    customProperties?: boolean
     /**
-     * Generate security/summary.json with Dependabot, code scanning, and secret scanning alerts.
-     * Gracefully skips if features unavailable or no permissions.
+     * Whether to sync autolink references.
      *
-     * @default true
+     * @default false
      */
-    security?: boolean
+    autolinks?: boolean
     /**
-     * Generate sync-state.json with full sync state for staleness detection.
+     * Whether to sync commit activity stats.
      *
-     * @default true
+     * @default false
      */
-    syncState?: boolean
-     * Whether to sync packages.
+    commitActivity?: boolean
+    /**
+     * Whether to sync participation stats.
      *
-     * @default true
+     * @default false
      */
     packages?: boolean
       /**
@@ -403,6 +407,9 @@ export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended'> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: Required<GhfsUserConfig['sync']>
+  search: Required<Omit<NonNullable<GhfsUserConfig['search']>, 'issueQueries'>> & {
+    issueQueries: Record<string, string>
+  }
   extended: Required<NonNullable<GhfsUserConfig['extended']>>
   extended?: GhfsUserConfig['extended']
 }
