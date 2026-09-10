@@ -74,6 +74,15 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const extendedMe = merged.extended?.me ?? true
   const extendedSecurity = merged.extended?.security ?? true
   const extendedSyncState = merged.extended?.syncState ?? true
+  const pullIntelligence = {
+    reviews: merged.sync?.pullIntelligence?.reviews ?? true,
+    checks: merged.sync?.pullIntelligence?.checks ?? true,
+    files: merged.sync?.pullIntelligence?.files ?? true,
+    gate: merged.sync?.pullIntelligence?.gate ?? true,
+    compare: merged.sync?.pullIntelligence?.compare ?? true,
+    stack: merged.sync?.pullIntelligence?.stack ?? true,
+    statusCheckRollup: merged.sync?.pullIntelligence?.statusCheckRollup ?? true,
+  }
 
   return {
     cwd,
@@ -107,6 +116,7 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       me: extendedMe,
       security: extendedSecurity,
       syncState: extendedSyncState,
+      pullIntelligence,
     },
   }
 }
@@ -140,6 +150,10 @@ function mergeUserConfig(base: GhfsUserConfig, overrides: Partial<GhfsUserConfig
     sync: {
       ...base.sync,
       ...overrides.sync,
+      pullIntelligence: {
+        ...base.sync?.pullIntelligence,
+        ...overrides.sync?.pullIntelligence,
+      },
     },
     extended: {
       ...base.extended,
