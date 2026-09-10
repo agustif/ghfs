@@ -103,7 +103,7 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchViewerReactions: (number, target) =>
       fetchViewerReactions(octokit, owner, repo, number, target, fetchAuthenticatedUserCached, bumpRequestCount),
 
-    fetchActionsWorkflowRuns: () => fetchActionsWorkflowRuns(octokit, owner, repo, bumpRequestCount),
+    fetchActionsWorkflowRuns: options => fetchActionsWorkflowRuns(octokit, owner, repo, options, bumpRequestCount),
     fetchActionsWorkflowJobs: runId => fetchActionsWorkflowJobs(octokit, owner, repo, runId, bumpRequestCount),
     fetchActionsJobLogs: jobId => fetchActionsJobLogs(octokit, owner, repo, jobId, bumpRequestCount),
     fetchActionsRunArtifacts: runId => fetchActionsRunArtifacts(octokit, owner, repo, runId, bumpRequestCount),
@@ -1611,14 +1611,19 @@ async function fetchActionsWorkflowRuns(
   octokit: Octokit,
   owner: string,
   repo: string,
+  options: { limit?: number } | undefined,
   bumpRequestCount: BumpRequestCount,
 ): Promise<import('../../types/provider').ProviderActionsWorkflowRun[]> {
   bumpRequestCount()
-  const runs = await octokit.paginate(octokit.rest.actions.listWorkflowRunsForRepo, {
+  const limit = options?.limit ?? 100
+  
+  const response = await octokit.rest.actions.listWorkflowRunsForRepo({
     owner,
     repo,
-    per_page: 100,
-  }) as Array<{
+    per_page: Math.min(limit, 100),
+  })
+  
+  const runs = response.data.workflow_runs.slice(0, limit) as Array<{
     id: number
     name?: string
     display_title?: string

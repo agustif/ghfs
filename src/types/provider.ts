@@ -313,7 +313,7 @@ export interface RepositoryProvider {
   actionRemoveReaction: (number: number, reaction: ReactionContent, target: ReactionTarget) => Promise<void>
   fetchViewerReactions: (number: number, target: ReactionTarget) => Promise<ReactionContent[]>
 
-  fetchActionsWorkflowRuns: () => Promise<ProviderActionsWorkflowRun[]>
+  fetchActionsWorkflowRuns: (options?: { limit?: number }) => Promise<ProviderActionsWorkflowRun[]>
   fetchActionsWorkflowJobs: (runId: number) => Promise<ProviderActionsWorkflowJob[]>
   fetchActionsJobLogs: (jobId: number) => Promise<string>
   fetchActionsRunArtifacts: (runId: number) => Promise<ProviderActionsArtifact[]>

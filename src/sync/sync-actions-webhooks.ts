@@ -24,7 +24,7 @@ export async function syncActions(options: SyncActionsOptions): Promise<void> {
   if (!actionsLogs && !actionsArtifacts)
     return
 
-  const runs = await provider.fetchActionsWorkflowRuns()
+  const runs = await provider.fetchActionsWorkflowRuns({ limit: config.sync.actionsRunsLimit })
 
   for (const run of runs) {
     if (actionsLogs && shouldSyncRunLogs(run, actionsLogs)) {

@@ -83,6 +83,13 @@ export interface GhfsUserConfig {
      */
     actionsLogsMaxKb?: number
     /**
+     * Maximum number of workflow runs to sync.
+     * Limits the number of workflow runs fetched from the API.
+     *
+     * @default 100
+     */
+    actionsRunsLimit?: number
+    /**
      * GitHub Actions artifacts sync configuration.
      *
      * - `false`: don't sync artifacts metadata.

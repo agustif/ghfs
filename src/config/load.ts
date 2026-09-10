@@ -66,6 +66,7 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const patchesMode = merged.sync?.patches ?? 'open'
   const actionsLogs = merged.sync?.actionsLogs ?? false
   const actionsLogsMaxKb = merged.sync?.actionsLogsMaxKb ?? 512
+  const actionsRunsLimit = merged.sync?.actionsRunsLimit ?? 100
   const actionsArtifacts = merged.sync?.actionsArtifacts ?? false
   const webhooks = merged.sync?.webhooks ?? false
   const webhooksMaxDeliveries = merged.sync?.webhooksMaxDeliveries ?? 50
@@ -85,6 +86,7 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       patches: patchesMode,
       actionsLogs,
       actionsLogsMaxKb,
+      actionsRunsLimit,
       actionsArtifacts,
       webhooks,
       webhooksMaxDeliveries,
