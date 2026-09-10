@@ -1,0 +1,78 @@
+import { expect, it } from '@effect/vitest'
+import {
+  ConfigError,
+  ExecuteError,
+  FileSystemError,
+  GitHubError,
+  SyncError,
+  ValidationError,
+} from '../domain'
+
+it.effect('GitHubError is a tagged error', () => {
+  const error = new GitHubError({
+    status: 404,
+    message: 'Not found',
+    details: { path: '/repos/owner/repo' },
+  })
+
+  expect(error._tag).toBe('GitHubError')
+  expect(error.status).toBe(404)
+  expect(error.message).toBe('Not found')
+})
+
+it.effect('SyncError includes number and cause', () => {
+  const error = new SyncError({
+    message: 'Failed to sync',
+    number: 123,
+    cause: new Error('Network error'),
+  })
+
+  expect(error._tag).toBe('SyncError')
+  expect(error.message).toBe('Failed to sync')
+  expect(error.number).toBe(123)
+  expect(error.cause).toBeInstanceOf(Error)
+})
+
+it.effect('ConfigError includes field', () => {
+  const error = new ConfigError({
+    message: 'Invalid config',
+    field: 'GHFS_REPO',
+  })
+
+  expect(error._tag).toBe('ConfigError')
+  expect(error.field).toBe('GHFS_REPO')
+})
+
+it.effect('FileSystemError includes path', () => {
+  const error = new FileSystemError({
+    message: 'Cannot read file',
+    path: '/tmp/test.md',
+  })
+
+  expect(error._tag).toBe('FileSystemError')
+  expect(error.path).toBe('/tmp/test.md')
+})
+
+it.effect('ExecuteError includes operation and number', () => {
+  const error = new ExecuteError({
+    message: 'Execution failed',
+    operation: 'close',
+    number: 42,
+  })
+
+  expect(error._tag).toBe('ExecuteError')
+  expect(error.operation).toBe('close')
+  expect(error.number).toBe(42)
+})
+
+it.effect('ValidationError includes field and value', () => {
+  const error = new ValidationError({
+    message: 'Invalid value',
+    field: 'state',
+    value: 'invalid',
+  })
+
+  expect(error._tag).toBe('ValidationError')
+  expect(error.field).toBe('state')
+  expect(error.value).toBe('invalid')
+})

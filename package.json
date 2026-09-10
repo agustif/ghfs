@@ -89,6 +89,7 @@
     "@vitest/coverage-v8": "catalog:",
     "bumpp": "catalog:",
     "eslint": "catalog:",
+    "fast-check": "^4.9.0",
     "lint-staged": "catalog:",
     "simple-git-hooks": "catalog:",
     "skills-npm": "catalog:",
