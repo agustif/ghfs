@@ -193,6 +193,14 @@ function mergeUserConfig(base: GhfsUserConfig, overrides: Partial<GhfsUserConfig
     sync: {
       ...base.sync,
       ...overrides.sync,
+      pullIntelligence: {
+        ...base.sync?.pullIntelligence,
+        ...overrides.sync?.pullIntelligence,
+      },
+    },
+    extended: {
+      ...base.extended,
+      ...overrides.extended,
     },
     search: {
       ...base.search,

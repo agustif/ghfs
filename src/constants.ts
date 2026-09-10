@@ -20,3 +20,11 @@ export const ACTIONS_INDEX_FILE_NAME = 'workflows.md'
 export const EXECUTE_FILE_NAME = 'execute.yml'
 export const EXECUTE_MD_FILE_NAME = 'execute.md'
 export const EXECUTE_SCHEMA_RELATIVE_PATH = 'schema/execute.schema.json'
+
+// Foundation intelligence layer
+export const EXTENDED_GRAPH_FILE_NAME = 'graph.jsonl'
+export const PROVENANCE_FILE_NAME = 'provenance.jsonl'
+export const INDEX_FILE_NAME = 'INDEX.md'
+export const PACKS_DIR_NAME = 'packs'
+export const LOCKS_DIR_NAME = 'locks'
+export const NOTES_DIR_NAME = 'notes'
