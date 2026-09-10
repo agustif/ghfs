@@ -63,6 +63,42 @@ export interface GhfsUserConfig {
      * @default 'open'
      */
     patches?: 'open' | 'all' | false
+    /**
+     * Whether to sync repository metadata (meta.json).
+     *
+     * @default true
+     */
+    meta?: boolean
+    /**
+     * Whether to sync separate labels.json and milestones.json files.
+     *
+     * @default true
+     */
+    labelsAndMilestones?: boolean
+    /**
+     * Whether to sync releases to releases/ directory.
+     *
+     * @default true
+     */
+    releases?: boolean
+    /**
+     * Whether to sync branch protection rules to rulesets/ directory.
+     *
+     * @default true
+     */
+    rulesets?: boolean
+    /**
+     * Whether to sync repository constitution files (CONTRIBUTING, SECURITY, etc.) to constitution/ directory.
+     *
+     * @default true
+     */
+    constitution?: boolean
+    /**
+     * Whether to sync recent workflow runs to actions/ directory.
+     *
+     * @default true
+     */
+    actions?: boolean
   }
 }
 

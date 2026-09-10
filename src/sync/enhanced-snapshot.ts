@@ -15,15 +15,29 @@ import {
 } from '../constants'
 
 export async function writeEnhancedSnapshots(context: SyncContext): Promise<void> {
-  await Promise.all([
-    writeMetaFile(context),
-    writeLabelsFile(context),
-    writeMilestonesFile(context),
-    writeReleasesFile(context),
-    writeRulesetsFile(context),
-    writeConstitutionFiles(context),
-    writeActionsFile(context),
-  ])
+  const tasks: Promise<void>[] = []
+
+  if (context.config.sync.meta !== false)
+    tasks.push(writeMetaFile(context))
+
+  if (context.config.sync.labelsAndMilestones !== false) {
+    tasks.push(writeLabelsFile(context))
+    tasks.push(writeMilestonesFile(context))
+  }
+
+  if (context.config.sync.releases !== false)
+    tasks.push(writeReleasesFile(context))
+
+  if (context.config.sync.rulesets !== false)
+    tasks.push(writeRulesetsFile(context))
+
+  if (context.config.sync.constitution !== false)
+    tasks.push(writeConstitutionFiles(context))
+
+  if (context.config.sync.actions !== false)
+    tasks.push(writeActionsFile(context))
+
+  await Promise.all(tasks)
 }
 
 async function writeMetaFile(context: SyncContext): Promise<void> {
