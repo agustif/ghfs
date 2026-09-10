@@ -453,6 +453,112 @@ export interface ProviderRepositoryContent {
   type: 'file' | 'dir' | 'symlink' | 'submodule'
   content?: string
   encoding?: string
+export interface ProviderAppInstallation {
+  id: number
+  app_id: number
+  app_slug: string
+  account: {
+    login: string
+    type: string
+  }
+  repository_selection: 'all' | 'selected'
+  permissions: Record<string, string>
+  events: string[]
+  created_at: string
+  updated_at: string
+  suspended_at: string | null
+  suspended_by: {
+    login: string
+  } | null
+}
+
+export interface ProviderRuleset {
+  id: number
+  name: string
+  source_type?: string
+  source?: string
+  enforcement: 'disabled' | 'active' | 'evaluate'
+  bypass_actors?: Array<{
+    actor_id: number
+    actor_type: string
+    bypass_mode: string
+  }>
+  conditions?: unknown
+  rules?: Array<{
+    type: string
+    parameters?: unknown
+  }>
+  node_id?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ProviderRuleSuite {
+  id: number
+  actor_id?: number
+  actor_name?: string
+  before?: string
+  after: string
+  ref: string
+  repository_name?: string
+  repository_id?: number
+  pushed_at?: string
+  result: 'pass' | 'fail' | 'bypass'
+  evaluation_result: 'pass' | 'fail'
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ProviderOidcCustomization {
+  use_default: boolean
+  include_claim_keys?: string[]
+}
+
+export interface ProviderCopilotSeatInfo {
+  total_seats?: number
+  seats?: Array<{
+    created_at: string
+    updated_at?: string
+    pending_cancellation_date?: string | null
+    last_activity_at?: string | null
+    last_activity_editor?: string | null
+    assignee: {
+      login: string
+      id: number
+      type: string
+    }
+  }>
+}
+
+export interface ProviderAuditLogEntry {
+  timestamp?: number
+  action?: string
+  actor?: string
+  user?: string
+  actor_location?: {
+    country_code?: string
+  }
+  data?: Record<string, unknown>
+}
+
+export interface ProviderSecretScanningSettings {
+  push_protection_enabled?: boolean
+  push_protection_enabled_for_new_repos?: boolean
+}
+
+export interface ProviderSecurityConfiguration {
+  id?: number
+  name?: string
+  description?: string | null
+  advanced_security?: 'enabled' | 'disabled'
+  dependency_graph?: 'enabled' | 'disabled' | 'not_set'
+  dependabot_alerts?: 'enabled' | 'disabled' | 'not_set'
+  dependabot_security_updates?: 'enabled' | 'disabled' | 'not_set'
+  code_scanning_default_setup?: 'enabled' | 'disabled' | 'not_set'
+  secret_scanning?: 'enabled' | 'disabled' | 'not_set'
+  secret_scanning_push_protection?: 'enabled' | 'disabled' | 'not_set'
+  created_at?: string
+  updated_at?: string
 }
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
@@ -511,6 +617,15 @@ export interface RepositoryProvider {
   fetchCollaborators?: () => Promise<ProviderCollaborator[]>
   fetchTeams?: () => Promise<ProviderTeam[]>
   fetchInstalledApps?: () => Promise<ProviderApp[]>
+
+  fetchAppInstallations: () => Promise<ProviderAppInstallation[]>
+  fetchRepositoryRulesets: () => Promise<ProviderRuleset[]>
+  fetchRuleSuites: (options?: { ref?: string, time_period?: number }) => Promise<ProviderRuleSuite[]>
+  fetchOidcCustomization: () => Promise<ProviderOidcCustomization | null>
+  fetchCopilotSeats: () => Promise<ProviderCopilotSeatInfo | null>
+  fetchAuditLog: (options?: { phrase?: string, per_page?: number }) => Promise<ProviderAuditLogEntry[]>
+  fetchSecretScanningSettings: () => Promise<ProviderSecretScanningSettings | null>
+  fetchSecurityConfiguration: () => Promise<ProviderSecurityConfiguration | null>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>

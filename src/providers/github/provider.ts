@@ -2,16 +2,20 @@ import type { Octokit } from 'octokit'
 import type {
   MergeOptions,
   PaginateItemsOptions,
+  ProviderAppInstallation,
+  ProviderAuditLogEntry,
   ProviderAuthenticatedUser,
   ProviderBranchProtection,
   ProviderComment,
   ProviderCommit,
+  ProviderCopilotSeatInfo,
   ProviderItem,
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
   ProviderMergeQueueEntry,
   ProviderMilestone,
+  ProviderOidcCustomization,
   ProviderPullMetadata,
   ProviderReactions,
   ProviderRelease,
@@ -21,6 +25,10 @@ import type {
   ProviderReviewComment,
   ProviderReviewDecision,
   ProviderReviewState,
+  ProviderRuleset,
+  ProviderRuleSuite,
+  ProviderSecretScanningSettings,
+  ProviderSecurityConfiguration,
   ProviderTimelineEvent,
   ProviderTimelineSource,
   ProviderUpdateCounts,
@@ -96,6 +104,15 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchPullChecks: number => fetchPullChecks(octokit, owner, repo, number, bumpRequestCount),
     fetchPullFiles: number => fetchPullFiles(octokit, owner, repo, number, bumpRequestCount),
     fetchPullGate: number => fetchPullGate(octokit, owner, repo, number, bumpRequestCount),
+
+    fetchAppInstallations: () => fetchAppInstallations(octokit, owner, repo, bumpRequestCount),
+    fetchRepositoryRulesets: () => fetchRepositoryRulesets(octokit, owner, repo, bumpRequestCount),
+    fetchRuleSuites: options => fetchRuleSuites(octokit, owner, repo, options, bumpRequestCount),
+    fetchOidcCustomization: () => fetchOidcCustomization(octokit, owner, repo, bumpRequestCount),
+    fetchCopilotSeats: () => fetchCopilotSeats(octokit, owner, repo, bumpRequestCount),
+    fetchAuditLog: options => fetchAuditLog(octokit, owner, repo, options, bumpRequestCount),
+    fetchSecretScanningSettings: () => fetchSecretScanningSettings(octokit, owner, repo, bumpRequestCount),
+    fetchSecurityConfiguration: () => fetchSecurityConfiguration(octokit, owner, repo, bumpRequestCount),
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
@@ -2121,4 +2138,263 @@ interface GitHubTimelineEvent {
   /** Populated for `auto_merge_*` / `auto_squash_*` / `auto_rebase_*`. */
   commit_title?: string
   commit_message?: string
+}
+
+async function fetchAppInstallations(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderAppInstallation[]> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.request('GET /repos/{owner}/{repo}/installation', {
+      owner,
+      repo,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    })
+    const installation = result.data as any
+    return [{
+      id: installation.id,
+      app_id: installation.app_id,
+      app_slug: installation.app_slug,
+      account: {
+        login: installation.account?.login ?? installation.account?.name ?? 'unknown',
+        type: installation.account?.type ?? 'User',
+      },
+      repository_selection: installation.repository_selection ?? 'selected',
+      permissions: installation.permissions ?? {},
+      events: installation.events ?? [],
+      created_at: installation.created_at,
+      updated_at: installation.updated_at,
+      suspended_at: installation.suspended_at ?? null,
+      suspended_by: installation.suspended_by ?? null,
+    }]
+  }
+  catch (error: any) {
+    console.warn(`Failed to fetch app installations: ${error.message}`)
+    return []
+  }
+}
+
+async function fetchRepositoryRulesets(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderRuleset[]> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.rest.repos.getRepoRulesets({ owner, repo, includes_parents: false })
+    return result.data.map((ruleset: any) => ({
+      id: ruleset.id,
+      name: ruleset.name,
+      source_type: ruleset.source_type,
+      source: ruleset.source,
+      enforcement: ruleset.enforcement,
+      bypass_actors: ruleset.bypass_actors,
+      conditions: ruleset.conditions,
+      rules: ruleset.rules,
+      node_id: ruleset.node_id,
+      created_at: ruleset.created_at,
+      updated_at: ruleset.updated_at,
+    }))
+  }
+  catch (error: any) {
+    console.warn(`Failed to fetch repository rulesets: ${error.message}`)
+    return []
+  }
+}
+
+async function fetchRuleSuites(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  options: { ref?: string, time_period?: number } | undefined,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderRuleSuite[]> {
+  bumpRequestCount()
+  try {
+    const params: any = { owner, repo, per_page: 100 }
+    if (options?.ref)
+      params.ref = options.ref
+    if (options?.time_period)
+      params.time_period = options.time_period
+
+    const result = await octokit.rest.repos.getRepoRuleSuites(params)
+    return result.data.map((suite: any) => ({
+      id: suite.id,
+      actor_id: suite.actor_id,
+      actor_name: suite.actor_name,
+      before: suite.before,
+      after: suite.after,
+      ref: suite.ref,
+      repository_name: suite.repository_name,
+      repository_id: suite.repository_id,
+      pushed_at: suite.pushed_at,
+      result: suite.result,
+      evaluation_result: suite.evaluation_result,
+      created_at: suite.created_at,
+      updated_at: suite.updated_at,
+    }))
+  }
+  catch (error: any) {
+    console.warn(`Failed to fetch rule suites: ${error.message}`)
+    return []
+  }
+}
+
+async function fetchOidcCustomization(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderOidcCustomization | null> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.rest.actions.getCustomOidcSubClaimForRepo({ owner, repo })
+    return {
+      use_default: result.data.use_default,
+      include_claim_keys: result.data.include_claim_keys,
+    }
+  }
+  catch (error: any) {
+    console.warn(`Failed to fetch OIDC customization: ${error.message}`)
+    return null
+  }
+}
+
+async function fetchCopilotSeats(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderCopilotSeatInfo | null> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.request('GET /repos/{owner}/{repo}/copilot/seats', {
+      owner,
+      repo,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    })
+    return {
+      total_seats: result.data.total_seats,
+      seats: result.data.seats?.map((seat: any) => ({
+        created_at: seat.created_at,
+        updated_at: seat.updated_at,
+        pending_cancellation_date: seat.pending_cancellation_date ?? null,
+        last_activity_at: seat.last_activity_at ?? null,
+        last_activity_editor: seat.last_activity_editor ?? null,
+        assignee: {
+          login: seat.assignee.login,
+          id: seat.assignee.id,
+          type: seat.assignee.type,
+        },
+      })),
+    }
+  }
+  catch (error: any) {
+    console.warn(`Failed to fetch Copilot seats: ${error.message}`)
+    return null
+  }
+}
+
+async function fetchAuditLog(
+  octokit: Octokit,
+  owner: string,
+  _repo: string,
+  options: { phrase?: string, per_page?: number } | undefined,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderAuditLogEntry[]> {
+  bumpRequestCount()
+  try {
+    const params: any = {
+      org: owner,
+      per_page: options?.per_page ?? 100,
+    }
+    if (options?.phrase)
+      params.phrase = options.phrase
+
+    const result = await octokit.request('GET /orgs/{org}/audit-log', params)
+    return result.data.map((entry: any) => ({
+      timestamp: entry.timestamp,
+      action: entry.action,
+      actor: entry.actor,
+      user: entry.user,
+      actor_location: entry.actor_location,
+      data: entry.data,
+    }))
+  }
+  catch (error: any) {
+    console.warn(`Failed to fetch audit log: ${error.message}`)
+    return []
+  }
+}
+
+async function fetchSecretScanningSettings(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderSecretScanningSettings | null> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.request('GET /repos/{owner}/{repo}/secret-scanning/push-protection', {
+      owner,
+      repo,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    })
+    return {
+      push_protection_enabled: result.data.enabled,
+      push_protection_enabled_for_new_repos: result.data.enabled_for_new_repositories,
+    }
+  }
+  catch (error: any) {
+    console.warn(`Failed to fetch secret scanning settings: ${error.message}`)
+    return null
+  }
+}
+
+async function fetchSecurityConfiguration(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderSecurityConfiguration | null> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.request('GET /repos/{owner}/{repo}/code-security-configuration', {
+      owner,
+      repo,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    })
+    const data = result.data as any
+    const config = data.configuration ?? data
+    return {
+      id: config.id,
+      name: config.name,
+      description: config.description ?? null,
+      advanced_security: config.advanced_security,
+      dependency_graph: config.dependency_graph,
+      dependabot_alerts: config.dependabot_alerts,
+      dependabot_security_updates: config.dependabot_security_updates,
+      code_scanning_default_setup: config.code_scanning_default_setup,
+      secret_scanning: config.secret_scanning,
+      secret_scanning_push_protection: config.secret_scanning_push_protection,
+      created_at: config.created_at,
+      updated_at: config.updated_at,
+    }
+  }
+  catch (error: any) {
+    console.warn(`Failed to fetch security configuration: ${error.message}`)
+    return null
+  }
 }
