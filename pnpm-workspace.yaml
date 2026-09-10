@@ -87,6 +87,6 @@ onlyBuiltDependencies:
 allowBuilds:
   '@parcel/watcher': false
   esbuild: true
-  msgpackr-extract: set this to true or false
+  msgpackr-extract: true
   simple-git-hooks: true
   vue-demi: true
