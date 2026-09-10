@@ -315,6 +315,13 @@ describe('createCliPrinter', () => {
         'releases': 0,
         'workflows': 0,
         'save': 1,
+        metadata: 1,
+        pagination: 1,
+        fetch: 1,
+        materialize: 1,
+        prune: 1,
+        graphql: 1,
+        save: 1,
       },
     })
 
