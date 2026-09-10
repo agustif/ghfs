@@ -1,17 +1,6 @@
 import type { ExecutionResult } from './execution'
 import type { IssueKind, IssueState } from './issue'
-import type {
-  ProviderComment,
-  ProviderCommit,
-  ProviderIssueDependency,
-  ProviderIssueFieldValue,
-  ProviderItem,
-  ProviderParentIssue,
-  ProviderPullMetadata,
-  ProviderReviewComment,
-  ProviderSubIssue,
-  ProviderTimelineEvent,
-} from './provider'
+import type { ProviderCheckRun, ProviderCombinedStatus, ProviderComment, ProviderCommit, ProviderItem, ProviderPullMetadata, ProviderReviewComment, ProviderTimelineEvent } from './provider'
 
 export type SyncRunStage = 'metadata' | 'pagination' | 'fetch' | 'materialize' | 'prune' | 'save'
 
@@ -46,11 +35,8 @@ export interface SyncItemCanonicalData {
   commits?: ProviderCommit[]
   timeline?: ProviderTimelineEvent[]
   reviewComments?: ProviderReviewComment[]
-  dependenciesBlockedBy?: ProviderIssueDependency[]
-  dependenciesBlocking?: ProviderIssueDependency[]
-  subIssues?: ProviderSubIssue[]
-  parent?: ProviderParentIssue | null
-  fieldValues?: ProviderIssueFieldValue[]
+  checkRuns?: ProviderCheckRun[]
+  combinedStatus?: ProviderCombinedStatus
 }
 
 export interface SyncItemState {
@@ -64,18 +50,6 @@ export interface SyncItemState {
   data: SyncItemCanonicalData
 }
 
-export interface SurfaceState {
-  name: string
-  lastSyncedAt: string
-  cursor?: string
-  etag?: string
-}
-
-export interface TierState {
-  lastSyncedAt: string
-  surfaces: SurfaceState[]
-}
-
 export interface SyncState {
   version: 2
   ghfsVersion?: string
@@ -86,9 +60,4 @@ export interface SyncState {
   lastSyncRun?: SyncRunTelemetry
   items: Record<string, SyncItemState>
   executions: ExecutionResult[]
-  tiers?: {
-    hot: TierState
-    warm: TierState
-    cold: TierState
-  }
 }

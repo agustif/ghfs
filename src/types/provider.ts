@@ -50,8 +50,10 @@ export interface ProviderPullMetadata {
   isDraft: boolean
   merged: boolean
   mergedAt: string | null
+  mergeCommitSha: string | null
   baseRef: string
   headRef: string
+  headSha: string
   requestedReviewers: string[]
   /**
    * Whether GitHub computed the PR to be mergeable. `null`/omitted when GitHub
@@ -70,6 +72,10 @@ export interface ProviderPullMetadata {
    * signal (no reviews submitted and no reviewers requested).
    */
   reviewDecision?: ProviderReviewDecision | null
+  /**
+   * Auto-merge configuration when enabled.
+   */
+  autoMerge?: ProviderAutoMergeInfo | null
 }
 
 export interface ProviderReviewComment {
@@ -113,6 +119,45 @@ export interface ProviderCommit {
   committerLogin: string | null
   committerDate: string
   url?: string
+}
+
+export type ProviderCheckConclusionState = 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required'
+export type ProviderCheckStatusState = 'queued' | 'in_progress' | 'completed'
+
+export interface ProviderCheckRun {
+  id: number
+  name: string
+  headSha: string
+  status: ProviderCheckStatusState
+  conclusion: ProviderCheckConclusionState | null
+  startedAt: string | null
+  completedAt: string | null
+  detailsUrl: string | null
+  htmlUrl: string | null
+}
+
+export interface ProviderCommitStatus {
+  state: 'error' | 'failure' | 'pending' | 'success'
+  targetUrl: string | null
+  description: string | null
+  context: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProviderCombinedStatus {
+  state: 'success' | 'pending' | 'failure'
+  sha: string
+  totalCount: number
+  statuses: ProviderCommitStatus[]
+}
+
+export interface ProviderAutoMergeInfo {
+  enabledAt: string | null
+  enabledBy: string | null
+  mergeMethod: MergeMethod | null
+  commitTitle: string | null
+  commitMessage: string | null
 }
 
 /** Cross-reference target: the issue/PR that mentioned this item. */
@@ -300,6 +345,8 @@ export interface RepositoryProvider {
   fetchPagesBuilds: () => Promise<ProviderPagesBuild[]>
   fetchAuthenticatedUser: () => Promise<ProviderAuthenticatedUser | null>
   countUpdatedSince: (since: string) => Promise<ProviderUpdateCounts>
+  fetchCheckRuns: (ref: string) => Promise<ProviderCheckRun[]>
+  fetchCombinedStatus: (ref: string) => Promise<ProviderCombinedStatus>
   getRequestCount: () => number
 
   actionClose: (number: number) => Promise<void>
