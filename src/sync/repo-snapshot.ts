@@ -1,3 +1,4 @@
+import type { PeopleSnapshot } from '../types/people'
 import { readFile } from 'node:fs/promises'
 import { join } from 'pathe'
 import { REPO_SNAPSHOT_FILE_NAME } from '../constants'
@@ -46,6 +47,7 @@ export interface RepoSnapshot {
     updated_at: string
     closed_at: string | null
   }>
+  people?: PeopleSnapshot
 }
 
 export async function loadRepoSnapshot(storageDirAbsolute: string): Promise<RepoSnapshot | null> {
