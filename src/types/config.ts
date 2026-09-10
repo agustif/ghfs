@@ -210,6 +210,42 @@ export interface GhfsUserConfig {
      *
      * @default false
      */
+    activity?: boolean
+    /**
+     * Generate agent-hints.md with detected test/lint/build commands.
+     *
+     * @default true
+     */
+    agentHints?: boolean
+    /**
+     * Generate deployments/ with environment and deployment status.
+     * Gracefully skips if deployments unavailable.
+     *
+     * @default true
+     */
+    deployments?: boolean
+     * Whether to sync custom repository properties.
+     *
+     * @default false
+     */
+    customProperties?: boolean
+    /**
+     * Whether to sync autolink references.
+     *
+     * @default false
+     */
+    autolinks?: boolean
+    /**
+     * Whether to sync commit activity stats.
+     *
+     * @default false
+     */
+    commitActivity?: boolean
+    /**
+     * Whether to sync participation stats.
+     *
+     * @default false
+     */
     packages?: boolean
       /**
        * Whether to sync PR compare data: ahead/behind commits, merge-base (compare.json).

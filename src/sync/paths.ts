@@ -37,6 +37,24 @@ export function getPrPatchPath(storageDirAbsolute: string, number: number, title
   return join(storageDirAbsolute, PULL_DIR_NAME, markdownFileName.replace(/\.md$/, '.patch'))
 }
 
+export function getItemTimelinePath(storageDirAbsolute: string, kind: IssueKind, number: number, state: IssueState, title: string): string {
+  const markdownPath = getItemMarkdownPath(storageDirAbsolute, kind, number, state, title)
+  return markdownPath.replace(/\.md$/, '.timeline.jsonl')
+}
+
+export function getItemCommitsPath(storageDirAbsolute: string, number: number, state: IssueState, title: string): string {
+  const markdownPath = getPullMarkdownPath(storageDirAbsolute, number, state, title)
+  return markdownPath.replace(/\.md$/, '.commits.json')
+}
+
+export function getItemReviewCommentsPath(storageDirAbsolute: string, number: number, state: IssueState, title: string): string {
+  const markdownPath = getPullMarkdownPath(storageDirAbsolute, number, state, title)
+  return markdownPath.replace(/\.md$/, '.review-comments.jsonl')
+}
+
+export function getItemCheckStatusPath(storageDirAbsolute: string, number: number, state: IssueState, title: string): string {
+  const markdownPath = getPullMarkdownPath(storageDirAbsolute, number, state, title)
+  return markdownPath.replace(/\.md$/, '.check-status.json')
 export function getActionsRunDir(storageDirAbsolute: string, runId: number): string {
   return join(storageDirAbsolute, 'actions', 'runs', String(runId))
 }

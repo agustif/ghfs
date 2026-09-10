@@ -259,15 +259,10 @@ export interface ProviderPagesBuild {
   } | null
 }
 
-export interface ProviderItemSnapshot {
-  number: number
-  kind: IssueKind
-  updatedAt: string | null
-}
-
-export interface ProviderUpdateCounts {
-  issues: number
-  pulls: number
+export interface ProviderInteractionLimits {
+  limit: 'existing_users' | 'contributors_only' | 'collaborators_only' | null
+  origin: string
+  expires_at: string | null
 }
 
 export interface ProviderRelease {
@@ -281,6 +276,119 @@ export interface ProviderRelease {
   published_at: string | null
   author: string | null
   html_url: string
+}
+
+export interface ProviderBranchProtection {
+  pattern: string
+  required_status_checks: {
+    strict: boolean
+    contexts: string[]
+  } | null
+  required_pull_request_reviews: {
+    dismiss_stale_reviews: boolean
+    require_code_owner_reviews: boolean
+    required_approving_review_count: number
+  } | null
+  enforce_admins: boolean
+  required_linear_history: boolean
+  allow_force_pushes: boolean
+  allow_deletions: boolean
+}
+
+export interface ProviderWorkflowRun {
+  id: number
+  name: string | null
+  head_branch: string | null
+  head_sha: string
+  status: string
+  conclusion: string | null
+  workflow_id: number
+  created_at: string
+  updated_at: string
+  html_url: string
+  event: string
+  actor: string | null
+}
+
+export interface ProviderRepositoryTopics {
+  names: string[]
+}
+
+export interface ProviderRepositoryContent {
+  name: string
+  path: string
+  sha: string
+  size: number
+  url: string
+  html_url: string
+  git_url: string
+  download_url: string | null
+  type: 'file' | 'dir' | 'symlink' | 'submodule'
+  content?: string
+  encoding?: string
+}
+
+export interface ProviderGitRef {
+  ref: string
+  sha: string
+  url: string
+}
+
+export interface ProviderGitCommit {
+  sha: string
+  message: string
+  author: {
+    name: string
+    email: string
+    date: string
+  }
+  committer: {
+    name: string
+    email: string
+    date: string
+  }
+  tree: {
+    sha: string
+  }
+  parents: Array<{ sha: string }>
+  url: string
+  html_url?: string
+}
+
+export interface ProviderGitTreeItem {
+  path: string
+  mode: string
+  type: 'blob' | 'tree' | 'commit'
+  sha: string
+  size?: number
+  url: string
+}
+
+export interface ProviderGitTree {
+  sha: string
+  url: string
+  tree: ProviderGitTreeItem[]
+  truncated: boolean
+}
+
+export interface ProviderGitBlob {
+  sha: string
+  content: string
+  encoding: 'base64' | 'utf-8'
+  size: number
+  url: string
+}
+
+export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
+
+export interface ProviderTrafficViews {
+  count: number
+  uniques: number
+  views: Array<{
+    timestamp: string
+    count: number
+    uniques: number
+  }>
 }
 
 export interface ProviderBranchProtection {

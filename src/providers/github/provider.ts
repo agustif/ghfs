@@ -24,8 +24,6 @@ import type {
   ProviderRelease,
   ProviderRepoInvitation,
   ProviderRepository,
-  ProviderRepositoryContent,
-  ProviderRepositoryTopics,
   ProviderReviewComment,
   ProviderReviewDecision,
   ProviderReviewState,
@@ -44,13 +42,6 @@ import { randomHexColor } from '../../utils/color'
 import { formatIssueNumber } from '../../utils/format'
 import { createEmptyReactions, isReactionContent, normalizeReactions, reactionKeyFromContent } from '../../utils/reactions'
 import { collectPages, iteratePages } from '../helpers'
-import {
-  fetchAutolinks,
-  fetchLatestPagesBuild,
-  fetchRuleSuites,
-  fetchWorkflowPermissions,
-  fetchWorkflows,
-} from './actions'
 import { createGitHubClient } from './client'
 import {
   fetchBranchProtection,
@@ -1891,8 +1882,8 @@ async function fetchPullGate(
 
   const checksGreen = checks.length > 0
     ? checks.every(check =>
-      check.status === 'completed' && (check.conclusion === 'success' || check.conclusion === 'neutral' || check.conclusion === 'skipped'),
-    )
+        check.status === 'completed' && (check.conclusion === 'success' || check.conclusion === 'neutral' || check.conclusion === 'skipped'),
+      )
     : null
 
   const conflictFiles: string[] = []

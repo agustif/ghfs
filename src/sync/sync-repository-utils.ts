@@ -62,3 +62,31 @@ export function relativeToStorage(storageDirAbsolute: string, absolutePath: stri
     return absolutePath.slice(storageDirAbsolute.length + 1)
   return basename(absolutePath)
 }
+
+export function shouldWriteTimeline(sync: GhfsResolvedConfig['sync'], state: IssueState): boolean {
+  if (sync.timeline === false)
+    return false
+  if (sync.timeline === 'all')
+    return true
+  return state === 'open'
+}
+
+export function shouldWriteCommits(sync: GhfsResolvedConfig['sync'], state: IssueState): boolean {
+  if (sync.commits === false)
+    return false
+  if (sync.commits === 'all')
+    return true
+  return state === 'open'
+}
+
+export function shouldWriteReviewComments(sync: GhfsResolvedConfig['sync'], state: IssueState): boolean {
+  if (sync.reviewComments === false)
+    return false
+  if (sync.reviewComments === 'all')
+    return true
+  return state === 'open'
+}
+
+export function shouldWriteCheckStatus(sync: GhfsResolvedConfig['sync'], state: IssueState): boolean {
+  return state === 'open'
+}

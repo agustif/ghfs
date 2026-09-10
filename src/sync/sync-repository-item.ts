@@ -1,11 +1,12 @@
 import type { ProviderItem, SyncItemState } from '../types'
+import type { ProviderCheckRun, ProviderCombinedStatus } from '../types/provider'
 import type { ItemSyncStats, PatchPlan, PreparedIssueCandidate, SyncContext } from './sync-repository-types'
 import { readdir } from 'node:fs/promises'
 import { basename, dirname, join } from 'pathe'
 import { CLOSED_DIR_NAME, ISSUE_DIR_NAME, PULL_DIR_NAME } from '../constants'
 import { diagnostics } from '../logger'
 import { formatIssueNumber } from '../utils/format'
-import { movePath, pathExists, removePatchIfExists, removePath, writeFileEnsured } from '../utils/fs'
+import { movePath, pathExists, removeJsonIfExists, removeJsonlIfExists, removePatchIfExists, removePath, writeFileEnsured, writeJsonFile, writeJsonlFile } from '../utils/fs'
 import { normalizeReactions } from '../utils/reactions'
 import { writePullAugmentations } from './augment-pull-request'
 import { renderIssueMarkdown } from './markdown'
@@ -17,7 +18,8 @@ import {
   resolveMoveSourcePath,
   updateTrackedItem,
 } from './sync-repository-storage'
-import { relativeToStorage, resolvePatchPlan, shouldSyncPrDetails } from './sync-repository-utils'
+import { relativeToStorage, resolvePatchPlan, shouldSyncPrDetails, shouldWriteCheckStatus, shouldWriteCommits, shouldWriteReviewComments, shouldWriteTimeline } from './sync-repository-utils'
+import { getItemCheckStatusPath, getItemCommitsPath, getItemReviewCommentsPath, getItemTimelinePath } from './paths'
 
 export async function prepareIssueCandidateSync(context: SyncContext, issue: ProviderItem): Promise<PreparedIssueCandidate> {
   const number = issue.number
@@ -56,7 +58,7 @@ export async function prepareIssueCandidateSync(context: SyncContext, issue: Pro
   const hasCanonicalData = Boolean(
     tracked?.data
     && (kind !== 'pull' || tracked.data.pull)
-    && (!needsDetails || (tracked.data.timeline && (kind !== 'pull' || (tracked.data.commits && tracked.data.reviewComments)))),
+    && (!needsDetails || (tracked.data.timeline && (kind !== 'pull' || tracked.data.commits))),
   )
   const shouldRefetch = !tracked || tracked.lastUpdatedAt !== issue.updatedAt || !hasCanonicalData
   const data = shouldRefetch
@@ -95,6 +97,8 @@ export async function materializePreparedIssue(context: SyncContext, candidate: 
     if (kind === 'pull')
       patchesDeleted += await removePatchIfExists(context.storageDirAbsolute, number)
 
+    patchesDeleted += await removeDeepDataFiles(context, candidate)
+
     return {
       kind,
       action,
@@ -110,6 +114,13 @@ export async function materializePreparedIssue(context: SyncContext, candidate: 
     let patchesDeleted = 0
     if (patchPlan.shouldDeletePatch)
       patchesDeleted += await removePatchIfExists(context.storageDirAbsolute, number)
+
+    const tracked = context.syncState.items[String(number)]
+    if (tracked) {
+      const deepDataStats = await syncDeepDataFiles(context, candidate, tracked)
+      patchesDeleted += deepDataStats.filesDeleted
+    }
+
     return {
       kind,
       action,
@@ -138,6 +149,10 @@ export async function materializePreparedIssue(context: SyncContext, candidate: 
   }
 
   const patchStats = await syncPatchByPlan(context, number, paths.patchPath, patchPlan)
+  const deepDataStats = await syncDeepDataFiles(context, candidate, tracked)
+
+  if (kind === 'pull')
+    await syncPullIntelligence(context, number, paths.targetPath)
 
   if (kind === 'pull') {
     await syncPullIntelligence(context, number, paths.targetPath)
@@ -164,7 +179,7 @@ export async function materializePreparedIssue(context: SyncContext, candidate: 
     written: 1,
     moved,
     patchesWritten: patchStats.patchesWritten,
-    patchesDeleted: patchStats.patchesDeleted,
+    patchesDeleted: patchStats.patchesDeleted + deepDataStats.filesDeleted,
   }
 }
 
@@ -276,6 +291,22 @@ async function fetchCanonicalData(context: SyncContext, issue: ProviderItem) {
       ? context.provider.fetchReviewComments(issue.number)
       : Promise.resolve(undefined),
   ])
+
+  let checkRuns: ProviderCheckRun[] | undefined
+  let combinedStatus: ProviderCombinedStatus | undefined
+  if (issue.kind === 'pull' && pull?.headSha && includeDetails) {
+    try {
+      [checkRuns, combinedStatus] = await Promise.all([
+        context.provider.fetchCheckRuns(pull.headSha).catch(() => []),
+        context.provider.fetchCombinedStatus(pull.headSha).catch(() => undefined),
+      ])
+    }
+    catch {
+      checkRuns = undefined
+      combinedStatus = undefined
+    }
+  }
+
   return {
     item: issue,
     comments,
@@ -283,6 +314,8 @@ async function fetchCanonicalData(context: SyncContext, issue: ProviderItem) {
     commits,
     timeline,
     reviewComments,
+    checkRuns,
+    combinedStatus,
   }
 }
 
@@ -311,24 +344,80 @@ async function syncPatchByPlan(
   }
 }
 
-async function syncPullIntelligence(context: SyncContext, number: number, markdownPath: string): Promise<void> {
-  const config = context.config.sync.pullIntelligence
-  if (!config)
-    return
+async function removeDeepDataFiles(
+  context: SyncContext,
+  candidate: PreparedIssueCandidate,
+): Promise<number> {
+  const { number, kind, state, paths } = candidate
 
-  const prDir = markdownPath.replace(/\.md$/, '')
+  const firstMarkdownPath = getExistingMarkdownPaths(paths)[0]
+  if (!firstMarkdownPath)
+    return 0
 
-  try {
-    if (config.reviews) {
-      const reviews = await context.provider.fetchPullReviews(number)
-      const reviewsPath = join(prDir, 'reviews.json')
-      await writeFileEnsured(reviewsPath, JSON.stringify(reviews, null, 2))
+  const title = candidate.paths.targetPath.split('/').pop()?.replace(/^\d+-/, '').replace(/\.md$/, '') ?? 'untitled'
+
+  let removed = 0
+  removed += await removeJsonlIfExists(getItemTimelinePath(context.storageDirAbsolute, kind, number, state, title))
+
+  if (kind === 'pull') {
+    removed += await removeJsonIfExists(getItemCommitsPath(context.storageDirAbsolute, number, state, title))
+    removed += await removeJsonlIfExists(getItemReviewCommentsPath(context.storageDirAbsolute, number, state, title))
+    removed += await removeJsonIfExists(getItemCheckStatusPath(context.storageDirAbsolute, number, state, title))
+  }
+
+  return removed
+}
+
+async function syncDeepDataFiles(
+  context: SyncContext,
+  candidate: PreparedIssueCandidate,
+  tracked: SyncItemState,
+): Promise<{ filesDeleted: number }> {
+  let filesDeleted = 0
+  const { number, kind, state } = candidate
+  const { data } = tracked
+
+  const timelinePath = getItemTimelinePath(context.storageDirAbsolute, kind, number, state, data.item.title)
+  if (shouldWriteTimeline(context.config.sync, state) && data.timeline && data.timeline.length > 0) {
+    await writeJsonlFile(timelinePath, data.timeline, context.config.sync.timelineLimit)
+  }
+  else {
+    filesDeleted += await removeJsonlIfExists(timelinePath)
+  }
+
+  if (kind === 'pull') {
+    const commitsPath = getItemCommitsPath(context.storageDirAbsolute, number, state, data.item.title)
+    if (shouldWriteCommits(context.config.sync, state) && data.commits && data.commits.length > 0) {
+      const commitsToWrite = context.config.sync.commitsLimit && context.config.sync.commitsLimit > 0
+        ? data.commits.slice(-context.config.sync.commitsLimit)
+        : data.commits
+      await writeJsonFile(commitsPath, commitsToWrite)
+    }
+    else {
+      filesDeleted += await removeJsonIfExists(commitsPath)
+    }
+
+    const reviewCommentsPath = getItemReviewCommentsPath(context.storageDirAbsolute, number, state, data.item.title)
+    if (shouldWriteReviewComments(context.config.sync, state) && data.reviewComments && data.reviewComments.length > 0) {
+      await writeJsonlFile(reviewCommentsPath, data.reviewComments, false)
+    }
+    else {
+      filesDeleted += await removeJsonlIfExists(reviewCommentsPath)
+    }
+
+    const checkStatusPath = getItemCheckStatusPath(context.storageDirAbsolute, number, state, data.item.title)
+    if (shouldWriteCheckStatus(context.config.sync, state) && (data.checkRuns || data.combinedStatus)) {
+      await writeJsonFile(checkStatusPath, {
+        checkRuns: data.checkRuns ?? [],
+        combinedStatus: data.combinedStatus ?? null,
+      })
+    }
+    else {
+      filesDeleted += await removeJsonIfExists(checkStatusPath)
     }
   }
-  catch (error) {
-    diagnostics.warn(`Failed to sync reviews for PR #${number}: ${error}`)
-  }
 
+  return { filesDeleted }
   try {
     if (config.checks) {
       const checks = await context.provider.fetchPullChecks(number)
@@ -360,6 +449,39 @@ async function syncPullIntelligence(context: SyncContext, number: number, markdo
   }
   catch (error) {
     diagnostics.warn(`Failed to sync gate for PR #${number}: ${error}`)
+  }
+
+  try {
+    if (config.compare) {
+      const compare = await context.provider.fetchPullCompare(number)
+      const comparePath = join(prDir, 'compare.json')
+      await writeFileEnsured(comparePath, JSON.stringify(compare, null, 2))
+    }
+  }
+  catch (error) {
+    diagnostics.warn(`Failed to sync compare for PR #${number}: ${error}`)
+  }
+
+  try {
+    if (config.stack) {
+      const stack = await context.provider.fetchPullStack(number)
+      const stackPath = join(prDir, 'stack.json')
+      await writeFileEnsured(stackPath, JSON.stringify(stack, null, 2))
+    }
+  }
+  catch (error) {
+    diagnostics.warn(`Failed to sync stack for PR #${number}: ${error}`)
+  }
+
+  if (config.statusCheckRollup) {
+    try {
+      const rollup = await context.provider.fetchPullStatusCheckRollup(number)
+      const rollupPath = join(prDir, 'check-rollup.json')
+      await writeFileEnsured(rollupPath, JSON.stringify(rollup, null, 2))
+    }
+    catch (error) {
+      diagnostics.warn(`Failed to sync status check rollup for PR #${number}: ${error}`)
+    }
   }
 }
 
@@ -441,45 +563,3 @@ async function resolveUniqueClosedTarget(closedDirAbsolute: string, fileName: st
 
   return candidate
 }
-
-async function syncPullIntelligence(context: SyncContext, number: number, markdownPath: string): Promise<void> {
-  const config = context.config.sync.pullIntelligence
-  if (!config)
-    return
-
-  const prDir = markdownPath.replace(/\.md$/, '')
-
-  try {
-    if (config.compare) {
-      const compare = await context.provider.fetchPullCompare(number)
-      const comparePath = join(prDir, 'compare.json')
-      await writeFileEnsured(comparePath, JSON.stringify(compare, null, 2))
-    }
-  }
-  catch (error) {
-    diagnostics.warn(`Failed to sync compare for PR #${number}: ${error}`)
-  }
-
-  try {
-    if (config.stack) {
-      const stack = await context.provider.fetchPullStack(number)
-      const stackPath = join(prDir, 'stack.json')
-      await writeFileEnsured(stackPath, JSON.stringify(stack, null, 2))
-    }
-  }
-  catch (error) {
-    diagnostics.warn(`Failed to sync stack for PR #${number}: ${error}`)
-  }
-
-  if (config.statusCheckRollup) {
-    try {
-      const rollup = await context.provider.fetchPullStatusCheckRollup(number)
-      const rollupPath = join(prDir, 'check-rollup.json')
-      await writeFileEnsured(rollupPath, JSON.stringify(rollup, null, 2))
-    }
-    catch (error) {
-      diagnostics.warn(`Failed to sync status check rollup for PR #${number}: ${error}`)
-    }
-  }
-}
-
