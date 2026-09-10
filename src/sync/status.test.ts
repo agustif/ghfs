@@ -106,12 +106,5 @@ function createConfig(cwd: string): GhfsResolvedConfig {
       actions: false,
       actionsRunsPerWorkflow: 30,
     },
-    search: {
-      codeTodos: true,
-      commitRefs: true,
-      issueQueries: {},
-      mentions: false,
-      maxResults: 100,
-    },
   }
 }

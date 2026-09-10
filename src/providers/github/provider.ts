@@ -2,6 +2,7 @@ import type { Octokit } from 'octokit'
 import type {
   MergeOptions,
   PaginateItemsOptions,
+  ProviderActivityEvent,
   ProviderAuthenticatedUser,
   ProviderComment,
   ProviderCommit,
@@ -21,6 +22,7 @@ import type {
   ProviderReviewComment,
   ProviderReviewDecision,
   ProviderReviewState,
+  ProviderTemplateInfo,
   ProviderTimelineEvent,
   ProviderTimelineSource,
   ProviderUpdateCounts,
@@ -2219,16 +2221,392 @@ async function fetchDeployments(
     per_page: 100,
   })
 
-  return response.data.map((deployment: any) => ({
-    id: deployment.id,
-    environment: deployment.environment,
-    state: deployment.statuses_url ? 'unknown' : 'pending',
-    description: deployment.description ?? null,
-    createdAt: deployment.created_at,
-    updatedAt: deployment.updated_at,
-    creator: deployment.creator?.login ?? null,
-    ref: deployment.ref,
-    sha: deployment.sha,
-    url: deployment.url,
+async function fetchActionsRunArtifacts(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  runId: number,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderActionsArtifact[]> {
+  bumpRequestCount()
+  const artifacts = await octokit.paginate(octokit.rest.actions.listWorkflowRunArtifacts, {
+    owner,
+    repo,
+    run_id: runId,
+    per_page: 100,
+  }) as Array<{
+    id: number
+    node_id: string
+    name: string
+    size_in_bytes: number
+    url: string
+    archive_download_url: string
+    expired: boolean
+    created_at: string
+    updated_at: string
+    expires_at: string
+  }>
+
+  return artifacts.map(artifact => ({
+    id: artifact.id,
+    nodeId: artifact.node_id,
+    name: artifact.name,
+    sizeInBytes: artifact.size_in_bytes,
+    url: artifact.url,
+    archiveDownloadUrl: artifact.archive_download_url,
+    expired: artifact.expired,
+    createdAt: artifact.created_at,
+    updatedAt: artifact.updated_at,
+    expiresAt: artifact.expires_at,
   }))
+}
+
+async function fetchWebhooks(
+async function fetchCommitComments(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  limit: number | undefined,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderCommitComment[]> {
+  try {
+    bumpRequestCount()
+    const commits = await octokit.paginate(octokit.rest.repos.listCommits, {
+      owner,
+      repo,
+      per_page: limit ? Math.min(limit, 100) : 30,
+    })
+
+    const commentsByCommit = await Promise.all(
+      commits.slice(0, limit || 30).map(async (commit) => {
+        try {
+          bumpRequestCount()
+          const comments = await octokit.rest.repos.listCommentsForCommit({
+            owner,
+            repo,
+            commit_sha: commit.sha,
+            per_page: 100,
+          })
+          return comments.data.map(comment => ({
+            id: comment.id,
+            body: comment.body ?? null,
+            createdAt: comment.created_at,
+            updatedAt: comment.updated_at,
+            author: comment.user?.login ?? null,
+            authorAvatarUrl: comment.user?.avatar_url ?? undefined,
+            commitId: commit.sha,
+            path: comment.path ?? null,
+            line: comment.line ?? null,
+            position: comment.position ?? null,
+            htmlUrl: comment.html_url ?? undefined,
+          }))
+        }
+        catch {
+          return []
+        }
+      }),
+    )
+
+    return commentsByCommit.flat()
+  }
+  catch {
+    return []
+  }
+}
+
+async function fetchRepoInvitations(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderRepoInvitation[]> {
+  try {
+    bumpRequestCount()
+    const invitations = await octokit.paginate(octokit.rest.repos.listInvitations, {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return invitations.map(inv => ({
+      id: inv.id,
+      permissions: inv.permissions,
+      createdAt: inv.created_at,
+      inviter: inv.inviter?.login ?? null,
+      invitee: inv.invitee?.login ?? null,
+      htmlUrl: inv.html_url ?? undefined,
+    }))
+  }
+  catch {
+    return []
+  }
+}
+
+async function fetchViewerStatus(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderViewerStatus> {
+  let starred = false
+  let subscription: 'subscribed' | 'ignored' | null = null
+
+  try {
+    bumpRequestCount()
+    await octokit.rest.activity.checkRepoIsStarredByAuthenticatedUser({ owner, repo })
+    starred = true
+  }
+  catch {
+    starred = false
+  }
+
+  try {
+    bumpRequestCount()
+    const sub = await octokit.rest.activity.getRepoSubscription({ owner, repo })
+    subscription = sub.data.subscribed ? 'subscribed' : sub.data.ignored ? 'ignored' : null
+  }
+  catch {
+    subscription = null
+  }
+
+  return { starred, subscription }
+}
+
+async function fetchTemplateInfo(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderWebhook[]> {
+  bumpRequestCount()
+  const hooks = await octokit.paginate(octokit.rest.repos.listWebhooks, {
+    owner,
+    repo,
+    per_page: 100,
+  }) as Array<{
+    id: number
+    type: string
+    name: string
+    active: boolean
+    events: string[]
+    config: {
+      url?: string
+      content_type?: string
+      insecure_ssl?: string
+    }
+    updated_at: string
+    created_at: string
+    url: string
+    test_url: string
+    ping_url: string
+    deliveries_url: string
+  }>
+
+  return hooks.map(hook => ({
+    id: hook.id,
+    type: hook.type,
+    name: hook.name,
+    active: hook.active,
+    events: hook.events,
+    config: {
+      url: hook.config.url,
+      contentType: hook.config.content_type,
+      insecureSsl: hook.config.insecure_ssl,
+    },
+    updatedAt: hook.updated_at,
+    createdAt: hook.created_at,
+    url: hook.url,
+    testUrl: hook.test_url,
+    pingUrl: hook.ping_url,
+    deliveriesUrl: hook.deliveries_url,
+  }))
+}
+
+async function fetchWebhookDeliveries(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  hookId: number,
+  options: { perPage?: number, status?: 'success' | 'failure' } = {},
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderWebhookDelivery[]> {
+  bumpRequestCount()
+  const deliveries = await octokit.paginate(octokit.rest.repos.listWebhookDeliveries, {
+    owner,
+    repo,
+    hook_id: hookId,
+    per_page: options.perPage ?? 100,
+    ...(options.status ? { status: options.status } : {}),
+  }) as Array<{
+    id: number
+    guid: string
+    delivered_at: string
+    redelivery: boolean
+    duration: number
+    status: string
+    status_code: number
+    event: string
+    action: string | null
+    installation_id: number | null
+    repository_id: number | null
+    throttled_at: string | null
+    url: string
+    request?: {
+      headers?: Record<string, string>
+      payload?: Record<string, unknown>
+    }
+    response?: {
+      headers?: Record<string, string>
+      payload?: string
+    }
+  }>
+
+  return deliveries.map(delivery => ({
+    id: delivery.id,
+    guid: delivery.guid,
+    deliveredAt: delivery.delivered_at,
+    redelivery: delivery.redelivery,
+    duration: delivery.duration,
+    status: delivery.status,
+    statusCode: delivery.status_code,
+    event: delivery.event,
+    action: delivery.action,
+    installationId: delivery.installation_id,
+    repositoryId: delivery.repository_id,
+    throttledAt: delivery.throttled_at,
+    url: delivery.url,
+    requestHeaders: delivery.request?.headers,
+    requestPayload: delivery.request?.payload,
+    responseHeaders: delivery.response?.headers,
+    responseBody: delivery.response?.payload,
+  }))
+): Promise<ProviderTemplateInfo> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.rest.repos.get({ owner, repo })
+    const data = result.data as { is_template?: boolean, template_repository?: { full_name: string } | null }
+    return {
+      isTemplate: Boolean(data.is_template),
+      templateRepository: data.template_repository?.full_name ?? null,
+    }
+  }
+  catch {
+    return { isTemplate: false, templateRepository: null }
+  }
+}
+
+async function fetchForkStatus(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderForkStatus> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.rest.repos.get({ owner, repo })
+    const data = result.data as {
+      fork?: boolean
+      parent?: { full_name: string, html_url: string, default_branch: string } | null
+      source?: { full_name: string, html_url: string } | null
+    }
+
+    return {
+      isFork: Boolean(data.fork),
+      parent: data.parent
+        ? {
+            fullName: data.parent.full_name,
+            htmlUrl: data.parent.html_url,
+            defaultBranch: data.parent.default_branch,
+          }
+        : null,
+      source: data.source
+        ? {
+            fullName: data.source.full_name,
+            htmlUrl: data.source.html_url,
+          }
+        : null,
+    }
+  }
+  catch {
+    return { isFork: false, parent: null, source: null }
+  }
+}
+
+async function fetchNetworkSummary(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderNetworkSummary> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.rest.repos.get({ owner, repo })
+    const data = result.data as {
+      forks_count?: number
+      subscribers_count?: number
+      watchers_count?: number
+      network_count?: number
+    }
+
+    return {
+      forks: data.forks_count ?? 0,
+      subscribers: data.subscribers_count ?? 0,
+      watchers: data.watchers_count ?? 0,
+      networkCount: data.network_count ?? 0,
+    }
+  }
+  catch {
+    return { forks: 0, subscribers: 0, watchers: 0, networkCount: 0 }
+  }
+}
+
+async function fetchActivityEvents(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  limit: number | undefined,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderActivityEvent[]> {
+  try {
+    bumpRequestCount()
+    const events = await octokit.paginate(octokit.rest.activity.listRepoEvents, {
+      owner,
+      repo,
+      per_page: limit ? Math.min(limit, 100) : 100,
+    })
+
+    return events.slice(0, limit || 100).map(event => ({
+      id: event.id ?? '',
+      type: event.type ?? 'unknown',
+      actor: event.actor?.login ?? null,
+      createdAt: event.created_at ?? new Date().toISOString(),
+      payload: (event.payload as Record<string, unknown>) ?? {},
+    }))
+  }
+  catch {
+    return []
+  }
+}
+
+async function fetchFeeds(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderFeeds> {
+  try {
+    bumpRequestCount()
+    const feeds = await octokit.rest.activity.getFeeds()
+    const data = feeds.data as {
+      timeline_url?: string
+      user_url?: string
+    }
+
+    return {
+      timelineUrl: data.timeline_url ?? null,
+      userUrl: data.user_url ?? null,
+    }
+  }
+  catch {
+    return { timelineUrl: null, userUrl: null }
+  }
 }

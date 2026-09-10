@@ -74,6 +74,8 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const extendedMe = merged.extended?.me ?? true
   const extendedSecurity = merged.extended?.security ?? true
   const extendedSyncState = merged.extended?.syncState ?? true
+  const releasesEnabled = merged.sync?.releases ?? true
+  const packagesEnabled = merged.sync?.packages ?? true
   const pullIntelligence = {
     reviews: merged.sync?.pullIntelligence?.reviews ?? true,
     checks: merged.sync?.pullIntelligence?.checks ?? true,
@@ -131,6 +133,8 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       me: extendedMe,
       security: extendedSecurity,
       syncState: extendedSyncState,
+      releases: releasesEnabled,
+      packages: packagesEnabled,
       pullIntelligence,
       customProperties,
       autolinks,
