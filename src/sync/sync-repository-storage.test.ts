@@ -272,6 +272,12 @@ describe('sync-repository-storage', () => {
     const sync = {
       issues: true,
       pulls: true,
+      discussions: true,
+      wiki: true,
+      mergeQueue: true,
+      releases: true,
+      workflows: true,
+      metadata: true,
       closed: false,
       patches: 'open' as const,
       projects: false,

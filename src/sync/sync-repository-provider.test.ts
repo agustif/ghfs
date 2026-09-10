@@ -99,6 +99,12 @@ function createContext(overrides: {
   fetchItemsByNumbers?: RepositoryProvider['fetchItemsByNumbers']
   issues?: boolean
   pulls?: boolean
+  discussions?: boolean
+  wiki?: boolean
+  mergeQueue?: boolean
+  releases?: boolean
+  workflows?: boolean
+  metadata?: boolean
   closed?: boolean
 }): SyncContext {
   return {
@@ -147,6 +153,10 @@ function createContext(overrides: {
       fetchRepositoryLabels: vi.fn(async () => []),
       fetchRepositoryMilestones: vi.fn(async () => []),
       fetchAuthenticatedUser: vi.fn(async () => null),
+      fetchCollaborators: vi.fn(async () => []),
+      fetchTeams: vi.fn(async () => []),
+      fetchAppInstallations: vi.fn(async () => []),
+      fetchCodeowners: vi.fn(async () => null),
       getRequestCount: vi.fn(() => 0),
       actionClose: vi.fn(async () => {}),
       actionReopen: vi.fn(async () => {}),

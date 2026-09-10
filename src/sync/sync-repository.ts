@@ -9,6 +9,8 @@ import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
 import { writeExtendedMetadata } from './extended-metadata'
 import { loadSyncState, saveSyncState } from './state'
+import { syncCollaborators } from './sync-collaborators'
+import { syncPeople } from './sync-people'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,

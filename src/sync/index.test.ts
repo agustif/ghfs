@@ -70,7 +70,7 @@ describe('syncRepository', () => {
     expect(summary.updatedIssues).toBe(0)
     expect(summary.updatedPulls).toBe(0)
     expect(summary.durationMs).toBeGreaterThanOrEqual(0)
-    expect(summary.written).toBe(0)
+    expect(summary.written).toBe(1) // metadata.json
     expect(fetchComments).not.toHaveBeenCalled()
 
     const syncState = await loadSyncState(storageDir)
@@ -224,7 +224,7 @@ describe('syncRepository', () => {
     expect(summary.selected).toBe(1)
     expect(summary.processed).toBe(1)
     expect(summary.skipped).toBe(0)
-    expect(summary.written).toBe(1)
+    expect(summary.written).toBe(2) // 1 PR + metadata.json
     expect(summary.updatedIssues).toBe(0)
     expect(summary.updatedPulls).toBe(1)
     expect(fetchPullMetadata).toHaveBeenCalledTimes(1)
@@ -271,7 +271,7 @@ describe('syncRepository', () => {
     })
 
     expect(summary.processed).toBe(1)
-    expect(summary.written).toBe(1)
+    expect(summary.written).toBe(2) // renamed issue + metadata.json
 
     const renamedPath = join(storageDir, 'issues', '00001-new-title.md')
     await expect(stat(renamedPath)).resolves.toBeDefined()
@@ -425,7 +425,21 @@ function createMockProvider(overrides: Partial<RepositoryProvider> = {}): Reposi
     fetchRepositoryMilestones: vi.fn(async () => []),
     fetchAuthenticatedUser: vi.fn(async () => null),
     countUpdatedSince: vi.fn(async () => ({ issues: 0, pulls: 0 })),
+    fetchCollaborators: vi.fn(async () => []),
+    fetchTeams: vi.fn(async () => []),
+    fetchAppInstallations: vi.fn(async () => []),
+    fetchCodeowners: vi.fn(async () => null),
     getRequestCount: vi.fn(() => 0),
+    fetchWikiPages: vi.fn(async () => []),
+    fetchWikiPage: vi.fn(async () => null),
+    fetchDiscussionCategories: vi.fn(async () => []),
+    fetchDiscussions: vi.fn(async () => []),
+    fetchDiscussionComments: vi.fn(async () => []),
+    fetchMergeQueueEntries: vi.fn(async () => []),
+    fetchReleases: vi.fn(async () => []),
+    fetchRecentWorkflowRuns: vi.fn(async () => []),
+    fetchCodeOwners: vi.fn(async () => null),
+    fetchSecurityAdvisories: vi.fn(async () => []),
     actionClose: vi.fn(async () => {}),
     actionReopen: vi.fn(async () => {}),
     actionSetTitle: vi.fn(async () => {}),
@@ -453,6 +467,13 @@ function createMockProvider(overrides: Partial<RepositoryProvider> = {}): Reposi
     actionAddReaction: vi.fn(async () => {}),
     actionRemoveReaction: vi.fn(async () => {}),
     fetchViewerReactions: vi.fn(async () => []),
+    fetchIssueDependenciesBlockedBy: vi.fn(async () => []),
+    fetchIssueDependenciesBlocking: vi.fn(async () => []),
+    fetchIssueSubIssues: vi.fn(async () => []),
+    fetchIssueParent: vi.fn(async () => null),
+    fetchIssueFieldValues: vi.fn(async () => []),
+    fetchRepositoryIssueTypes: vi.fn(async () => []),
+    fetchOrganizationIssueFields: vi.fn(async () => []),
     ...overrides,
   }
 }

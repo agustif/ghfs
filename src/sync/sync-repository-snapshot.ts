@@ -1,5 +1,5 @@
 import type { SyncItemState } from '../types'
-import type { ProviderRepository } from '../types/provider'
+import type { ProviderLabel, ProviderMilestone, ProviderRepository } from '../types/provider'
 import type { RepoSnapshot } from './repo-snapshot'
 import type { SyncContext } from './sync-repository-types'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -105,13 +105,40 @@ function sortRows(rows: IndexRow[]): IndexRow[] {
 }
 
 async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
-  const [repoResult, labelsResult, milestonesResult] = await Promise.all([
+  const shouldSyncPeople = context.config.sync.people ?? false
+
+  const basePromises = [
     context.provider.fetchRepository(),
     context.provider.fetchRepositoryLabels(),
     context.provider.fetchRepositoryMilestones(),
+  ]
+
+  const peoplePromises = shouldSyncPeople
+    ? [
+        context.provider.fetchCollaborators(),
+        context.provider.fetchOutsideCollaborators(),
+        context.provider.fetchTeams(),
+        context.provider.fetchContributorStats(),
+        context.provider.fetchCommitActivity(),
+        context.provider.fetchCodeFrequency(),
+        context.provider.fetchParticipation(),
+        context.provider.fetchPunchCard(),
+        context.provider.fetchCommunityProfile(),
+        context.provider.fetchCodeownersErrors(),
+        context.provider.fetchBranchProtections(),
+      ]
+    : []
+
+  const results = await Promise.all([
+    ...basePromises,
+    ...peoplePromises,
   ])
 
-  const repository = repoResult as ProviderRepository
+  const repository = results[0] as ProviderRepository
+  const labelsResult = results[1] as ProviderLabel[]
+  const milestonesResult = results[2] as ProviderMilestone[]
+  const peopleResults = results.slice(3)
+
   const labels = labelsResult
     .map(label => ({
       name: label.name,
@@ -135,7 +162,7 @@ async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
     }))
     .sort((left, right) => left.number - right.number)
 
-  return {
+  const snapshot: RepoSnapshot = {
     repo: context.repoSlug,
     synced_at: context.syncedAt,
     repository: {
@@ -149,6 +176,11 @@ async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
       html_url: repository.html_url,
       fork: repository.fork,
       open_issues_count: repository.open_issues_count,
+      stargazers_count: repository.stargazers_count,
+      watchers_count: repository.watchers_count,
+      forks_count: repository.forks_count,
+      ...(repository.subscribers_count !== undefined ? { subscribers_count: repository.subscribers_count } : {}),
+      ...(repository.network_count !== undefined ? { network_count: repository.network_count } : {}),
       has_issues: repository.has_issues,
       has_projects: repository.has_projects,
       has_wiki: repository.has_wiki,
@@ -163,4 +195,73 @@ async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
     labels,
     milestones,
   }
+
+  if (shouldSyncPeople && peopleResults.length === 11) {
+    snapshot.people = {
+      collaborators: peopleResults[0] as any,
+      outsideCollaborators: peopleResults[1] as any,
+      teams: peopleResults[2] as any,
+      contributorStats: peopleResults[3] as any,
+      commitActivity: peopleResults[4] as any,
+      codeFrequency: peopleResults[5] as any,
+      participation: peopleResults[6] as any,
+      punchCard: peopleResults[7] as any,
+      communityProfile: peopleResults[8] as any,
+      codeownersErrors: peopleResults[9] as any,
+      branchProtections: peopleResults[10] as any,
+      syncedAt: context.syncedAt,
+    }
+  }
+
+  return snapshot
+}
+
+export async function writeTrafficData(context: SyncContext): Promise<void> {
+  if (!context.config.sync.traffic)
+    return
+
+  const [views, clones, referrers, paths] = await Promise.all([
+    context.provider.fetchTrafficViews(),
+    context.provider.fetchTrafficClones(),
+    context.provider.fetchTrafficReferrers(),
+    context.provider.fetchTrafficPaths(),
+  ])
+
+  const trafficData = {
+    synced_at: context.syncedAt,
+    views,
+    clones,
+    referrers,
+    paths,
+  }
+
+  await mkdir(context.storageDirAbsolute, { recursive: true })
+  await writeFile(
+    join(context.storageDirAbsolute, 'traffic.json'),
+    `${JSON.stringify(trafficData, null, 2)}\n`,
+    'utf8',
+  )
+}
+
+export async function writeSocialData(context: SyncContext): Promise<void> {
+  if (!context.config.sync.social)
+    return
+
+  const [starHistory, contributors] = await Promise.all([
+    context.provider.fetchStarHistory(),
+    context.provider.fetchContributors(),
+  ])
+
+  const socialData = {
+    synced_at: context.syncedAt,
+    star_history: starHistory,
+    contributors,
+  }
+
+  await mkdir(context.storageDirAbsolute, { recursive: true })
+  await writeFile(
+    join(context.storageDirAbsolute, 'social.json'),
+    `${JSON.stringify(socialData, null, 2)}\n`,
+    'utf8',
+  )
 }
