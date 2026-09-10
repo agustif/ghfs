@@ -2,7 +2,7 @@ import type { SyncContext } from './sync-repository-types'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'
 import { buildActivitySummary, renderActivitySummary } from './activity-summary'
-import { buildAgentHints, renderAgentHints } from './agent-hints'
+import { generateAgentHints } from './agent-hints'
 import { buildDeploymentsSummary, renderDeploymentsSummary } from './deployments-summary'
 
 export async function writeExtendedMetadataErgonomics(context: SyncContext): Promise<void> {
@@ -26,10 +26,10 @@ export async function writeExtendedMetadataErgonomics(context: SyncContext): Pro
   }
 
   if (config.agentHints !== false) {
-    const agentHints = await buildAgentHints(context)
+    const agentHints = await generateAgentHints(context)
     await writeFile(
       join(storageDirAbsolute, 'agent-hints.md'),
-      renderAgentHints(agentHints),
+      agentHints,
       'utf8',
     )
   }
