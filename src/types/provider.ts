@@ -1,6 +1,5 @@
 import type { IssueKind, IssueState } from '../types'
 import type { ReactionContent } from '../utils/reactions'
-import type { AttestationsSummary, DependabotAlert, DependencyGraphSummary, DependencyReview, SbomData } from './security'
 
 export interface ProviderReactions {
   totalCount: number
@@ -290,27 +289,6 @@ export interface ProviderAuthenticatedUser {
   avatarUrl: string
 }
 
-export interface ProviderEvent {
-  id: string
-  type: string
-  actor: string | null
-  createdAt: string
-  payload?: Record<string, any>
-}
-
-export interface ProviderDeployment {
-  id: number
-  environment: string
-  state: string
-  description: string | null
-  createdAt: string
-  updatedAt: string
-  creator: string | null
-  ref: string
-  sha: string
-  url?: string
-}
-
 export interface ProviderMilestone {
   number: number
   title: string
@@ -417,22 +395,6 @@ export interface ProviderUpdateCounts {
 export interface ProviderRelease {
   id: number
   tag_name: string
-export interface ProviderReleaseAsset {
-  id: number
-  name: string
-  label: string | null
-  size: number
-  downloadCount: number
-  contentType: string
-  state: string
-  createdAt: string
-  updatedAt: string
-  browserDownloadUrl: string
-}
-
-export interface ProviderRelease {
-  id: number
-  tagName: string
   name: string | null
   body: string | null
   draft: boolean
@@ -491,100 +453,9 @@ export interface ProviderRepositoryContent {
   type: 'file' | 'dir' | 'symlink' | 'submodule'
   content?: string
   encoding?: string
-  createdAt: string
-  publishedAt: string | null
-  author: string | null
-  authorAvatarUrl?: string
-  htmlUrl: string
-  reactions?: ProviderReactions
-  assets: ProviderReleaseAsset[]
-}
-
-export interface ProviderReleaseSettings {
-  immutable: boolean
-}
-
-export interface ProviderGenerateReleaseNotesResult {
-  tagName: string
-  name: string
-  body: string
-}
-
-export interface ProviderPackageVersion {
-  id: number
-  name: string
-  packageType: string
-  createdAt: string
-  updatedAt: string
-  htmlUrl?: string
-  metadata?: {
-    container?: {
-      tags: string[]
-    }
-  }
-}
-
-export interface ProviderPackage {
-  id: number
-  name: string
-  packageType: string
-  visibility: string
-  owner: string
-  createdAt: string
-  updatedAt: string
-  htmlUrl?: string
-  repository?: {
-    name: string
-    fullName: string
-  }
-  versions?: ProviderPackageVersion[]
 }
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
-
-/**
- * Compare data for a pull request: ahead/behind commits relative to base branch,
- * merge-base SHA, and commit lists for visualization.
- */
-export interface ProviderPullCompare {
-  /** Merge base SHA (common ancestor of head and base). */
-  mergeBaseSha: string
-  /** Commits ahead of base (unique to this PR's head branch). */
-  aheadBy: number
-  /** Commits behind base (base branch commits not in PR). */
-  behindBy: number
-  /** List of commits ahead (in chronological order, oldest first). */
-  commits: ProviderCommit[]
-  /** Whether the branches can be merged without conflicts. */
-  mergeable?: boolean | null
-}
-
-/**
- * Stacked PR relationship data: PRs this PR depends on (base PRs),
- * and PRs that depend on this PR (dependent PRs).
- */
-export interface ProviderPullStack {
-  /** PR numbers this PR is stacked on top of (base PRs, in order from base to head). */
-  basePRs: number[]
-  /** PR numbers that are stacked on top of this PR (dependent PRs). */
-  dependentPRs: number[]
-}
-
-/**
- * Status check rollup from GitHub GraphQL API, providing aggregate
- * check state and individual check contexts.
- */
-export interface ProviderPullStatusCheckRollup {
-  /** Aggregate state: SUCCESS, FAILURE, PENDING, EXPECTED, or null if no checks. */
-  state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | null
-  /** Individual check contexts (both StatusContext and CheckRun). */
-  contexts: Array<{
-    context: string
-    state: string
-    targetUrl: string | null
-    description: string | null
-  }>
-}
 
 /**
  * Where a reaction is applied. `item` = issue/PR body (uses `op.number`).
@@ -599,34 +470,6 @@ export type ReactionTarget
 export interface PaginateItemsOptions {
   state: IssueState | 'all'
   since?: string
-}
-
-export interface ProviderCollaborator {
-  login: string
-  name: string | null
-  avatarUrl: string
-  permission: 'pull' | 'push' | 'maintain' | 'admin'
-  roleName?: string
-}
-
-export interface ProviderTeam {
-  name: string
-  slug: string
-  description: string | null
-  permission: 'pull' | 'push' | 'maintain' | 'admin'
-  members: string[]
-}
-
-export interface ProviderAppInstallation {
-  name: string
-  slug: string
-  description: string | null
-  permissions: Record<string, string>
-}
-
-export interface ProviderCodeowners {
-  path: string
-  owners: string[]
 }
 
 export interface RepositoryProvider {
@@ -652,10 +495,6 @@ export interface RepositoryProvider {
   fetchRecentWorkflowRuns?: (limit?: number) => Promise<ProviderWorkflowRun[]>
   fetchRepositoryContent?: (path: string) => Promise<ProviderRepositoryContent | null>
   fetchPinnedIssues?: () => Promise<number[]>
-  fetchCollaborators: () => Promise<ProviderCollaborator[]>
-  fetchTeams: () => Promise<ProviderTeam[]>
-  fetchAppInstallations: () => Promise<ProviderAppInstallation[]>
-  fetchCodeowners: () => Promise<ProviderCodeowners | null>
   getRequestCount: () => number
   fetchPullReviews: (number: number) => Promise<ProviderPullReview[]>
   fetchPullReviewThreads: (number: number) => Promise<ProviderPullReviewThread[]>
@@ -672,20 +511,6 @@ export interface RepositoryProvider {
   fetchCollaborators?: () => Promise<ProviderCollaborator[]>
   fetchTeams?: () => Promise<ProviderTeam[]>
   fetchInstalledApps?: () => Promise<ProviderApp[]>
-  fetchPullCompare: (number: number) => Promise<ProviderPullCompare>
-  fetchPullStack: (number: number) => Promise<ProviderPullStack>
-  fetchPullStatusCheckRollup: (number: number) => Promise<ProviderPullStatusCheckRollup>
-
-  fetchEvents?: (limit?: number) => Promise<ProviderEvent[]>
-  fetchDeployments?: () => Promise<ProviderDeployment[]>
-
-  fetchIssueDependenciesBlockedBy: (number: number) => Promise<ProviderIssueDependency[]>
-  fetchIssueDependenciesBlocking: (number: number) => Promise<ProviderIssueDependency[]>
-  fetchIssueSubIssues: (number: number) => Promise<ProviderSubIssue[]>
-  fetchIssueParent: (number: number) => Promise<ProviderParentIssue | null>
-  fetchIssueFieldValues: (number: number) => Promise<ProviderIssueFieldValue[]>
-  fetchRepositoryIssueTypes: () => Promise<ProviderIssueType[]>
-  fetchOrganizationIssueFields: (org: string) => Promise<ProviderIssueField[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>
@@ -715,10 +540,98 @@ export interface RepositoryProvider {
   actionRemoveReaction: (number: number, reaction: ReactionContent, target: ReactionTarget) => Promise<void>
   fetchViewerReactions: (number: number, target: ReactionTarget) => Promise<ReactionContent[]>
 
-  fetchReleases: () => Promise<ProviderRelease[]>
-  fetchReleaseByTag: (tagName: string) => Promise<ProviderRelease>
-  fetchReleaseSettings: () => Promise<ProviderReleaseSettings | null>
-  fetchGenerateReleaseNotes: (tagName: string, targetCommitish?: string, previousTagName?: string) => Promise<ProviderGenerateReleaseNotesResult>
-  fetchPackages: () => Promise<ProviderPackage[]>
-  fetchPackageVersions: (packageType: string, packageName: string) => Promise<ProviderPackageVersion[]>
+  fetchActionsWorkflowRuns: () => Promise<ProviderActionsWorkflowRun[]>
+  fetchActionsWorkflowJobs: (runId: number) => Promise<ProviderActionsWorkflowJob[]>
+  fetchActionsJobLogs: (jobId: number) => Promise<string>
+  fetchActionsRunArtifacts: (runId: number) => Promise<ProviderActionsArtifact[]>
+  fetchWebhooks: () => Promise<ProviderWebhook[]>
+  fetchWebhookDeliveries: (hookId: number, options?: { perPage?: number, status?: 'success' | 'failure' }) => Promise<ProviderWebhookDelivery[]>
+}
+
+export interface ProviderActionsWorkflowRun {
+  id: number
+  name: string
+  displayTitle: string
+  status: 'queued' | 'in_progress' | 'completed' | null
+  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  workflowId: number
+  workflowName: string
+  headBranch: string
+  headSha: string
+  event: string
+  createdAt: string
+  updatedAt: string
+  runStartedAt?: string | null
+  url: string
+}
+
+export interface ProviderActionsWorkflowJob {
+  id: number
+  runId: number
+  name: string
+  status: 'queued' | 'in_progress' | 'completed'
+  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  startedAt: string
+  completedAt: string | null
+  url: string
+  steps: Array<{
+    name: string
+    status: 'queued' | 'in_progress' | 'completed'
+    conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+    number: number
+    startedAt?: string | null
+    completedAt?: string | null
+  }>
+}
+
+export interface ProviderActionsArtifact {
+  id: number
+  nodeId: string
+  name: string
+  sizeInBytes: number
+  url: string
+  archiveDownloadUrl: string
+  expired: boolean
+  createdAt: string
+  updatedAt: string
+  expiresAt: string
+}
+
+export interface ProviderWebhook {
+  id: number
+  type: string
+  name: string
+  active: boolean
+  events: string[]
+  config: {
+    url?: string
+    contentType?: string
+    insecureSsl?: string
+  }
+  updatedAt: string
+  createdAt: string
+  url: string
+  testUrl: string
+  pingUrl: string
+  deliveriesUrl: string
+}
+
+export interface ProviderWebhookDelivery {
+  id: number
+  guid: string
+  deliveredAt: string
+  redelivery: boolean
+  duration: number
+  status: string
+  statusCode: number
+  event: string
+  action: string | null
+  installationId: number | null
+  repositoryId: number | null
+  throttledAt: string | null
+  url: string
+  requestHeaders?: Record<string, string>
+  requestPayload?: Record<string, unknown>
+  responseHeaders?: Record<string, string>
+  responseBody?: string
 }
