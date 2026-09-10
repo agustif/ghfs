@@ -1,13 +1,15 @@
 import type { ProviderItem, SyncItemState } from '../types'
 import type { ItemSyncStats, PatchPlan, PreparedIssueCandidate, SyncContext } from './sync-repository-types'
 import { readdir } from 'node:fs/promises'
-import { basename, join } from 'pathe'
+import { basename, dirname, join } from 'pathe'
 import { CLOSED_DIR_NAME, ISSUE_DIR_NAME, PULL_DIR_NAME } from '../constants'
 import { diagnostics } from '../logger'
 import { formatIssueNumber } from '../utils/format'
 import { movePath, pathExists, removePatchIfExists, removePath, writeFileEnsured } from '../utils/fs'
 import { normalizeReactions } from '../utils/reactions'
+import { writePullAugmentations } from './augment-pull-request'
 import { renderIssueMarkdown } from './markdown'
+import { fetchPullRequestAugmentations } from './sync-graphql-features'
 import {
   getExistingMarkdownPaths,
   moveMarkdownByState,
@@ -137,8 +139,20 @@ export async function materializePreparedIssue(context: SyncContext, candidate: 
 
   const patchStats = await syncPatchByPlan(context, number, paths.patchPath, patchPlan)
 
-  if (kind === 'pull')
+  if (kind === 'pull') {
     await syncPullIntelligence(context, number, paths.targetPath)
+
+    if (action === 'refetch') {
+      try {
+        const augmentations = await fetchPullRequestAugmentations(context.provider, number)
+        const pullDir = dirname(paths.targetPath)
+        await writePullAugmentations(pullDir, number, augmentations)
+      }
+      catch (error) {
+        console.warn(`Failed to fetch/write augmentations for PR #${number}:`, error)
+      }
+    }
+  }
 
   return {
     kind,
