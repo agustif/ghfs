@@ -165,6 +165,36 @@ export interface GhfsUserConfig {
      * @default true
      */
     syncState?: boolean
+     * Whether to sync stargazers.
+     *
+     * @default true
+     */
+    stargazers?: boolean
+    /**
+     * Whether to sync watchers/subscribers.
+     *
+     * @default true
+     */
+    watchers?: boolean
+    /**
+     * Whether to sync forks list.
+     *
+     * @default true
+     */
+    forks?: boolean
+    /**
+     * Whether to sync traffic statistics (requires push access).
+     * Includes views, clones, popular paths, and referrers.
+     *
+     * @default true
+     */
+    traffic?: boolean
+    /**
+     * Whether to sync contributors statistics.
+     *
+     * @default true
+     */
+    contributors?: boolean
   }
 }
 

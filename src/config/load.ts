@@ -74,6 +74,11 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const extendedMe = merged.extended?.me ?? true
   const extendedSecurity = merged.extended?.security ?? true
   const extendedSyncState = merged.extended?.syncState ?? true
+  const stargazersEnabled = merged.sync?.stargazers ?? true
+  const watchersEnabled = merged.sync?.watchers ?? true
+  const forksEnabled = merged.sync?.forks ?? true
+  const trafficEnabled = merged.sync?.traffic ?? true
+  const contributorsEnabled = merged.sync?.contributors ?? true
 
   return {
     cwd,
@@ -107,6 +112,11 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       me: extendedMe,
       security: extendedSecurity,
       syncState: extendedSyncState,
+      stargazers: stargazersEnabled,
+      watchers: watchersEnabled,
+      forks: forksEnabled,
+      traffic: trafficEnabled,
+      contributors: contributorsEnabled,
     },
   }
 }

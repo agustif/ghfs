@@ -379,6 +379,69 @@ export interface ProviderApp {
   id: number
   name: string
   slug: string
+export interface ProviderStargazer {
+  login: string
+  starred_at?: string
+}
+
+export interface ProviderWatcher {
+  login: string
+}
+
+export interface ProviderFork {
+  id: number
+  full_name: string
+  owner: {
+    login: string
+  }
+  html_url: string
+  description: string | null
+  fork: boolean
+  created_at: string
+  updated_at: string
+  pushed_at: string | null
+  stargazers_count: number
+  watchers_count: number
+  forks_count: number
+}
+
+export interface ProviderTrafficViews {
+  count: number
+  uniques: number
+  views: Array<{
+    timestamp: string
+    count: number
+    uniques: number
+  }>
+}
+
+export interface ProviderTrafficClones {
+  count: number
+  uniques: number
+  clones: Array<{
+    timestamp: string
+    count: number
+    uniques: number
+  }>
+}
+
+export interface ProviderTrafficPath {
+  path: string
+  title: string
+  count: number
+  uniques: number
+}
+
+export interface ProviderTrafficReferrer {
+  referrer: string
+  count: number
+  uniques: number
+}
+
+export interface ProviderContributor {
+  login: string
+  contributions: number
+  avatar_url?: string
 }
 
 export interface ProviderItemSnapshot {
@@ -511,6 +574,14 @@ export interface RepositoryProvider {
   fetchCollaborators?: () => Promise<ProviderCollaborator[]>
   fetchTeams?: () => Promise<ProviderTeam[]>
   fetchInstalledApps?: () => Promise<ProviderApp[]>
+  fetchStargazers: () => Promise<ProviderStargazer[]>
+  fetchWatchers: () => Promise<ProviderWatcher[]>
+  fetchForks: () => Promise<ProviderFork[]>
+  fetchTrafficViews: () => Promise<ProviderTrafficViews | null>
+  fetchTrafficClones: () => Promise<ProviderTrafficClones | null>
+  fetchTrafficPaths: () => Promise<ProviderTrafficPath[]>
+  fetchTrafficReferrers: () => Promise<ProviderTrafficReferrer[]>
+  fetchContributors: () => Promise<ProviderContributor[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>
