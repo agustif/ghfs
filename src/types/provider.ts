@@ -307,6 +307,11 @@ export interface ProviderRepository {
   owner: {
     login: string
   }
+  stargazers_count: number
+  watchers_count: number
+  forks_count: number
+  subscribers_count?: number
+  network_count?: number
   /** Whether the repo allows merge commits (`Create a merge commit`). */
   allow_merge_commit?: boolean
   /** Whether the repo allows squash-merging (`Squash and merge`). */
@@ -632,6 +637,85 @@ export interface ProviderIssueType {
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
 
+export interface ProviderTrafficClones {
+  count: number
+  uniques: number
+  clones: Array<{
+    timestamp: string
+    count: number
+    uniques: number
+  }>
+}
+
+export interface ProviderTrafficReferrer {
+  referrer: string
+  count: number
+  uniques: number
+}
+
+export interface ProviderTrafficPath {
+  path: string
+  title: string
+  count: number
+  uniques: number
+}
+
+export interface ProviderStarHistory {
+  week: string
+  total: number
+  days: [number, number, number, number, number, number, number]
+}
+
+export interface ProviderContributor {
+  login: string
+  contributions: number
+  avatar_url?: string
+}
+
+/**
+ * Compare data for a pull request: ahead/behind commits relative to base branch,
+ * merge-base SHA, and commit lists for visualization.
+ */
+export interface ProviderPullCompare {
+  /** Merge base SHA (common ancestor of head and base). */
+  mergeBaseSha: string
+  /** Commits ahead of base (unique to this PR's head branch). */
+  aheadBy: number
+  /** Commits behind base (base branch commits not in PR). */
+  behindBy: number
+  /** List of commits ahead (in chronological order, oldest first). */
+  commits: ProviderCommit[]
+  /** Whether the branches can be merged without conflicts. */
+  mergeable?: boolean | null
+}
+
+/**
+ * Stacked PR relationship data: PRs this PR depends on (base PRs),
+ * and PRs that depend on this PR (dependent PRs).
+ */
+export interface ProviderPullStack {
+  /** PR numbers this PR is stacked on top of (base PRs, in order from base to head). */
+  basePRs: number[]
+  /** PR numbers that are stacked on top of this PR (dependent PRs). */
+  dependentPRs: number[]
+}
+
+/**
+ * Status check rollup from GitHub GraphQL API, providing aggregate
+ * check state and individual check contexts.
+ */
+export interface ProviderPullStatusCheckRollup {
+  /** Aggregate state: SUCCESS, FAILURE, PENDING, EXPECTED, or null if no checks. */
+  state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | null
+  /** Individual check contexts (both StatusContext and CheckRun). */
+  contexts: Array<{
+    context: string
+    state: string
+    targetUrl: string | null
+    description: string | null
+  }>
+}
+
 /**
  * Compare data for a pull request: ahead/behind commits relative to base branch,
  * merge-base SHA, and commit lists for visualization.
@@ -852,6 +936,31 @@ export interface RepositoryProvider {
   fetchIssueFieldValues: (number: number) => Promise<ProviderIssueFieldValue[]>
   fetchRepositoryIssueTypes: () => Promise<ProviderIssueType[]>
   fetchOrganizationIssueFields: (org: string) => Promise<ProviderIssueField[]>
+  searchCode: (options: SearchOptions) => Promise<SearchCodeResult[]>
+  searchCommits: (options: SearchOptions) => Promise<SearchCommitResult[]>
+  searchIssues: (options: SearchOptions) => Promise<SearchIssueResult[]>
+
+  fetchTrafficViews: () => Promise<ProviderTrafficViews | null>
+  fetchTrafficClones: () => Promise<ProviderTrafficClones | null>
+  fetchTrafficReferrers: () => Promise<ProviderTrafficReferrer[]>
+  fetchTrafficPaths: () => Promise<ProviderTrafficPath[]>
+  fetchStarHistory: () => Promise<ProviderStarHistory[]>
+  fetchContributors: () => Promise<ProviderContributor[]>
+
+  fetchCustomProperties?: () => Promise<any[] | null>
+  fetchAutolinks?: () => Promise<any[] | null>
+  fetchBranchRenames?: () => Promise<any[] | null>
+  fetchCommitActivity?: () => Promise<any[] | null>
+  fetchParticipationStats?: () => Promise<any | null>
+  fetchRepositoryTags?: () => Promise<any[] | null>
+  fetchGitRefs?: (namespace?: string) => Promise<any[] | null>
+  fetchGitTree?: (treeSha: string, recursive?: boolean) => Promise<any | null>
+  fetchAssigneeSuggestions?: () => Promise<any[] | null>
+  fetchTrafficReferrers?: () => Promise<any[] | null>
+  fetchTrafficPaths?: () => Promise<any[] | null>
+  fetchTrafficViews?: () => Promise<any | null>
+  fetchTrafficClones?: () => Promise<any | null>
+  fetchVulnerabilityReporting?: () => Promise<any | null>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>
