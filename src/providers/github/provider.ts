@@ -2,20 +2,32 @@ import type { Octokit } from 'octokit'
 import type {
   MergeOptions,
   PaginateItemsOptions,
+  ProviderAssignableUser,
   ProviderAuthenticatedUser,
+  ProviderBranchProtection,
+  ProviderCodeFrequency,
+  ProviderCodeownersError,
+  ProviderCollaborator,
   ProviderComment,
   ProviderCommit,
+  ProviderCommitActivity,
+  ProviderContributor,
+  ProviderInvitation,
   ProviderItem,
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
   ProviderMilestone,
+  ProviderParticipation,
   ProviderPullMetadata,
+  ProviderPunchCard,
   ProviderReactions,
   ProviderRepository,
   ProviderReviewComment,
   ProviderReviewDecision,
   ProviderReviewState,
+  ProviderRuleset,
+  ProviderTeam,
   ProviderTimelineEvent,
   ProviderTimelineSource,
   ProviderUpdateCounts,
@@ -71,6 +83,24 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchAuthenticatedUser: fetchAuthenticatedUserCached,
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
     getRequestCount: () => requestCount,
+
+    // People & Collaboration
+    fetchCollaborators: () => fetchCollaborators(octokit, owner, repo, bumpRequestCount),
+    fetchTeams: () => fetchTeams(octokit, owner, repo, bumpRequestCount),
+    fetchInvitations: () => fetchInvitations(octokit, owner, repo, bumpRequestCount),
+    fetchAssignableUsers: () => fetchAssignableUsers(octokit, owner, repo, bumpRequestCount),
+    fetchContributors: () => fetchContributors(octokit, owner, repo, bumpRequestCount),
+
+    // Repository rules & protection
+    fetchRulesets: () => fetchRulesets(octokit, owner, repo, bumpRequestCount),
+    fetchBranchProtection: branch => fetchBranchProtection(octokit, owner, repo, branch, bumpRequestCount),
+    fetchCodeownersErrors: () => fetchCodeownersErrors(octokit, owner, repo, bumpRequestCount),
+
+    // Statistics
+    fetchCommitActivity: () => fetchCommitActivity(octokit, owner, repo, bumpRequestCount),
+    fetchCodeFrequency: () => fetchCodeFrequency(octokit, owner, repo, bumpRequestCount),
+    fetchParticipation: () => fetchParticipation(octokit, owner, repo, bumpRequestCount),
+    fetchPunchCard: () => fetchPunchCard(octokit, owner, repo, bumpRequestCount),
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
@@ -558,6 +588,405 @@ async function countUpdatedSince(
   return {
     issues: result.issues.issueCount,
     pulls: result.pulls.issueCount,
+  }
+}
+
+async function fetchCollaborators(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderCollaborator[] | null> {
+  try {
+    bumpRequestCount()
+    const collaborators = await octokit.paginate(octokit.rest.repos.listCollaborators, {
+      owner,
+      repo,
+      affiliation: 'all',
+      per_page: 100,
+    }) as Array<{
+      login: string
+      avatar_url: string
+      role_name: string
+      permissions: {
+        admin: boolean
+        maintain: boolean
+        push: boolean
+        triage: boolean
+        pull: boolean
+      }
+    }>
+    return collaborators.map(c => ({
+      login: c.login,
+      avatar_url: c.avatar_url,
+      role_name: c.role_name,
+      permissions: c.permissions,
+    }))
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
+  }
+}
+
+async function fetchTeams(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderTeam[] | null> {
+  try {
+    bumpRequestCount()
+    const teams = await octokit.paginate(octokit.rest.repos.listTeams, {
+      owner,
+      repo,
+      per_page: 100,
+    }) as Array<{
+      slug: string
+      name: string
+      description: string | null
+      permission: string
+      privacy: string
+    }>
+    return teams.map(t => ({
+      slug: t.slug,
+      name: t.name,
+      description: t.description,
+      permission: t.permission,
+      privacy: t.privacy,
+    }))
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
+  }
+}
+
+async function fetchInvitations(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderInvitation[] | null> {
+  try {
+    bumpRequestCount()
+    const invitations = await octokit.paginate(octokit.rest.repos.listInvitations, {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return invitations.map((i: any) => ({
+      id: i.id,
+      login: i.invitee?.login ?? null,
+      email: i.email ?? null,
+      role: i.permissions,
+      created_at: i.created_at,
+      inviter: {
+        login: i.inviter.login,
+      },
+    }))
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
+  }
+}
+
+async function fetchAssignableUsers(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderAssignableUser[] | null> {
+  try {
+    bumpRequestCount()
+    const users = await octokit.paginate(octokit.rest.issues.listAssignees, {
+      owner,
+      repo,
+      per_page: 100,
+    }) as Array<{
+      login: string
+      avatar_url: string
+    }>
+    return users.map(u => ({
+      login: u.login,
+      avatar_url: u.avatar_url,
+    }))
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
+  }
+}
+
+async function fetchContributors(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderContributor[] | null> {
+  try {
+    bumpRequestCount()
+    const contributors = await octokit.paginate(octokit.rest.repos.listContributors, {
+      owner,
+      repo,
+      per_page: 100,
+    }) as Array<{
+      login?: string
+      avatar_url?: string
+      contributions: number
+      type: string
+    }>
+    return contributors.map(c => ({
+      login: c.login ?? null,
+      avatar_url: c.avatar_url ?? null,
+      contributions: c.contributions,
+      type: c.type,
+    }))
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
+  }
+}
+
+async function fetchRulesets(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderRuleset[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/rulesets', {
+      owner,
+      repo,
+    })
+    const rulesets = result.data as Array<{
+      id: number
+      name: string
+      target?: string
+      source_type?: string
+      source?: string
+      enforcement: string
+      conditions?: unknown
+      rules?: unknown[]
+      bypass_actors?: unknown[]
+      node_id?: string
+    }>
+    return rulesets.map(r => ({
+      id: r.id,
+      name: r.name,
+      target: r.target,
+      source_type: r.source_type,
+      source: r.source,
+      enforcement: r.enforcement,
+      conditions: r.conditions,
+      rules: r.rules,
+      bypass_actors: r.bypass_actors,
+      node_id: r.node_id,
+    }))
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
+  }
+}
+
+async function fetchBranchProtection(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  branch: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderBranchProtection | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.rest.repos.getBranchProtection({
+      owner,
+      repo,
+      branch,
+    })
+    return result.data as ProviderBranchProtection
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
+  }
+}
+
+async function fetchCodeownersErrors(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderCodeownersError[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.request('GET /repos/{owner}/{repo}/codeowners/errors', {
+      owner,
+      repo,
+    })
+    const data = result.data as { errors: Array<{
+      line: number
+      column: number
+      source: string | null
+      kind: string
+      suggestion: string | null
+      message: string
+      path: string
+    }> }
+    return data.errors.map(e => ({
+      line: e.line,
+      column: e.column,
+      source: e.source,
+      kind: e.kind,
+      suggestion: e.suggestion,
+      message: e.message,
+      path: e.path,
+    }))
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
+  }
+}
+
+async function fetchCommitActivity(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderCommitActivity[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.rest.repos.getCommitActivityStats({
+      owner,
+      repo,
+    })
+    if (result.status !== 200)
+      return null
+    const activity = result.data as Array<{
+      days: number[]
+      total: number
+      week: number
+    }>
+    return activity.map(a => ({
+      days: a.days,
+      total: a.total,
+      week: a.week,
+    }))
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
+  }
+}
+
+async function fetchCodeFrequency(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderCodeFrequency[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.rest.repos.getCodeFrequencyStats({
+      owner,
+      repo,
+    })
+    if (result.status !== 200)
+      return null
+    const frequency = result.data as Array<[number, number, number]>
+    return frequency.map(([week, additions, deletions]) => ({
+      week,
+      additions,
+      deletions,
+    }))
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
+  }
+}
+
+async function fetchParticipation(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderParticipation | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.rest.repos.getParticipationStats({
+      owner,
+      repo,
+    })
+    if (result.status !== 200)
+      return null
+    const data = result.data as {
+      all: number[]
+      owner: number[]
+    }
+    return {
+      all: data.all,
+      owner: data.owner,
+    }
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
+  }
+}
+
+async function fetchPunchCard(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderPunchCard[] | null> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.rest.repos.getPunchCardStats({
+      owner,
+      repo,
+    })
+    if (result.status !== 200)
+      return null
+    const punchCard = result.data as Array<[number, number, number]>
+    return punchCard.map(([day, hour, commits]) => ({
+      day,
+      hour,
+      commits,
+    }))
+  }
+  catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403 || status === 404)
+      return null
+    throw error
   }
 }
 

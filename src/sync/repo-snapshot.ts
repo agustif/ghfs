@@ -46,6 +46,94 @@ export interface RepoSnapshot {
     updated_at: string
     closed_at: string | null
   }>
+  people?: {
+    collaborators: Array<{
+      login: string
+      avatar_url: string
+      role_name: string
+      permissions: {
+        admin: boolean
+        maintain: boolean
+        push: boolean
+        triage: boolean
+        pull: boolean
+      }
+    }> | null
+    teams: Array<{
+      slug: string
+      name: string
+      description: string | null
+      permission: string
+      privacy: string
+    }> | null
+    invitations: Array<{
+      id: number
+      login: string | null
+      email: string | null
+      role: string
+      created_at: string
+      inviter: {
+        login: string
+      }
+    }> | null
+    assignable_users: Array<{
+      login: string
+      avatar_url: string
+    }> | null
+    contributors: Array<{
+      login: string | null
+      avatar_url: string | null
+      contributions: number
+      type: string
+    }> | null
+  }
+  rules?: {
+    rulesets: Array<{
+      id: number
+      name: string
+      target?: string
+      source_type?: string
+      source?: string
+      enforcement: string
+      conditions?: unknown
+      rules?: unknown[]
+      bypass_actors?: unknown[]
+      node_id?: string
+    }> | null
+    branch_protection: {
+      [branch: string]: unknown
+    } | null
+    codeowners_errors: Array<{
+      line: number
+      column: number
+      source: string | null
+      kind: string
+      suggestion: string | null
+      message: string
+      path: string
+    }> | null
+  }
+  stats?: {
+    commit_activity: Array<{
+      days: number[]
+      total: number
+      week: number
+    }> | null
+    code_frequency: Array<{
+      week: number
+      additions: number
+      deletions: number
+    }> | null
+    participation: {
+      all: number[]
+      owner: number[]
+    } | null
+    punch_card: Array<{
+      day: number
+      hour: number
+      commits: number
+    }> | null
+  }
 }
 
 export async function loadRepoSnapshot(storageDirAbsolute: string): Promise<RepoSnapshot | null> {

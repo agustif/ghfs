@@ -274,6 +274,24 @@ function createProviderMock(overrides: Partial<RepositoryProvider> = {}): Reposi
     fetchAuthenticatedUser: vi.fn(async () => null),
     countUpdatedSince: vi.fn(async () => ({ issues: 0, pulls: 0 })),
     getRequestCount: vi.fn(() => 0),
+
+    // People & Collaboration
+    fetchCollaborators: vi.fn(async () => null),
+    fetchTeams: vi.fn(async () => null),
+    fetchInvitations: vi.fn(async () => null),
+    fetchAssignableUsers: vi.fn(async () => null),
+    fetchContributors: vi.fn(async () => null),
+
+    // Repository rules & protection
+    fetchRulesets: vi.fn(async () => null),
+    fetchBranchProtection: vi.fn(async () => null),
+    fetchCodeownersErrors: vi.fn(async () => null),
+
+    // Statistics
+    fetchCommitActivity: vi.fn(async () => null),
+    fetchCodeFrequency: vi.fn(async () => null),
+    fetchParticipation: vi.fn(async () => null),
+    fetchPunchCard: vi.fn(async () => null),
     actionClose: vi.fn(async () => {}),
     actionReopen: vi.fn(async () => {}),
     actionSetTitle: vi.fn(async () => {}),
