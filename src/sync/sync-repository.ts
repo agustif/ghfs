@@ -9,6 +9,9 @@ import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
 import { loadSyncState, saveSyncState } from './state'
 import { writePagesBuilds } from './sync-pages-builds'
+import { syncCollaborators } from './sync-collaborators'
+import { syncPeople } from './sync-people'
+import { syncActions, syncWebhooks } from './sync-actions-webhooks'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,
@@ -243,6 +246,29 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
         })
       })
     }
+    await runStage('prune', 'Sync Actions & Webhooks', async () => {
+      if (options.config.sync.actionsLogs || options.config.sync.actionsArtifacts) {
+        await syncActions({
+          provider,
+          storageDirAbsolute,
+          config: options.config,
+        })
+      }
+
+      if (options.config.sync.webhooks) {
+        await syncWebhooks({
+          provider,
+          storageDirAbsolute,
+          config: options.config,
+        })
+      }
+
+      reporter?.onStageUpdate?.({
+        stage: 'prune',
+        snapshot: cloneSnapshot(counters),
+        message: 'actions and webhooks synced',
+      })
+    })
 
     const totals = computeTotals(syncContext.syncState.items)
     syncContext.totalIssues = totals.totalIssues

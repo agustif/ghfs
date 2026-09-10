@@ -265,6 +265,69 @@ export interface ProviderUpdateCounts {
   pulls: number
 }
 
+export interface ProviderRelease {
+  id: number
+  tag_name: string
+  name: string | null
+  body: string | null
+  draft: boolean
+  prerelease: boolean
+  created_at: string
+  published_at: string | null
+  author: string | null
+  html_url: string
+}
+
+export interface ProviderBranchProtection {
+  pattern: string
+  required_status_checks: {
+    strict: boolean
+    contexts: string[]
+  } | null
+  required_pull_request_reviews: {
+    dismiss_stale_reviews: boolean
+    require_code_owner_reviews: boolean
+    required_approving_review_count: number
+  } | null
+  enforce_admins: boolean
+  required_linear_history: boolean
+  allow_force_pushes: boolean
+  allow_deletions: boolean
+}
+
+export interface ProviderWorkflowRun {
+  id: number
+  name: string | null
+  head_branch: string | null
+  head_sha: string
+  status: string
+  conclusion: string | null
+  workflow_id: number
+  created_at: string
+  updated_at: string
+  html_url: string
+  event: string
+  actor: string | null
+}
+
+export interface ProviderRepositoryTopics {
+  names: string[]
+}
+
+export interface ProviderRepositoryContent {
+  name: string
+  path: string
+  sha: string
+  size: number
+  url: string
+  html_url: string
+  git_url: string
+  download_url: string | null
+  type: 'file' | 'dir' | 'symlink' | 'submodule'
+  content?: string
+  encoding?: string
+}
+
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
 
 /**
@@ -301,6 +364,28 @@ export interface RepositoryProvider {
   fetchAuthenticatedUser: () => Promise<ProviderAuthenticatedUser | null>
   countUpdatedSince: (since: string) => Promise<ProviderUpdateCounts>
   getRequestCount: () => number
+  fetchRepositoryTopics?: () => Promise<ProviderRepositoryTopics>
+  fetchReleases?: (limit?: number) => Promise<ProviderRelease[]>
+  fetchBranchProtection?: (branch: string) => Promise<ProviderBranchProtection | null>
+  fetchRecentWorkflowRuns?: (limit?: number) => Promise<ProviderWorkflowRun[]>
+  fetchRepositoryContent?: (path: string) => Promise<ProviderRepositoryContent | null>
+  fetchPinnedIssues?: () => Promise<number[]>
+  getRequestCount: () => number
+  fetchPullReviews: (number: number) => Promise<ProviderPullReview[]>
+  fetchPullReviewThreads: (number: number) => Promise<ProviderPullReviewThread[]>
+  fetchPullChecks: (number: number) => Promise<ProviderCheck[]>
+  fetchPullFiles: (number: number) => Promise<ProviderPullFile[]>
+  fetchPullGate: (number: number) => Promise<ProviderPullGate>
+
+  fetchDependabotAlerts?: (options?: { state?: 'open' | 'dismissed' | 'fixed', limit?: number }) => Promise<ProviderDependabotAlert[]>
+  fetchCodeScanningAlerts?: (options?: { state?: 'open' | 'dismissed' | 'fixed', limit?: number }) => Promise<ProviderCodeScanningAlert[]>
+  fetchSecretScanningAlerts?: (options?: { state?: 'open' | 'resolved', limit?: number }) => Promise<ProviderSecretScanningAlert[]>
+  fetchDeployments?: (options?: { ref?: string, environment?: string, limit?: number }) => Promise<ProviderDeployment[]>
+  fetchEnvironments?: () => Promise<ProviderEnvironment[]>
+  fetchRepoEvents?: (limit?: number) => Promise<ProviderRepoEvent[]>
+  fetchCollaborators?: () => Promise<ProviderCollaborator[]>
+  fetchTeams?: () => Promise<ProviderTeam[]>
+  fetchInstalledApps?: () => Promise<ProviderApp[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>
@@ -329,4 +414,99 @@ export interface RepositoryProvider {
   actionAddReaction: (number: number, reaction: ReactionContent, target: ReactionTarget) => Promise<void>
   actionRemoveReaction: (number: number, reaction: ReactionContent, target: ReactionTarget) => Promise<void>
   fetchViewerReactions: (number: number, target: ReactionTarget) => Promise<ReactionContent[]>
+
+  fetchActionsWorkflowRuns: () => Promise<ProviderActionsWorkflowRun[]>
+  fetchActionsWorkflowJobs: (runId: number) => Promise<ProviderActionsWorkflowJob[]>
+  fetchActionsJobLogs: (jobId: number) => Promise<string>
+  fetchActionsRunArtifacts: (runId: number) => Promise<ProviderActionsArtifact[]>
+  fetchWebhooks: () => Promise<ProviderWebhook[]>
+  fetchWebhookDeliveries: (hookId: number, options?: { perPage?: number, status?: 'success' | 'failure' }) => Promise<ProviderWebhookDelivery[]>
+}
+
+export interface ProviderActionsWorkflowRun {
+  id: number
+  name: string
+  displayTitle: string
+  status: 'queued' | 'in_progress' | 'completed' | null
+  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  workflowId: number
+  workflowName: string
+  headBranch: string
+  headSha: string
+  event: string
+  createdAt: string
+  updatedAt: string
+  runStartedAt?: string | null
+  url: string
+}
+
+export interface ProviderActionsWorkflowJob {
+  id: number
+  runId: number
+  name: string
+  status: 'queued' | 'in_progress' | 'completed'
+  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  startedAt: string
+  completedAt: string | null
+  url: string
+  steps: Array<{
+    name: string
+    status: 'queued' | 'in_progress' | 'completed'
+    conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+    number: number
+    startedAt?: string | null
+    completedAt?: string | null
+  }>
+}
+
+export interface ProviderActionsArtifact {
+  id: number
+  nodeId: string
+  name: string
+  sizeInBytes: number
+  url: string
+  archiveDownloadUrl: string
+  expired: boolean
+  createdAt: string
+  updatedAt: string
+  expiresAt: string
+}
+
+export interface ProviderWebhook {
+  id: number
+  type: string
+  name: string
+  active: boolean
+  events: string[]
+  config: {
+    url?: string
+    contentType?: string
+    insecureSsl?: string
+  }
+  updatedAt: string
+  createdAt: string
+  url: string
+  testUrl: string
+  pingUrl: string
+  deliveriesUrl: string
+}
+
+export interface ProviderWebhookDelivery {
+  id: number
+  guid: string
+  deliveredAt: string
+  redelivery: boolean
+  duration: number
+  status: string
+  statusCode: number
+  event: string
+  action: string | null
+  installationId: number | null
+  repositoryId: number | null
+  throttledAt: string | null
+  url: string
+  requestHeaders?: Record<string, string>
+  requestPayload?: Record<string, unknown>
+  responseHeaders?: Record<string, string>
+  responseBody?: string
 }

@@ -96,6 +96,11 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const actionsEnabled = merged.sync?.actions ?? false
   const actionsRunsPerWorkflow = merged.sync?.actionsRunsPerWorkflow ?? 30
   const pagesBuildsEnabled = merged.sync?.pagesBuilds ?? false
+  const actionsLogs = merged.sync?.actionsLogs ?? false
+  const actionsLogsMaxKb = merged.sync?.actionsLogsMaxKb ?? 512
+  const actionsArtifacts = merged.sync?.actionsArtifacts ?? false
+  const webhooks = merged.sync?.webhooks ?? false
+  const webhooksMaxDeliveries = merged.sync?.webhooksMaxDeliveries ?? 50
 
   return {
     cwd,
@@ -116,12 +121,12 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       rulesets: merged.sync?.rulesets ?? true,
       constitution: merged.sync?.constitution ?? true,
       actions: merged.sync?.actions ?? true,
-      pullIntelligence: {
-        reviews: pullIntelligenceReviews,
-        checks: pullIntelligenceChecks,
-        files: pullIntelligenceFiles,
-        gate: pullIntelligenceGate,
-      },
+      pullIntelligence: pullIntelligence,
+      actionsLogs,
+      actionsLogsMaxKb,
+      actionsArtifacts,
+      webhooks,
+      webhooksMaxDeliveries,
     },
     extended: {
       graph: extendedGraph,

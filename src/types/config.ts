@@ -77,6 +77,99 @@ export interface GhfsUserConfig {
      * @default 30
      */
     codeTodos?: boolean
+    pullIntelligence?: {
+      /**
+       * Whether to sync PR review state (reviews.json).
+       *
+       * @default true
+       */
+      reviews?: boolean
+      /**
+       * Whether to sync PR CI/check status (checks.json).
+       *
+       * @default true
+       */
+      checks?: boolean
+      /**
+       * Whether to sync PR file list (files.json).
+       *
+       * @default true
+       */
+      files?: boolean
+      /**
+       * Whether to sync PR merge gate status (gate.json).
+       *
+       * @default true
+       */
+      gate?: boolean
+      /**
+       * Whether to sync PR compare data: ahead/behind commits, merge-base (compare.json).
+       *
+       * @default true
+       */
+      compare?: boolean
+      /**
+       * Whether to sync PR stack relationships: base and dependent PRs (stack.json).
+       *
+       * @default true
+       */
+      stack?: boolean
+      /**
+       * Whether to use GraphQL statusCheckRollup for check status (more comprehensive).
+       * When true, check status is fetched via GraphQL; when false, uses REST API.
+       *
+       * @default true
+       */
+      statusCheckRollup?: boolean
+    }
+    /**
+     * GitHub Actions workflow logs sync configuration.
+     *
+     * - `false`: don't sync Actions logs.
+     * - `'failed'`: sync logs only for failed workflow jobs.
+     * - `'recent'`: sync logs for all jobs from recent workflow runs.
+     * - `'full'`: download full logs (default tail strategy: last N KB).
+     * - `'tail'`: download only the tail of logs (last N KB).
+     *
+     * @default false
+     */
+    actionsLogs?: false | 'failed' | 'recent'
+    /**
+     * Maximum size (in KB) for individual Actions log files.
+     * When a log exceeds this size, only the tail is stored.
+     *
+     * @default 512
+     */
+    actionsLogsMaxKb?: number
+    /**
+     * GitHub Actions artifacts sync configuration.
+     *
+     * - `false`: don't sync artifacts metadata.
+     * - `true`: sync artifacts metadata (list only, no downloads).
+     *
+     * @default false
+     */
+    actionsArtifacts?: boolean
+    /**
+     * Webhooks sync configuration.
+     *
+     * - `false`: don't sync webhooks.
+     * - `true`: sync webhook configurations and recent deliveries.
+     *
+     * @default false
+     */
+    webhooks?: boolean
+    /**
+     * Maximum number of webhook deliveries to sync per webhook.
+     *
+     * @default 50
+     */
+    webhooksMaxDeliveries?: number
+  }
+  /**
+   * Extended metadata generation for agent ergonomics.
+   */
+  extended?: {
     /**
      * Whether to search commits for "fixes #" references and save to .ghfs/search/commit-refs.jsonl
      *
