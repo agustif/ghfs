@@ -265,6 +265,26 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)
     })
 
+    let actionsResult: { workflows: number, runs: number, jobs: number, artifacts: number } | undefined
+
+    if (options.config.sync.actions && !targetNumbers) {
+      await runStage('actions', 'Sync GitHub Actions', async () => {
+        const { syncActions } = await import('./actions')
+        const result = await syncActions(syncContext, options.config.sync.actionsRunsPerWorkflow)
+        actionsResult = {
+          workflows: result.workflows.length,
+          runs: result.totalRuns,
+          jobs: result.totalJobs,
+          artifacts: result.totalArtifacts,
+        }
+        reporter?.onStageUpdate?.({
+          stage: 'actions',
+          snapshot: cloneSnapshot(counters),
+          message: `workflows=${actionsResult.workflows} runs=${actionsResult.runs} jobs=${actionsResult.jobs} artifacts=${actionsResult.artifacts}`,
+        })
+      })
+    }
+
     const totals = computeTotals(syncContext.syncState.items)
     syncContext.totalIssues = totals.totalIssues
     syncContext.totalPulls = totals.totalPulls
@@ -291,6 +311,10 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       moved: counters.moved,
       patchesWritten: counters.patchesWritten,
       patchesDeleted: counters.patchesDeleted,
+      actionsWorkflows: actionsResult?.workflows,
+      actionsRuns: actionsResult?.runs,
+      actionsJobs: actionsResult?.jobs,
+      actionsArtifacts: actionsResult?.artifacts,
       durationMs,
     }
 
@@ -344,6 +368,7 @@ function createStageDurations(): Record<SyncStage, number> {
     materialize: 0,
     prune: 0,
     save: 0,
+    actions: 0,
   }
 }
 

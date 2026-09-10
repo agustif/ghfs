@@ -1863,8 +1863,8 @@ async function fetchPullGate(
 
   const checksGreen = checks.length > 0
     ? checks.every(check =>
-        check.status === 'completed' && (check.conclusion === 'success' || check.conclusion === 'neutral' || check.conclusion === 'skipped'),
-      )
+      check.status === 'completed' && (check.conclusion === 'success' || check.conclusion === 'neutral' || check.conclusion === 'skipped'),
+    )
     : null
 
   const conflictFiles: string[] = []

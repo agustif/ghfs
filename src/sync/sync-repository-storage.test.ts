@@ -98,6 +98,8 @@ describe('sync-repository-storage', () => {
     const context = createSyncContext(dir, {
       closed: true,
       patches: 'open',
+      actions: false,
+      actionsRunsPerWorkflow: 30,
     })
     const number = 4
     const patchPath = join(dir, 'pulls', '00004-pr-4.patch')
@@ -280,12 +282,8 @@ describe('sync-repository-storage', () => {
       metadata: true,
       closed: false,
       patches: 'open' as const,
-      meta: true,
-      labelsAndMilestones: true,
-      releases: true,
-      rulesets: true,
-      constitution: true,
-      actions: true,
+      actions: false,
+      actionsRunsPerWorkflow: 30,
     }
 
     const closedPatches = await pruneTrackedClosedItems(dir, syncState, sync)
@@ -365,19 +363,8 @@ function createSyncContext(storageDirAbsolute: string, syncOverrides: Partial<Sy
         metadata: syncOverrides.metadata ?? true,
         closed: syncOverrides.closed ?? false,
         patches: syncOverrides.patches ?? 'open',
-        meta: true,
-        labelsAndMilestones: true,
-        releases: true,
-        rulesets: true,
-        constitution: true,
-        actions: true,
-      },
-      extended: {
-        graph: true,
-        search: true,
-        me: true,
-        security: true,
-        syncState: true,
+        actions: false,
+        actionsRunsPerWorkflow: 30,
       },
       search: {
         codeTodos: true,

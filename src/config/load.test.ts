@@ -52,8 +52,8 @@ export default {
     pulls: true,
     closed: false,
     patches: 'all',
-      traffic: false,
-      social: false,
+    releases: true,
+    packages: true,
   },
 }
 `.trimStart(), 'utf8')

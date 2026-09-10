@@ -36,3 +36,35 @@ export function getPrPatchPath(storageDirAbsolute: string, number: number, title
   const markdownFileName = getItemFileName(number, title)
   return join(storageDirAbsolute, PULL_DIR_NAME, markdownFileName.replace(/\.md$/, '.patch'))
 }
+
+export function getActionsRunDir(storageDirAbsolute: string, runId: number): string {
+  return join(storageDirAbsolute, 'actions', 'runs', String(runId))
+}
+
+export function getActionsJobsDir(storageDirAbsolute: string, runId: number): string {
+  return join(storageDirAbsolute, 'actions', 'runs', String(runId), 'jobs')
+}
+
+export function getActionsJobLogPath(storageDirAbsolute: string, runId: number, jobId: number): string {
+  return join(getActionsJobsDir(storageDirAbsolute, runId), String(jobId), 'log.txt')
+}
+
+export function getActionsJobFailDigestPath(storageDirAbsolute: string, runId: number, jobId: number): string {
+  return join(getActionsJobsDir(storageDirAbsolute, runId), String(jobId), 'fail.md')
+}
+
+export function getActionsArtifactsPath(storageDirAbsolute: string, runId: number): string {
+  return join(getActionsRunDir(storageDirAbsolute, runId), 'artifacts.json')
+}
+
+export function getWebhooksDir(storageDirAbsolute: string): string {
+  return join(storageDirAbsolute, 'webhooks')
+}
+
+export function getWebhooksConfigPath(storageDirAbsolute: string): string {
+  return join(getWebhooksDir(storageDirAbsolute), 'config.json')
+}
+
+export function getWebhookDeliveriesPath(storageDirAbsolute: string, hookId: number): string {
+  return join(getWebhooksDir(storageDirAbsolute), `${hookId}-deliveries.json`)
+}

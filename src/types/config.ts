@@ -66,7 +66,13 @@ export interface GhfsUserConfig {
     /**
      * Whether to sync repository metadata (meta.json).
      *
-     * @default true
+     * @default false
+     */
+    actions?: boolean
+    /**
+     * Number of workflow runs to fetch per workflow.
+     *
+     * @default 30
      */
     meta?: boolean
     /**
