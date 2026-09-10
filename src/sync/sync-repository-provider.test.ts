@@ -183,6 +183,11 @@ function createContext(overrides: {
         pulls: overrides.pulls ?? true,
         closed: overrides.closed ?? false,
         patches: 'open',
+        stargazers: true,
+        watchers: true,
+        forks: true,
+        traffic: true,
+        contributors: true,
       },
     },
     syncState: {

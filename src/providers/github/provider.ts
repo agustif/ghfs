@@ -71,6 +71,14 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchAuthenticatedUser: fetchAuthenticatedUserCached,
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
     getRequestCount: () => requestCount,
+    fetchStargazers: () => fetchStargazers(octokit, owner, repo, bumpRequestCount),
+    fetchWatchers: () => fetchWatchers(octokit, owner, repo, bumpRequestCount),
+    fetchForks: () => fetchForks(octokit, owner, repo, bumpRequestCount),
+    fetchTrafficViews: () => fetchTrafficViews(octokit, owner, repo, bumpRequestCount),
+    fetchTrafficClones: () => fetchTrafficClones(octokit, owner, repo, bumpRequestCount),
+    fetchTrafficPaths: () => fetchTrafficPaths(octokit, owner, repo, bumpRequestCount),
+    fetchTrafficReferrers: () => fetchTrafficReferrers(octokit, owner, repo, bumpRequestCount),
+    fetchContributors: () => fetchContributors(octokit, owner, repo, bumpRequestCount),
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
@@ -1575,27 +1583,275 @@ interface GitHubTimelineEvent {
       repository?: { full_name?: string } | null
     } | null
   } | null
-  // committed shape
   sha?: string
   message?: string
   author?: { name?: string | null, date?: string | null } | null
   committer?: { name?: string | null, date?: string | null } | null
-  /** Commit referenced by an event (merged / closed-by-commit / head_ref_force_pushed). */
   commit_id?: string | null
   commit_url?: string | null
-  /** Reason supplied to a `locked` event. */
   lock_reason?: string | null
-  /** Populated for `review_dismissed`. */
   dismissed_review?: { state: string, review_id: number, dismissal_message: string | null } | null
   review_id?: number
   review?: { user?: { login: string } | null } | null
-  /** Populated for `transferred` (REST surfaces this under both paths). */
   transferred?: { from_repository?: { full_name?: string } | null } | null
   from_repository?: { full_name?: string } | null
-  /** Populated for `base_ref_changed`. */
   changes?: { base?: { ref?: { from?: string, to?: string } } } | null
   base_ref?: { from?: string, to?: string } | null
-  /** Populated for `auto_merge_*` / `auto_squash_*` / `auto_rebase_*`. */
   commit_title?: string
   commit_message?: string
+}
+
+async function fetchStargazers(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderStargazer[]> {
+  const iterator = octokit.paginate.iterator(
+    octokit.rest.activity.listStargazersForRepo,
+    {
+      owner,
+      repo,
+      per_page: 100,
+      headers: {
+        accept: 'application/vnd.github.star+json',
+      },
+    },
+  )
+
+  const stargazers: Array<{ user?: { login: string }, starred_at?: string }> = []
+  for await (const page of iterator) {
+    bumpRequestCount()
+    stargazers.push(...page.data as Array<{ user?: { login: string }, starred_at?: string }>)
+  }
+
+  return stargazers.map(s => ({
+    login: s.user?.login ?? '',
+    starred_at: s.starred_at,
+  })).filter(s => s.login)
+}
+
+async function fetchWatchers(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderWatcher[]> {
+  const iterator = octokit.paginate.iterator(
+    octokit.rest.activity.listWatchersForRepo,
+    {
+      owner,
+      repo,
+      per_page: 100,
+    },
+  )
+
+  const watchers: Array<{ login?: string }> = []
+  for await (const page of iterator) {
+    bumpRequestCount()
+    watchers.push(...page.data as Array<{ login?: string }>)
+  }
+
+  return watchers.map(w => ({
+    login: w.login ?? '',
+  })).filter(w => w.login)
+}
+
+async function fetchForks(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderFork[]> {
+  const iterator = octokit.paginate.iterator(
+    octokit.rest.repos.listForks,
+    {
+      owner,
+      repo,
+      per_page: 100,
+      sort: 'newest',
+    },
+  )
+
+  interface ForkData {
+    id: number
+    full_name: string
+    owner: { login: string }
+    html_url: string
+    description: string | null
+    fork: boolean
+    created_at: string
+    updated_at: string
+    pushed_at: string | null
+    stargazers_count: number
+    watchers_count: number
+    forks_count: number
+  }
+
+  const forks: ForkData[] = []
+  for await (const page of iterator) {
+    bumpRequestCount()
+    forks.push(...page.data as ForkData[])
+  }
+
+  return forks.map(f => ({
+    id: f.id,
+    full_name: f.full_name,
+    owner: { login: f.owner.login },
+    html_url: f.html_url,
+    description: f.description ?? null,
+    fork: f.fork,
+    created_at: f.created_at,
+    updated_at: f.updated_at,
+    pushed_at: f.pushed_at ?? null,
+    stargazers_count: f.stargazers_count,
+    watchers_count: f.watchers_count,
+    forks_count: f.forks_count,
+  }))
+}
+
+async function fetchTrafficViews(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderTrafficViews | null> {
+  try {
+    bumpRequestCount()
+    const response = await octokit.rest.repos.getViews({
+      owner,
+      repo,
+      per: 'day',
+    })
+
+    return {
+      count: response.data.count,
+      uniques: response.data.uniques,
+      views: response.data.views.map(v => ({
+        timestamp: v.timestamp,
+        count: v.count,
+        uniques: v.uniques,
+      })),
+    }
+  }
+  catch (error: unknown) {
+    if (error && typeof error === 'object' && 'status' in error && error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchTrafficClones(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderTrafficClones | null> {
+  try {
+    bumpRequestCount()
+    const response = await octokit.rest.repos.getClones({
+      owner,
+      repo,
+      per: 'day',
+    })
+
+    return {
+      count: response.data.count,
+      uniques: response.data.uniques,
+      clones: response.data.clones.map(c => ({
+        timestamp: c.timestamp,
+        count: c.count,
+        uniques: c.uniques,
+      })),
+    }
+  }
+  catch (error: unknown) {
+    if (error && typeof error === 'object' && 'status' in error && error.status === 403)
+      return null
+    throw error
+  }
+}
+
+async function fetchTrafficPaths(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderTrafficPath[]> {
+  try {
+    bumpRequestCount()
+    const response = await octokit.rest.repos.getTopPaths({
+      owner,
+      repo,
+    })
+
+    return response.data.map(p => ({
+      path: p.path,
+      title: p.title,
+      count: p.count,
+      uniques: p.uniques,
+    }))
+  }
+  catch (error: unknown) {
+    if (error && typeof error === 'object' && 'status' in error && error.status === 403)
+      return []
+    throw error
+  }
+}
+
+async function fetchTrafficReferrers(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderTrafficReferrer[]> {
+  try {
+    bumpRequestCount()
+    const response = await octokit.rest.repos.getTopReferrers({
+      owner,
+      repo,
+    })
+
+    return response.data.map(r => ({
+      referrer: r.referrer,
+      count: r.count,
+      uniques: r.uniques,
+    }))
+  }
+  catch (error: unknown) {
+    if (error && typeof error === 'object' && 'status' in error && error.status === 403)
+      return []
+    throw error
+  }
+}
+
+async function fetchContributors(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderContributor[]> {
+  const iterator = octokit.paginate.iterator(
+    octokit.rest.repos.listContributors,
+    {
+      owner,
+      repo,
+      per_page: 100,
+    },
+  )
+
+  interface ContributorData { login?: string, contributions: number, avatar_url?: string }
+  const contributors: ContributorData[] = []
+  for await (const page of iterator) {
+    bumpRequestCount()
+    contributors.push(...page.data as ContributorData[])
+  }
+
+  return contributors
+    .filter((c): c is { login: string, contributions: number, avatar_url?: string } => !!c.login)
+    .map(c => ({
+      login: c.login,
+      contributions: c.contributions,
+      avatar_url: c.avatar_url,
+    }))
 }

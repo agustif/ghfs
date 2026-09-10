@@ -8,6 +8,7 @@ import { createRepositoryProvider } from '../providers/factory'
 import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
 import { loadSyncState, saveSyncState } from './state'
+import { writeRepositoryExtras } from './sync-repository-extras'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,
@@ -216,6 +217,9 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
 
       if (!shouldEarlyReturn || ghfsVersionMismatch)
         await writeRepositoryIndexes(syncContext)
+
+      if (!shouldEarlyReturn)
+        await writeRepositoryExtras(syncContext)
 
       syncContext.syncState.ghfsVersion = GHFS_VERSION
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)

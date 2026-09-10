@@ -64,6 +64,11 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const pullsEnabled = merged.sync?.pulls ?? true
   const closedMode = merged.sync?.closed ?? false
   const patchesMode = merged.sync?.patches ?? 'open'
+  const stargazersEnabled = merged.sync?.stargazers ?? true
+  const watchersEnabled = merged.sync?.watchers ?? true
+  const forksEnabled = merged.sync?.forks ?? true
+  const trafficEnabled = merged.sync?.traffic ?? true
+  const contributorsEnabled = merged.sync?.contributors ?? true
 
   return {
     cwd,
@@ -78,6 +83,11 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       pulls: pullsEnabled,
       closed: closedMode,
       patches: patchesMode,
+      stargazers: stargazersEnabled,
+      watchers: watchersEnabled,
+      forks: forksEnabled,
+      traffic: trafficEnabled,
+      contributors: contributorsEnabled,
     },
   }
 }

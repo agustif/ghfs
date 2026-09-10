@@ -636,6 +636,14 @@ function createMockProvider(overrides: Partial<RepositoryProvider> = {}): Reposi
     actionAddReaction: vi.fn(async () => {}),
     actionRemoveReaction: vi.fn(async () => {}),
     fetchViewerReactions: vi.fn(async () => []),
+    fetchStargazers: vi.fn(async () => []),
+    fetchWatchers: vi.fn(async () => []),
+    fetchForks: vi.fn(async () => []),
+    fetchTrafficViews: vi.fn(async () => null),
+    fetchTrafficClones: vi.fn(async () => null),
+    fetchTrafficPaths: vi.fn(async () => []),
+    fetchTrafficReferrers: vi.fn(async () => []),
+    fetchContributors: vi.fn(async () => []),
     ...overrides,
   }
 }
@@ -654,6 +662,11 @@ function createConfig(): GhfsResolvedConfig {
       pulls: true,
       closed: false,
       patches: 'open',
+      stargazers: true,
+      watchers: true,
+      forks: true,
+      traffic: true,
+      contributors: true,
     },
   }
 }

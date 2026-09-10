@@ -188,6 +188,11 @@ function createConfig(): GhfsResolvedConfig {
       pulls: true,
       closed: false,
       patches: 'open',
+      stargazers: true,
+      watchers: true,
+      forks: true,
+      traffic: true,
+      contributors: true,
     },
   }
 }
