@@ -8,5 +8,6 @@ export default defineConfig({
       'playgrounds/**',
       'tests/e2e/**',
     ],
+    globals: true,
   },
 })
