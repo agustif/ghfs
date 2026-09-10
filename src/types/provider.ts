@@ -417,22 +417,6 @@ export interface ProviderUpdateCounts {
 export interface ProviderRelease {
   id: number
   tag_name: string
-export interface ProviderReleaseAsset {
-  id: number
-  name: string
-  label: string | null
-  size: number
-  downloadCount: number
-  contentType: string
-  state: string
-  createdAt: string
-  updatedAt: string
-  browserDownloadUrl: string
-}
-
-export interface ProviderRelease {
-  id: number
-  tagName: string
   name: string | null
   body: string | null
   draft: boolean
@@ -491,53 +475,65 @@ export interface ProviderRepositoryContent {
   type: 'file' | 'dir' | 'symlink' | 'submodule'
   content?: string
   encoding?: string
-  createdAt: string
-  publishedAt: string | null
-  author: string | null
-  authorAvatarUrl?: string
-  htmlUrl: string
-  reactions?: ProviderReactions
-  assets: ProviderReleaseAsset[]
+export interface ProviderIssueDependency {
+  id: number
+  number: number
+  title: string
+  state: IssueState
+  url?: string
+  repo?: string
 }
 
-export interface ProviderReleaseSettings {
-  immutable: boolean
+export interface ProviderSubIssue {
+  id: number
+  number: number
+  title: string
+  state: IssueState
+  url?: string
+  repo?: string
 }
 
-export interface ProviderGenerateReleaseNotesResult {
-  tagName: string
-  name: string
-  body: string
+export interface ProviderParentIssue {
+  id: number
+  number: number
+  title: string
+  state: IssueState
+  url?: string
+  repo?: string
 }
 
-export interface ProviderPackageVersion {
+export type IssueFieldDataType = 'text' | 'date' | 'single_select' | 'multi_select' | 'number'
+
+export interface IssueFieldOption {
   id: number
   name: string
-  packageType: string
-  createdAt: string
-  updatedAt: string
-  htmlUrl?: string
-  metadata?: {
-    container?: {
-      tags: string[]
-    }
-  }
+  description: string | null
+  color: string | null
 }
 
-export interface ProviderPackage {
+export interface ProviderIssueField {
   id: number
+  nodeId: string
   name: string
-  packageType: string
-  visibility: string
-  owner: string
-  createdAt: string
-  updatedAt: string
-  htmlUrl?: string
-  repository?: {
-    name: string
-    fullName: string
-  }
-  versions?: ProviderPackageVersion[]
+  description: string | null
+  dataType: IssueFieldDataType
+  options?: IssueFieldOption[] | null
+}
+
+export interface ProviderIssueFieldValue {
+  fieldId: number
+  fieldName: string
+  dataType: IssueFieldDataType
+  value: string | number | string[] | null
+}
+
+export interface ProviderIssueType {
+  id: number
+  nodeId: string
+  name: string
+  description: string | null
+  color: string | null
+  isEnabled: boolean
 }
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
@@ -715,10 +711,98 @@ export interface RepositoryProvider {
   actionRemoveReaction: (number: number, reaction: ReactionContent, target: ReactionTarget) => Promise<void>
   fetchViewerReactions: (number: number, target: ReactionTarget) => Promise<ReactionContent[]>
 
-  fetchReleases: () => Promise<ProviderRelease[]>
-  fetchReleaseByTag: (tagName: string) => Promise<ProviderRelease>
-  fetchReleaseSettings: () => Promise<ProviderReleaseSettings | null>
-  fetchGenerateReleaseNotes: (tagName: string, targetCommitish?: string, previousTagName?: string) => Promise<ProviderGenerateReleaseNotesResult>
-  fetchPackages: () => Promise<ProviderPackage[]>
-  fetchPackageVersions: (packageType: string, packageName: string) => Promise<ProviderPackageVersion[]>
+  fetchActionsWorkflowRuns: () => Promise<ProviderActionsWorkflowRun[]>
+  fetchActionsWorkflowJobs: (runId: number) => Promise<ProviderActionsWorkflowJob[]>
+  fetchActionsJobLogs: (jobId: number) => Promise<string>
+  fetchActionsRunArtifacts: (runId: number) => Promise<ProviderActionsArtifact[]>
+  fetchWebhooks: () => Promise<ProviderWebhook[]>
+  fetchWebhookDeliveries: (hookId: number, options?: { perPage?: number, status?: 'success' | 'failure' }) => Promise<ProviderWebhookDelivery[]>
+}
+
+export interface ProviderActionsWorkflowRun {
+  id: number
+  name: string
+  displayTitle: string
+  status: 'queued' | 'in_progress' | 'completed' | null
+  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  workflowId: number
+  workflowName: string
+  headBranch: string
+  headSha: string
+  event: string
+  createdAt: string
+  updatedAt: string
+  runStartedAt?: string | null
+  url: string
+}
+
+export interface ProviderActionsWorkflowJob {
+  id: number
+  runId: number
+  name: string
+  status: 'queued' | 'in_progress' | 'completed'
+  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  startedAt: string
+  completedAt: string | null
+  url: string
+  steps: Array<{
+    name: string
+    status: 'queued' | 'in_progress' | 'completed'
+    conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+    number: number
+    startedAt?: string | null
+    completedAt?: string | null
+  }>
+}
+
+export interface ProviderActionsArtifact {
+  id: number
+  nodeId: string
+  name: string
+  sizeInBytes: number
+  url: string
+  archiveDownloadUrl: string
+  expired: boolean
+  createdAt: string
+  updatedAt: string
+  expiresAt: string
+}
+
+export interface ProviderWebhook {
+  id: number
+  type: string
+  name: string
+  active: boolean
+  events: string[]
+  config: {
+    url?: string
+    contentType?: string
+    insecureSsl?: string
+  }
+  updatedAt: string
+  createdAt: string
+  url: string
+  testUrl: string
+  pingUrl: string
+  deliveriesUrl: string
+}
+
+export interface ProviderWebhookDelivery {
+  id: number
+  guid: string
+  deliveredAt: string
+  redelivery: boolean
+  duration: number
+  status: string
+  statusCode: number
+  event: string
+  action: string | null
+  installationId: number | null
+  repositoryId: number | null
+  throttledAt: string | null
+  url: string
+  requestHeaders?: Record<string, string>
+  requestPayload?: Record<string, unknown>
+  responseHeaders?: Record<string, string>
+  responseBody?: string
 }

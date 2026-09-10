@@ -1,4 +1,4 @@
-import type { SyncOptions, SyncProgressSnapshot, SyncReporter, SyncStage, SyncSummary } from './contracts'
+import type { SyncOptions, SyncProgressSnapshot, SyncStage, SyncSummary } from './contracts'
 import type { IssueCandidates, PreparedIssueCandidate, SyncContext, SyncCounters } from './sync-repository-types'
 import { randomBytes } from 'node:crypto'
 import { resolve } from 'pathe'
@@ -9,8 +9,9 @@ import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
 import { writeExtendedMetadata } from './extended-metadata'
 import { loadSyncState, saveSyncState } from './state'
-import { syncPackages } from './sync-packages'
-import { syncReleases } from './sync-releases'
+import { syncCollaborators } from './sync-collaborators'
+import { syncPeople } from './sync-people'
+import { syncActions, syncWebhooks } from './sync-actions-webhooks'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,
@@ -222,37 +223,67 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
         await writeExtendedMetadata(syncContext).catch(() => {})
       }
 
-      if (!shouldEarlyReturn && options.config.sync.releases !== false) {
-        await syncReleasesIfEnabled(syncContext, counters, reporter)
-      }
+      if (!targetNumbers) {
+        try {
+          await syncPeople(syncContext)
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: 'people sync complete',
+          })
+        }
+        catch (error) {
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: `people sync skipped: ${(error as Error).message}`,
+          })
+        }
 
-      if (!shouldEarlyReturn && options.config.sync.packages !== false) {
-        await syncPackagesIfEnabled(syncContext, counters, reporter)
+        try {
+          await syncCollaborators(syncContext)
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: 'collaborators sync complete',
+          })
+        }
+        catch (error) {
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: `collaborators sync skipped: ${(error as Error).message}`,
+          })
+        }
       }
 
       syncContext.syncState.ghfsVersion = GHFS_VERSION
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)
     })
 
-    let actionsResult: { workflows: number, runs: number, jobs: number, artifacts: number } | undefined
-
-    if (options.config.sync.actions && !targetNumbers) {
-      await runStage('actions', 'Sync GitHub Actions', async () => {
-        const { syncActions } = await import('./actions')
-        const result = await syncActions(syncContext, options.config.sync.actionsRunsPerWorkflow)
-        actionsResult = {
-          workflows: result.workflows.length,
-          runs: result.totalRuns,
-          jobs: result.totalJobs,
-          artifacts: result.totalArtifacts,
-        }
-        reporter?.onStageUpdate?.({
-          stage: 'actions',
-          snapshot: cloneSnapshot(counters),
-          message: `workflows=${actionsResult.workflows} runs=${actionsResult.runs} jobs=${actionsResult.jobs} artifacts=${actionsResult.artifacts}`,
+    await runStage('prune', 'Sync Actions & Webhooks', async () => {
+      if (options.config.sync.actionsLogs || options.config.sync.actionsArtifacts) {
+        await syncActions({
+          provider,
+          storageDirAbsolute,
+          config: options.config,
         })
+      }
+
+      if (options.config.sync.webhooks) {
+        await syncWebhooks({
+          provider,
+          storageDirAbsolute,
+          config: options.config,
+        })
+      }
+
+      reporter?.onStageUpdate?.({
+        stage: 'prune',
+        snapshot: cloneSnapshot(counters),
+        message: 'actions and webhooks synced',
       })
-    }
+    })
 
     const totals = computeTotals(syncContext.syncState.items)
     syncContext.totalIssues = totals.totalIssues
@@ -280,10 +311,6 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       moved: counters.moved,
       patchesWritten: counters.patchesWritten,
       patchesDeleted: counters.patchesDeleted,
-      actionsWorkflows: actionsResult?.workflows,
-      actionsRuns: actionsResult?.runs,
-      actionsJobs: actionsResult?.jobs,
-      actionsArtifacts: actionsResult?.artifacts,
       durationMs,
     }
 
@@ -337,7 +364,6 @@ function createStageDurations(): Record<SyncStage, number> {
     materialize: 0,
     prune: 0,
     save: 0,
-    actions: 0,
   }
 }
 
@@ -371,62 +397,5 @@ function computeTotals(items: SyncContext['syncState']['items']): {
     totalIssues,
     totalPulls,
     trackedItems: totalIssues + totalPulls,
-  }
-}
-
-async function syncReleasesIfEnabled(context: SyncContext, counters: SyncCounters, reporter?: SyncReporter): Promise<void> {
-  try {
-    reporter?.onStageUpdate?.({
-      stage: 'save',
-      message: 'syncing releases',
-      snapshot: cloneSnapshot(counters),
-    })
-    await syncReleases(
-      context.storageDirAbsolute,
-      context.repoSlug,
-      context.syncedAt,
-      () => context.provider.fetchReleases(),
-    )
-    reporter?.onStageUpdate?.({
-      stage: 'save',
-      message: 'releases synced',
-      snapshot: cloneSnapshot(counters),
-    })
-  }
-  catch (error) {
-    reporter?.onStageUpdate?.({
-      stage: 'save',
-      message: `releases sync failed: ${error}`,
-      snapshot: cloneSnapshot(counters),
-    })
-  }
-}
-
-async function syncPackagesIfEnabled(context: SyncContext, counters: SyncCounters, reporter?: SyncReporter): Promise<void> {
-  try {
-    reporter?.onStageUpdate?.({
-      stage: 'save',
-      message: 'syncing packages',
-      snapshot: cloneSnapshot(counters),
-    })
-    await syncPackages(
-      context.storageDirAbsolute,
-      context.repoSlug,
-      context.syncedAt,
-      () => context.provider.fetchPackages(),
-      (packageType, packageName) => context.provider.fetchPackageVersions(packageType, packageName),
-    )
-    reporter?.onStageUpdate?.({
-      stage: 'save',
-      message: 'packages synced',
-      snapshot: cloneSnapshot(counters),
-    })
-  }
-  catch (error) {
-    reporter?.onStageUpdate?.({
-      stage: 'save',
-      message: `packages sync failed: ${error}`,
-      snapshot: cloneSnapshot(counters),
-    })
   }
 }

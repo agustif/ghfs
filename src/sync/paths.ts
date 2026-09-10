@@ -1,6 +1,6 @@
 import type { IssueKind, IssueState } from '../types'
 import { join } from 'pathe'
-import { CLOSED_DIR_NAME, ISSUE_DIR_NAME, PACKAGES_DIR_NAME, PULL_DIR_NAME, RELEASES_DIR_NAME } from '../constants'
+import { CLOSED_DIR_NAME, ISSUE_DIR_NAME, PULL_DIR_NAME } from '../constants'
 import { slugifyTitle } from '../utils/string'
 
 const FILE_NUMBER_PAD_LENGTH = 5
@@ -37,22 +37,34 @@ export function getPrPatchPath(storageDirAbsolute: string, number: number, title
   return join(storageDirAbsolute, PULL_DIR_NAME, markdownFileName.replace(/\.md$/, '.patch'))
 }
 
-export function getReleaseMarkdownPath(storageDirAbsolute: string, tagName: string): string {
-  const fileName = getReleaseFileName(tagName)
-  return join(storageDirAbsolute, RELEASES_DIR_NAME, fileName)
+export function getActionsRunDir(storageDirAbsolute: string, runId: number): string {
+  return join(storageDirAbsolute, 'actions', 'runs', String(runId))
 }
 
-export function getReleaseFileName(tagName: string): string {
-  const slug = slugifyTitle(tagName, MAX_SLUG_LENGTH)
-  return `${slug}.md`
+export function getActionsJobsDir(storageDirAbsolute: string, runId: number): string {
+  return join(storageDirAbsolute, 'actions', 'runs', String(runId), 'jobs')
 }
 
-export function getPackageMarkdownPath(storageDirAbsolute: string, packageType: string, packageName: string): string {
-  const fileName = getPackageFileName(packageType, packageName)
-  return join(storageDirAbsolute, PACKAGES_DIR_NAME, fileName)
+export function getActionsJobLogPath(storageDirAbsolute: string, runId: number, jobId: number): string {
+  return join(getActionsJobsDir(storageDirAbsolute, runId), String(jobId), 'log.txt')
 }
 
-export function getPackageFileName(packageType: string, packageName: string): string {
-  const slug = slugifyTitle(`${packageType}-${packageName}`, MAX_SLUG_LENGTH)
-  return `${slug}.md`
+export function getActionsJobFailDigestPath(storageDirAbsolute: string, runId: number, jobId: number): string {
+  return join(getActionsJobsDir(storageDirAbsolute, runId), String(jobId), 'fail.md')
+}
+
+export function getActionsArtifactsPath(storageDirAbsolute: string, runId: number): string {
+  return join(getActionsRunDir(storageDirAbsolute, runId), 'artifacts.json')
+}
+
+export function getWebhooksDir(storageDirAbsolute: string): string {
+  return join(storageDirAbsolute, 'webhooks')
+}
+
+export function getWebhooksConfigPath(storageDirAbsolute: string): string {
+  return join(getWebhooksDir(storageDirAbsolute), 'config.json')
+}
+
+export function getWebhookDeliveriesPath(storageDirAbsolute: string, hookId: number): string {
+  return join(getWebhooksDir(storageDirAbsolute), `${hookId}-deliveries.json`)
 }
