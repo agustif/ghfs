@@ -991,6 +991,13 @@ export interface RepositoryProvider {
   fetchActivityEvents: (limit?: number) => Promise<ProviderActivityEvent[]>
   fetchFeeds: () => Promise<ProviderFeeds>
 
+  fetchCodeScanningAlerts?: () => Promise<any[]>
+  fetchSecretScanningAlerts?: () => Promise<any[]>
+  fetchDependabotAlerts?: () => Promise<any[]>
+  fetchSecurityAdvisories?: () => Promise<any[]>
+  fetchSecurityPolicy?: () => Promise<{ url: string | null, content: string | null }>
+  fetchCodeQLConfigs?: () => Promise<any[]>
+
   searchCode: (options: SearchOptions) => Promise<SearchCodeResult[]>
   searchCommits: (options: SearchOptions) => Promise<SearchCommitResult[]>
   searchIssues: (options: SearchOptions) => Promise<SearchIssueResult[]>
