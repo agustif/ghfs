@@ -654,6 +654,12 @@ function createConfig(): GhfsResolvedConfig {
       pulls: true,
       closed: false,
       patches: 'open',
+      meta: true,
+      labelsAndMilestones: true,
+      releases: true,
+      rulesets: true,
+      constitution: true,
+      actions: true,
     },
   }
 }
