@@ -6,7 +6,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'
 import { ISSUES_INDEX_FILE_NAME, PULLS_INDEX_FILE_NAME, REPO_SNAPSHOT_FILE_NAME } from '../constants'
 import { getTimestamp, renderRowsTable } from '../utils/markdown'
-import { writeEnhancedSnapshots } from './enhanced-snapshot'
+import { writeGitSnapshot } from './git-snapshot-writer'
 
 interface IndexRow {
   number: number
@@ -20,7 +20,7 @@ interface IndexRow {
 export async function writeRepositorySnapshot(context: SyncContext): Promise<void> {
   await writeRepoSnapshot(context)
   await writeRepositoryIndexes(context)
-  await writeEnhancedSnapshots(context).catch(() => {})
+  await writeGitSnapshot(context)
 }
 
 export async function writeRepoSnapshot(context: SyncContext): Promise<void> {

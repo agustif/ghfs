@@ -1,36 +1,28 @@
 import type { Octokit } from 'octokit'
 import type {
-  MergeMethod,
   MergeOptions,
   PaginateItemsOptions,
   ProviderAuthenticatedUser,
-  ProviderAutoMergeInfo,
-  ProviderCheckConclusionState,
-  ProviderCheckRun,
-  ProviderCheckStatusState,
-  ProviderCombinedStatus,
   ProviderComment,
   ProviderCommit,
-  ProviderCommitStatus,
+  ProviderGitBlob,
+  ProviderGitCommit,
+  ProviderGitRef,
+  ProviderGitTree,
   ProviderItem,
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
-  ProviderMergeQueueEntry,
   ProviderMilestone,
   ProviderPullMetadata,
   ProviderReactions,
-  ProviderRelease,
   ProviderRepository,
-  ProviderRepositoryContent,
-  ProviderRepositoryTopics,
   ProviderReviewComment,
   ProviderReviewDecision,
   ProviderReviewState,
   ProviderTimelineEvent,
   ProviderTimelineSource,
   ProviderUpdateCounts,
-  ProviderWorkflowRun,
   ReactionTarget,
   RepositoryProvider,
 } from '../../types/provider'
@@ -40,22 +32,7 @@ import { randomHexColor } from '../../utils/color'
 import { formatIssueNumber } from '../../utils/format'
 import { createEmptyReactions, isReactionContent, normalizeReactions, reactionKeyFromContent } from '../../utils/reactions'
 import { collectPages, iteratePages } from '../helpers'
-import {
-  fetchAutolinks,
-  fetchLatestPagesBuild,
-  fetchRuleSuites,
-  fetchWorkflowPermissions,
-  fetchWorkflows,
-} from './actions'
 import { createGitHubClient } from './client'
-import {
-  fetchBranchProtection,
-  fetchPinnedIssues,
-  fetchRecentWorkflowRuns,
-  fetchReleases,
-  fetchRepositoryContent,
-  fetchRepositoryTopics,
-} from './enhanced'
 
 type BumpRequestCount = () => void
 
@@ -97,23 +74,7 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchRepositoryMilestones: () => fetchRepositoryMilestones(octokit, owner, repo, bumpRequestCount),
     fetchAuthenticatedUser: fetchAuthenticatedUserCached,
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
-    fetchCheckRuns: ref => fetchCheckRuns(octokit, owner, repo, ref, bumpRequestCount),
-    fetchCombinedStatus: ref => fetchCombinedStatus(octokit, owner, repo, ref, bumpRequestCount),
     getRequestCount: () => requestCount,
-    fetchPullReviews: number => fetchPullReviews(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullReviewThreads: number => fetchPullReviewThreads(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullChecks: number => fetchPullChecks(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullFiles: number => fetchPullFiles(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullGate: number => fetchPullGate(octokit, owner, repo, number, bumpRequestCount),
-
-    fetchEvents: limit => fetchEvents(octokit, owner, repo, limit, bumpRequestCount),
-    fetchDeployments: () => fetchDeployments(octokit, owner, repo, bumpRequestCount),
-
-    fetchWorkflows: () => fetchWorkflows(octokit, owner, repo, bumpRequestCount),
-    fetchWorkflowPermissions: workflowId => fetchWorkflowPermissions(octokit, owner, repo, workflowId, bumpRequestCount),
-    fetchRuleSuites: params => fetchRuleSuites(octokit, owner, repo, params, bumpRequestCount),
-    fetchLatestPagesBuild: () => fetchLatestPagesBuild(octokit, owner, repo, bumpRequestCount),
-    fetchAutolinks: () => fetchAutolinks(octokit, owner, repo, bumpRequestCount),
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
@@ -146,12 +107,11 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchViewerReactions: (number, target) =>
       fetchViewerReactions(octokit, owner, repo, number, target, fetchAuthenticatedUserCached, bumpRequestCount),
 
-    fetchActionsWorkflowRuns: () => fetchActionsWorkflowRuns(octokit, owner, repo, bumpRequestCount),
-    fetchActionsWorkflowJobs: runId => fetchActionsWorkflowJobs(octokit, owner, repo, runId, bumpRequestCount),
-    fetchActionsJobLogs: jobId => fetchActionsJobLogs(octokit, owner, repo, jobId, bumpRequestCount),
-    fetchActionsRunArtifacts: runId => fetchActionsRunArtifacts(octokit, owner, repo, runId, bumpRequestCount),
-    fetchWebhooks: () => fetchWebhooks(octokit, owner, repo, bumpRequestCount),
-    fetchWebhookDeliveries: (hookId, options) => fetchWebhookDeliveries(octokit, owner, repo, hookId, options, bumpRequestCount),
+    fetchGitRefs: () => fetchGitRefs(octokit, owner, repo, bumpRequestCount),
+    fetchGitCommits: options => fetchGitCommits(octokit, owner, repo, options, bumpRequestCount),
+    fetchGitTree: (sha, recursive) => fetchGitTree(octokit, owner, repo, sha, recursive, bumpRequestCount),
+    fetchGitBlob: sha => fetchGitBlob(octokit, owner, repo, sha, bumpRequestCount),
+    compareCommits: (base, head) => compareCommits(octokit, owner, repo, base, head, bumpRequestCount),
   }
 }
 
@@ -255,21 +215,17 @@ async function fetchPullMetadata(
   const pull = result.data as GitHubPull
   const requestedReviewers = pull.requested_reviewers.map(reviewer => reviewer.login)
   const reviewDecision = await fetchPullReviewDecision(octokit, owner, repo, number, requestedReviewers.length > 0, bumpRequestCount)
-  const autoMerge = await fetchAutoMergeInfo(octokit, owner, repo, number, bumpRequestCount)
 
   return {
     isDraft: pull.draft,
     merged: pull.merged,
     mergedAt: pull.merged_at,
-    mergeCommitSha: pull.merge_commit_sha ?? null,
     baseRef: pull.base.ref,
     headRef: pull.head.ref,
-    headSha: pull.head.sha,
     requestedReviewers,
     mergeable: pull.mergeable ?? null,
     mergeableState: pull.mergeable_state ?? 'unknown',
     reviewDecision,
-    autoMerge,
   }
 }
 
@@ -553,75 +509,6 @@ async function fetchMergeQueueEnabled(
   }
 }
 
-/**
- * Fetch merge queue entry details for a PR. Returns `null` when the PR is not
- * in the queue or when permissions are insufficient. GraphQL-only API — merge
- * queue entries are not exposed via REST.
- */
-async function fetchMergeQueueEntry(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  number: number,
-  bumpRequestCount: BumpRequestCount,
-): Promise<ProviderMergeQueueEntry | null> {
-  bumpRequestCount()
-  try {
-    const result = await octokit.graphql<{
-      repository: {
-        pullRequest: {
-          mergeQueueEntry: {
-            position: number
-            state: string
-            enqueuedAt: string
-            estimatedTimeToMerge: number | null
-            enqueuer: { login: string } | null
-          } | null
-        } | null
-      } | null
-    }>(
-      `query MergeQueueEntry($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $number) {
-            mergeQueueEntry {
-              position
-              state
-              enqueuedAt
-              estimatedTimeToMerge
-              enqueuer {
-                login
-              }
-            }
-          }
-        }
-      }`,
-      { owner, repo, number },
-    )
-
-    const entry = result.repository?.pullRequest?.mergeQueueEntry
-    if (!entry)
-      return null
-
-    return {
-      position: entry.position,
-      state: normalizeMergeQueueState(entry.state),
-      enqueuedAt: entry.enqueuedAt,
-      estimatedTimeToMerge: entry.estimatedTimeToMerge,
-      enqueuer: entry.enqueuer?.login ?? null,
-    }
-  }
-  catch {
-    return null
-  }
-}
-
-function normalizeMergeQueueState(state: string): ProviderMergeQueueEntry['state'] {
-  const upper = state.toUpperCase()
-  if (upper === 'QUEUED' || upper === 'AWAITING_CHECKS' || upper === 'MERGEABLE' || upper === 'UNMERGEABLE' || upper === 'LOCKED')
-    return upper
-  return 'QUEUED'
-}
-
 async function fetchRepositoryLabels(octokit: Octokit, owner: string, repo: string, bumpRequestCount: BumpRequestCount): Promise<ProviderLabel[]> {
   bumpRequestCount()
   return await octokit.paginate(octokit.rest.issues.listLabelsForRepo, {
@@ -689,135 +576,6 @@ function normalizeSinceForSearch(since: string): string {
   if (Number.isNaN(date.getTime()))
     return since
   return date.toISOString()
-}
-
-async function fetchAutoMergeInfo(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  number: number,
-  bumpRequestCount: BumpRequestCount,
-): Promise<ProviderAutoMergeInfo | null> {
-  try {
-    bumpRequestCount()
-    const data = await octokit.graphql<{
-      repository: {
-        pullRequest: {
-          autoMergeRequest: {
-            enabledAt: string
-            enabledBy: { login: string } | null
-            mergeMethod: string
-            commitHeadline: string | null
-            commitBody: string | null
-          } | null
-        } | null
-      } | null
-    }>(
-      `query PullAutoMerge($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $number) {
-            autoMergeRequest {
-              enabledAt
-              enabledBy { login }
-              mergeMethod
-              commitHeadline
-              commitBody
-            }
-          }
-        }
-      }`,
-      { owner, repo, number },
-    )
-
-    const autoMerge = data.repository?.pullRequest?.autoMergeRequest
-    if (!autoMerge)
-      return null
-
-    const mergeMethod = normalizeMergeMethod(autoMerge.mergeMethod)
-    return {
-      enabledAt: autoMerge.enabledAt,
-      enabledBy: autoMerge.enabledBy?.login ?? null,
-      mergeMethod,
-      commitTitle: autoMerge.commitHeadline ?? null,
-      commitMessage: autoMerge.commitBody ?? null,
-    }
-  }
-  catch {
-    return null
-  }
-}
-
-function normalizeMergeMethod(method: string): MergeMethod | null {
-  const lower = method.toLowerCase()
-  if (lower === 'squash' || lower === 'merge' || lower === 'rebase')
-    return lower
-  return null
-}
-
-async function fetchCheckRuns(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  ref: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<ProviderCheckRun[]> {
-  bumpRequestCount()
-  const response = await octokit.rest.checks.listForRef({
-    owner,
-    repo,
-    ref,
-    per_page: 100,
-  })
-
-  return response.data.check_runs.map(mapCheckRun)
-}
-
-async function fetchCombinedStatus(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  ref: string,
-  bumpRequestCount: BumpRequestCount,
-): Promise<ProviderCombinedStatus> {
-  bumpRequestCount()
-  const response = await octokit.rest.repos.getCombinedStatusForRef({
-    owner,
-    repo,
-    ref,
-    per_page: 100,
-  })
-
-  return {
-    state: response.data.state as 'success' | 'pending' | 'failure',
-    sha: response.data.sha,
-    totalCount: response.data.total_count,
-    statuses: response.data.statuses.map(mapCommitStatus),
-  }
-}
-
-function mapCheckRun(run: GitHubCheckRun): ProviderCheckRun {
-  return {
-    id: run.id,
-    name: run.name,
-    headSha: run.head_sha,
-    status: run.status as ProviderCheckStatusState,
-    conclusion: run.conclusion as ProviderCheckConclusionState | null,
-    startedAt: run.started_at ?? null,
-    completedAt: run.completed_at ?? null,
-    detailsUrl: run.details_url ?? null,
-    htmlUrl: run.html_url ?? null,
-  }
-}
-
-function mapCommitStatus(status: GitHubCommitStatus): ProviderCommitStatus {
-  return {
-    state: status.state as 'error' | 'failure' | 'pending' | 'success',
-    targetUrl: status.target_url ?? null,
-    description: status.description ?? null,
-    context: status.context,
-    createdAt: status.created_at,
-    updatedAt: status.updated_at,
-  }
 }
 
 async function actionClose(octokit: Octokit, owner: string, repo: string, number: number, bumpRequestCount: BumpRequestCount): Promise<void> {
@@ -1697,433 +1455,6 @@ function mapReactions(reactions: GitHubReactions | null | undefined): ProviderRe
   })
 }
 
-async function fetchPullReviews(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  number: number,
-  bumpRequestCount: BumpRequestCount,
-): Promise<ProviderPullReview[]> {
-  bumpRequestCount()
-  const reviews = await octokit.paginate(octokit.rest.pulls.listReviews, {
-    owner,
-    repo,
-    pull_number: number,
-    per_page: 100,
-  }) as Array<{
-    id: number
-    state: string
-    user: { login: string, avatar_url?: string } | null
-    body: string | null
-    submitted_at: string | null
-    commit_id?: string | null
-  }>
-
-  return reviews.map(review => ({
-    id: review.id,
-    state: mapReviewState(review.state),
-    author: review.user?.login ?? null,
-    authorAvatarUrl: review.user?.avatar_url,
-    body: review.body,
-    submittedAt: review.submitted_at ?? new Date().toISOString(),
-    commitId: review.commit_id ?? undefined,
-  }))
-}
-
-async function fetchPullReviewThreads(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  number: number,
-  bumpRequestCount: BumpRequestCount,
-): Promise<ProviderPullReviewThread[]> {
-  try {
-    bumpRequestCount()
-    const data = await octokit.graphql<{
-      repository: {
-        pullRequest: {
-          reviewThreads: {
-            nodes: Array<{
-              id: string
-              isResolved: boolean
-              isOutdated: boolean
-              comments: {
-                nodes: Array<{
-                  id: string
-                  body: string
-                  author: { login: string, avatarUrl?: string } | null
-                  createdAt: string
-                  updatedAt: string
-                  path: string
-                  line: number | null
-                  startLine: number | null
-                  side: 'LEFT' | 'RIGHT'
-                  diffHunk: string
-                  commit: { oid: string } | null
-                  pullRequestReview: { databaseId: number } | null
-                  replyTo: { databaseId: number } | null
-                  reactions: {
-                    totalCount: number
-                    nodes: Array<{ content: string }>
-                  }
-                } | null>
-              }
-            } | null>
-          }
-        } | null
-      } | null
-    }>(
-      `query PullReviewThreads($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $number) {
-            reviewThreads(first: 100) {
-              nodes {
-                id
-                isResolved
-                isOutdated
-                comments(first: 100) {
-                  nodes {
-                    id: databaseId
-                    body
-                    author { login avatarUrl }
-                    createdAt
-                    updatedAt
-                    path
-                    line: position
-                    startLine
-                    side
-                    diffHunk
-                    commit { oid }
-                    pullRequestReview { databaseId }
-                    replyTo { databaseId }
-                    reactions(first: 100) {
-                      totalCount
-                      nodes { content }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }`,
-      { owner, repo, number },
-    )
-
-    const threads = data.repository?.pullRequest?.reviewThreads?.nodes ?? []
-    return threads
-      .filter((thread): thread is NonNullable<typeof thread> => thread !== null)
-      .map(thread => ({
-        id: thread.id,
-        isResolved: thread.isResolved,
-        isOutdated: thread.isOutdated,
-        comments: thread.comments.nodes
-          .filter((comment): comment is NonNullable<typeof comment> => comment !== null)
-          .map(comment => ({
-            id: comment.id ? Number(comment.id) : 0,
-            body: comment.body,
-            author: comment.author?.login ?? null,
-            authorAvatarUrl: comment.author?.avatarUrl,
-            createdAt: comment.createdAt,
-            updatedAt: comment.updatedAt,
-            path: comment.path,
-            line: comment.line,
-            startLine: comment.startLine ?? null,
-            side: comment.side,
-            diffHunk: comment.diffHunk,
-            commitId: comment.commit?.oid,
-            pullRequestReviewId: comment.pullRequestReview?.databaseId ?? null,
-            inReplyToId: comment.replyTo?.databaseId ?? null,
-            reactions: normalizeReactions(mapGraphQLReactions(comment.reactions)),
-          })),
-      }))
-  }
-  catch (error) {
-    diagnostics.warn(`Failed to fetch review threads for PR #${number}: ${error}`)
-    return []
-  }
-}
-
-async function fetchPullChecks(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  number: number,
-  bumpRequestCount: BumpRequestCount,
-): Promise<ProviderCheck[]> {
-  try {
-    bumpRequestCount()
-    const pull = await octokit.rest.pulls.get({
-      owner,
-      repo,
-      pull_number: number,
-    })
-
-    const headSha = pull.data.head.sha
-
-    bumpRequestCount()
-    const [checkRuns, statuses] = await Promise.all([
-      octokit.rest.checks.listForRef({
-        owner,
-        repo,
-        ref: headSha,
-        per_page: 100,
-      }).then(res => res.data.check_runs),
-      octokit.rest.repos.getCombinedStatusForRef({
-        owner,
-        repo,
-        ref: headSha,
-      }).then(res => res.data.statuses),
-    ])
-
-    const checks: ProviderCheck[] = []
-
-    for (const run of checkRuns) {
-      checks.push({
-        name: run.name,
-        status: mapCheckStatus(run.status),
-        conclusion: mapCheckConclusion(run.conclusion),
-        detailsUrl: run.html_url ?? undefined,
-        startedAt: run.started_at ?? undefined,
-        completedAt: run.completed_at ?? undefined,
-      })
-    }
-
-    for (const status of statuses) {
-      checks.push({
-        name: status.context,
-        status: mapStatusState(status.state),
-        conclusion: mapStatusConclusion(status.state),
-        detailsUrl: status.target_url ?? undefined,
-      })
-    }
-
-    return checks
-  }
-  catch (error) {
-    diagnostics.warn(`Failed to fetch checks for PR #${number}: ${error}`)
-    return []
-  }
-}
-
-async function fetchPullFiles(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  number: number,
-  bumpRequestCount: BumpRequestCount,
-): Promise<ProviderPullFile[]> {
-  bumpRequestCount()
-  const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
-    owner,
-    repo,
-    pull_number: number,
-    per_page: 100,
-  }) as Array<{
-    filename: string
-    status: string
-    additions: number
-    deletions: number
-    changes: number
-    patch?: string
-    previous_filename?: string
-  }>
-
-  return files.map(file => ({
-    filename: file.filename,
-    status: mapFileStatus(file.status),
-    additions: file.additions,
-    deletions: file.deletions,
-    changes: file.changes,
-    patch: file.patch,
-    previousFilename: file.previous_filename,
-  }))
-}
-
-async function fetchPullGate(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  number: number,
-  bumpRequestCount: BumpRequestCount,
-): Promise<ProviderPullGate> {
-  bumpRequestCount()
-  const pull = await octokit.rest.pulls.get({
-    owner,
-    repo,
-    pull_number: number,
-  })
-
-  const metadata = await fetchPullMetadata(octokit, owner, repo, number, bumpRequestCount)
-  const checks = await fetchPullChecks(octokit, owner, repo, number, bumpRequestCount)
-
-  const checksGreen = checks.length > 0
-    ? checks.every(check =>
-      check.status === 'completed' && (check.conclusion === 'success' || check.conclusion === 'neutral' || check.conclusion === 'skipped'),
-    )
-    : null
-
-  const conflictFiles: string[] = []
-  if (pull.data.mergeable === false) {
-    try {
-      const files = await fetchPullFiles(octokit, owner, repo, number, bumpRequestCount)
-      for (const file of files) {
-        if (file.status === 'modified' || file.status === 'changed')
-          conflictFiles.push(file.filename)
-      }
-    }
-    catch {
-    }
-  }
-
-  let inMergeQueue = false
-  try {
-    bumpRequestCount()
-    const queueData = await octokit.graphql<{
-      repository: {
-        pullRequest: {
-          mergeQueueEntry: { id: string } | null
-        } | null
-      } | null
-    }>(
-      `query PullMergeQueue($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $number) {
-            mergeQueueEntry { id }
-          }
-        }
-      }`,
-      { owner, repo, number },
-    )
-    inMergeQueue = queueData.repository?.pullRequest?.mergeQueueEntry !== null
-  }
-  catch {
-  }
-
-  return {
-    mergeable: metadata.mergeable,
-    mergeableState: metadata.mergeableState ?? 'unknown',
-    reviewDecision: metadata.reviewDecision,
-    checksGreen,
-    inMergeQueue,
-    conflictFiles,
-  }
-}
-
-function mapReviewState(state: string): ProviderReviewState {
-  const normalized = state.toUpperCase()
-  if (normalized === 'APPROVED')
-    return 'approved'
-  if (normalized === 'CHANGES_REQUESTED')
-    return 'changes_requested'
-  if (normalized === 'COMMENTED')
-    return 'commented'
-  if (normalized === 'DISMISSED')
-    return 'dismissed'
-  if (normalized === 'PENDING')
-    return 'pending'
-  return 'commented'
-}
-
-function mapCheckStatus(status: string): ProviderCheckStatus {
-  const normalized = status.toLowerCase()
-  if (normalized === 'completed')
-    return 'completed'
-  if (normalized === 'in_progress')
-    return 'in_progress'
-  if (normalized === 'queued')
-    return 'queued'
-  if (normalized === 'waiting')
-    return 'waiting'
-  if (normalized === 'pending')
-    return 'pending'
-  if (normalized === 'requested')
-    return 'requested'
-  return 'queued'
-}
-
-function mapCheckConclusion(conclusion: string | null): ProviderCheckConclusion {
-  if (!conclusion)
-    return null
-  const normalized = conclusion.toLowerCase()
-  if (normalized === 'success')
-    return 'success'
-  if (normalized === 'failure')
-    return 'failure'
-  if (normalized === 'neutral')
-    return 'neutral'
-  if (normalized === 'cancelled')
-    return 'cancelled'
-  if (normalized === 'skipped')
-    return 'skipped'
-  if (normalized === 'timed_out')
-    return 'timed_out'
-  if (normalized === 'action_required')
-    return 'action_required'
-  return null
-}
-
-function mapStatusState(state: string): ProviderCheckStatus {
-  const normalized = state.toLowerCase()
-  if (normalized === 'success' || normalized === 'failure' || normalized === 'error')
-    return 'completed'
-  if (normalized === 'pending')
-    return 'pending'
-  return 'queued'
-}
-
-function mapStatusConclusion(state: string): ProviderCheckConclusion {
-  const normalized = state.toLowerCase()
-  if (normalized === 'success')
-    return 'success'
-  if (normalized === 'failure' || normalized === 'error')
-    return 'failure'
-  return null
-}
-
-function mapFileStatus(status: string): ProviderPullFile['status'] {
-  const normalized = status.toLowerCase()
-  if (normalized === 'added')
-    return 'added'
-  if (normalized === 'removed')
-    return 'removed'
-  if (normalized === 'modified')
-    return 'modified'
-  if (normalized === 'renamed')
-    return 'renamed'
-  if (normalized === 'copied')
-    return 'copied'
-  if (normalized === 'changed')
-    return 'changed'
-  if (normalized === 'unchanged')
-    return 'unchanged'
-  return 'modified'
-}
-
-function mapGraphQLReactions(reactions: { totalCount: number, nodes: Array<{ content: string }> }): GitHubReactions {
-  const result: GitHubReactions = { total_count: reactions.totalCount }
-  for (const node of reactions.nodes) {
-    const content = node.content.toLowerCase()
-    if (content === 'thumbs_up')
-      result['+1'] = (result['+1'] ?? 0) + 1
-    else if (content === 'thumbs_down')
-      result['-1'] = (result['-1'] ?? 0) + 1
-    else if (content === 'laugh')
-      result.laugh = (result.laugh ?? 0) + 1
-    else if (content === 'hooray')
-      result.hooray = (result.hooray ?? 0) + 1
-    else if (content === 'confused')
-      result.confused = (result.confused ?? 0) + 1
-    else if (content === 'heart')
-      result.heart = (result.heart ?? 0) + 1
-    else if (content === 'rocket')
-      result.rocket = (result.rocket ?? 0) + 1
-    else if (content === 'eyes')
-      result.eyes = (result.eyes ?? 0) + 1
-  }
-  return result
-}
-
 interface GitHubIssue {
   number: number
   state: 'open' | 'closed'
@@ -2163,13 +1494,11 @@ interface GitHubPull {
   draft: boolean
   merged: boolean
   merged_at: string | null
-  merge_commit_sha?: string | null
   base: {
     ref: string
   }
   head: {
     ref: string
-    sha: string
   }
   requested_reviewers: Array<{ login: string }>
   mergeable?: boolean | null
@@ -2281,23 +1610,201 @@ interface GitHubTimelineEvent {
   commit_message?: string
 }
 
-interface GitHubCheckRun {
-  id: number
-  name: string
-  head_sha: string
-  status: string
-  conclusion: string | null
-  started_at: string | null
-  completed_at: string | null
-  details_url: string | null
-  html_url: string | null
+async function fetchGitRefs(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderGitRef[]> {
+  bumpRequestCount()
+  const refs = await octokit.paginate(octokit.rest.git.listMatchingRefs, {
+    owner,
+    repo,
+    ref: '',
+    per_page: 100,
+  }) as Array<{ ref: string, object: { sha: string, url: string } }>
+
+  return refs.map(ref => ({
+    ref: ref.ref,
+    sha: ref.object.sha,
+    url: ref.object.url,
+  }))
 }
 
-interface GitHubCommitStatus {
-  state: string
-  target_url: string | null
-  description: string | null
-  context: string
-  created_at: string
-  updated_at: string
+async function fetchGitCommits(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  options: { sha?: string, limit?: number },
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderGitCommit[]> {
+  bumpRequestCount()
+  const limit = options.limit ?? 100
+  const commits = await octokit.paginate(
+    octokit.rest.repos.listCommits,
+    {
+      owner,
+      repo,
+      ...(options.sha ? { sha: options.sha } : {}),
+      per_page: Math.min(limit, 100),
+    },
+    response => response.data.slice(0, limit),
+  ) as Array<{
+    sha: string
+    commit: {
+      message: string
+      author: { name: string, email: string, date: string }
+      committer: { name: string, email: string, date: string }
+      tree: { sha: string }
+    }
+    parents: Array<{ sha: string }>
+    url: string
+    html_url?: string
+  }>
+
+  return commits.map(commit => ({
+    sha: commit.sha,
+    message: commit.commit.message,
+    author: commit.commit.author,
+    committer: commit.commit.committer,
+    tree: commit.commit.tree,
+    parents: commit.parents,
+    url: commit.url,
+    ...(commit.html_url ? { html_url: commit.html_url } : {}),
+  }))
+}
+
+async function fetchGitTree(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  sha: string,
+  recursive: boolean = false,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderGitTree> {
+  bumpRequestCount()
+  const result = await octokit.rest.git.getTree({
+    owner,
+    repo,
+    tree_sha: sha,
+    recursive: recursive ? 'true' : undefined,
+  })
+
+  const tree = result.data as {
+    sha: string
+    url: string
+    tree: Array<{
+      path: string
+      mode: string
+      type: 'blob' | 'tree' | 'commit'
+      sha: string
+      size?: number
+      url: string
+    }>
+    truncated: boolean
+  }
+
+  return {
+    sha: tree.sha,
+    url: tree.url,
+    tree: tree.tree.map(item => ({
+      path: item.path,
+      mode: item.mode,
+      type: item.type,
+      sha: item.sha,
+      ...(item.size !== undefined ? { size: item.size } : {}),
+      url: item.url,
+    })),
+    truncated: tree.truncated,
+  }
+}
+
+async function fetchGitBlob(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  sha: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderGitBlob> {
+  bumpRequestCount()
+  const result = await octokit.rest.git.getBlob({
+    owner,
+    repo,
+    file_sha: sha,
+  })
+
+  const blob = result.data as {
+    sha: string
+    content: string
+    encoding: 'base64' | 'utf-8'
+    size: number
+    url: string
+  }
+
+  return {
+    sha: blob.sha,
+    content: blob.content,
+    encoding: blob.encoding,
+    size: blob.size,
+    url: blob.url,
+  }
+}
+
+async function compareCommits(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  base: string,
+  head: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<{ commits: ProviderGitCommit[] }> {
+  bumpRequestCount()
+  const result = await octokit.rest.repos.compareCommitsWithBasehead({
+    owner,
+    repo,
+    basehead: `${base}...${head}`,
+  })
+
+  const commits = (result.data.commits ?? [])
+    .filter((commit: {
+      sha: string
+      commit: {
+        message: string
+        author?: { name?: string, email?: string, date?: string } | null
+        committer?: { name?: string, email?: string, date?: string } | null
+        tree: { sha: string }
+      }
+      parents: Array<{ sha: string }>
+      url: string
+      html_url?: string
+    }) => {
+      return Boolean(
+        commit.commit.author?.name
+        && commit.commit.author?.email
+        && commit.commit.author?.date
+        && commit.commit.committer?.name
+        && commit.commit.committer?.email
+        && commit.commit.committer?.date,
+      )
+    })
+    .map((commit): ProviderGitCommit => ({
+      sha: commit.sha,
+      message: commit.commit.message,
+      author: {
+        name: commit.commit.author!.name!,
+        email: commit.commit.author!.email!,
+        date: commit.commit.author!.date!,
+      },
+      committer: {
+        name: commit.commit.committer!.name!,
+        email: commit.commit.committer!.email!,
+        date: commit.commit.committer!.date!,
+      },
+      tree: commit.commit.tree,
+      parents: commit.parents,
+      url: commit.url,
+      ...(commit.html_url ? { html_url: commit.html_url } : {}),
+    }))
+
+  return { commits }
 }
