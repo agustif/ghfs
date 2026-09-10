@@ -22,6 +22,8 @@ It reflects the current behavior in code, including sync, execute, config resolu
 2. `ghfs sync [--repo owner/name] [--since ISO] [--full]`
 3. `ghfs execute [--repo owner/name] [--file path] [--run] [--non-interactive] [--continue-on-error]`
 4. `ghfs status`
+5. `ghfs ui [--port N] [--host addr] [--cwd path] [--no-open]`
+6. `ghfs hub [start|stop|restart] [--port N] [--host addr] [--cwd path] [--no-open] [--timeout ms]`
 
 ## Configuration Contract (`ghfs.config.ts`)
 Top-level fields:
@@ -33,8 +35,21 @@ Top-level fields:
 `sync` fields:
 - `issues?: boolean` (default: `true`)
 - `pulls?: boolean` (default: `true`)
-- `closed?: 'existing' | 'all' | false` (default: `'existing'`)
+- `closed?: boolean` (default: `false`)
 - `patches?: 'open' | 'all' | false` (default: `'open'`)
+- `meta?: boolean` (default: `true`)
+- `labelsAndMilestones?: boolean` (default: `true`)
+- `releases?: boolean` (default: `true`)
+- `rulesets?: boolean` (default: `true`)
+- `constitution?: boolean` (default: `true`)
+- `actions?: boolean` (default: `true`)
+
+`extended` fields (default: all `true`):
+- `graph?: boolean`
+- `search?: boolean`
+- `me?: boolean`
+- `security?: boolean`
+- `syncState?: boolean`
 
 Resolution precedence:
 1. CLI options (where applicable)
@@ -70,6 +85,7 @@ Non-TTY with no token is a hard error.
   pulls.md
   repo.json
   execute.yml
+  execute.md
   schema/
     execute.schema.json
   issues/
@@ -81,6 +97,35 @@ Non-TTY with no token is a hard error.
     <number>.patch           # PR patch (based on sync.patches)
     closed/
       <00001-short-slug>.md  # closed pull request
+  
+  # Enhanced metadata (sync.meta, sync.labelsAndMilestones, etc.)
+  meta.json
+  policy.json
+  graph.json
+  agent-hints.md
+  labels.json
+  milestones.json
+  releases/
+    releases.json
+  rulesets/
+    rulesets.json
+  constitution/
+    CONTRIBUTING.md
+    SECURITY.md
+    CODE_OF_CONDUCT.md
+    SUPPORT.md
+    FUNDING.yml
+    CODEOWNERS
+  actions/
+    recent-runs.json
+  
+  # Extended surfaces (extended.*)
+  graph.jsonl
+  search.jsonl
+  me.md
+  sync-state.json
+  security/
+    summary.json
 ```
 
 Notes:
@@ -149,6 +194,8 @@ Details:
 - unchanged optimization skips expensive per-item re-sync when remote `updated_at` matches tracked `lastUpdatedAt` and required local files exist.
 - `sync.issues` / `sync.pulls` disable processing for that kind only. Disabled kinds are ignored; existing mirrored files for them are not aggressively deleted.
 - Sync keeps `filePath` in state and uses it to move/clean stale markdown files when title slug or open/closed state changes.
+- Enhanced metadata (`sync.meta`, `sync.labelsAndMilestones`, etc.) syncs additional repository surfaces into dedicated files.
+- Extended surfaces (`extended.graph`, `extended.search`, etc.) generate agent-optimized indexes and summaries.
 
 ## Execute File Contract (`.ghfs/execute.yml`)
 Root must be a YAML array of operations.
@@ -193,6 +240,13 @@ Supported actions:
 - `remove-reviewers`
 - `mark-ready-for-review`
 - `convert-to-draft`
+- `approve`
+- `request-changes`
+- `review-comment`
+- `merge`
+- `enqueue-merge`
+- `add-reaction`
+- `remove-reaction`
 
 ## Execute Behavior
 1. Parse + validate execute file.
