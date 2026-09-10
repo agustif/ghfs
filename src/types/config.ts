@@ -63,6 +63,12 @@ export interface GhfsUserConfig {
      * @default 'open'
      */
     patches?: 'open' | 'all' | false
+    /**
+     * Whether to sync merge queue entries.
+     *
+     * @default true
+     */
+    mergeQueue?: boolean
   }
 }
 

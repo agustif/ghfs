@@ -32,6 +32,9 @@ It will sync the open issues and pull requests to the local filesystem under `.g
     00042-add-cache.patch
     closed/
       00043-release-cleanup.md
+  merge-queue/
+    001-pr-00042.json
+    002-pr-00043.json
 ```
 
 Then you can view them offline, or ask your local agent to summarize them for you.
@@ -203,10 +206,24 @@ export default defineConfig({
   sync: {
     issues: true, // set false to skip issue sync
     pulls: true, // set false to skip pull request sync
+    mergeQueue: true, // set false to skip merge queue sync
   },
   // other options...
 })
 ```
+
+### Merge Queue Sync
+
+When enabled (default), `ghfs` will sync GitHub Merge Queue entries to `.ghfs/merge-queue/`. Each entry includes:
+
+- Queue position
+- Pull request details (number, title, author, URL)
+- Current state (QUEUED, AWAITING_CHECKS, MERGEABLE, UNMERGEABLE, LOCKED)
+- Enqueued timestamp
+- Estimated time to merge
+- Head commit information
+
+If the repository doesn't have merge queue enabled or you don't have access, the sync gracefully skips this step.
 
 ## TODOs
 

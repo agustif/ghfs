@@ -64,6 +64,7 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const pullsEnabled = merged.sync?.pulls ?? true
   const closedMode = merged.sync?.closed ?? false
   const patchesMode = merged.sync?.patches ?? 'open'
+  const mergeQueueEnabled = merged.sync?.mergeQueue ?? true
 
   return {
     cwd,
@@ -78,6 +79,7 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       pulls: pullsEnabled,
       closed: closedMode,
       patches: patchesMode,
+      mergeQueue: mergeQueueEnabled,
     },
   }
 }

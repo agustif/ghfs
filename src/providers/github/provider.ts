@@ -9,6 +9,7 @@ import type {
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
+  ProviderMergeQueueEntry,
   ProviderMilestone,
   ProviderPullMetadata,
   ProviderReactions,
@@ -70,6 +71,7 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchRepositoryMilestones: () => fetchRepositoryMilestones(octokit, owner, repo, bumpRequestCount),
     fetchAuthenticatedUser: fetchAuthenticatedUserCached,
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
+    fetchMergeQueue: () => fetchMergeQueue(octokit, owner, repo, bumpRequestCount),
     getRequestCount: () => requestCount,
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
@@ -559,6 +561,104 @@ async function countUpdatedSince(
     issues: result.issues.issueCount,
     pulls: result.pulls.issueCount,
   }
+}
+
+async function fetchMergeQueue(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderMergeQueueEntry[]> {
+  try {
+    bumpRequestCount()
+    const result = await octokit.graphql<{
+      repository: {
+        mergeQueue: {
+          entries: {
+            nodes: Array<{
+              id: string
+              position: number
+              state: string
+              enqueuedAt: string
+              estimatedTimeToMerge: number | null
+              pullRequest: {
+                number: number
+                title: string
+                url: string
+                author: { login: string } | null
+              }
+              headCommit: {
+                oid: string
+                message: string
+              } | null
+            } | null>
+          } | null
+        } | null
+      } | null
+    }>(
+      `query FetchMergeQueue($owner: String!, $name: String!) {
+        repository(owner: $owner, name: $name) {
+          mergeQueue {
+            entries(first: 100) {
+              nodes {
+                id
+                position
+                state
+                enqueuedAt
+                estimatedTimeToMerge
+                pullRequest {
+                  number
+                  title
+                  url
+                  author {
+                    login
+                  }
+                }
+                headCommit {
+                  oid
+                  message
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { owner, name: repo },
+    )
+
+    const entries = result.repository?.mergeQueue?.entries?.nodes ?? []
+    return entries
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+      .map(entry => ({
+        id: entry.id,
+        position: entry.position,
+        state: normalizeQueueState(entry.state),
+        pullRequest: {
+          number: entry.pullRequest.number,
+          title: entry.pullRequest.title,
+          url: entry.pullRequest.url,
+          author: entry.pullRequest.author?.login ?? null,
+        },
+        enqueuedAt: entry.enqueuedAt,
+        estimatedTimeToMerge: entry.estimatedTimeToMerge,
+        headCommit: entry.headCommit
+          ? {
+              sha: entry.headCommit.oid,
+              message: entry.headCommit.message,
+            }
+          : null,
+      }))
+  }
+  catch {
+    return []
+  }
+}
+
+function normalizeQueueState(state: string): ProviderMergeQueueEntry['state'] {
+  const upper = state.toUpperCase()
+  if (upper === 'QUEUED' || upper === 'AWAITING_CHECKS' || upper === 'MERGEABLE' || upper === 'UNMERGEABLE' || upper === 'LOCKED')
+    return upper
+  return 'QUEUED'
 }
 
 function normalizeSinceForSearch(since: string): string {

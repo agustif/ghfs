@@ -249,6 +249,24 @@ export interface ProviderUpdateCounts {
   pulls: number
 }
 
+export interface ProviderMergeQueueEntry {
+  id: string
+  position: number
+  state: 'QUEUED' | 'AWAITING_CHECKS' | 'MERGEABLE' | 'UNMERGEABLE' | 'LOCKED'
+  pullRequest: {
+    number: number
+    title: string
+    url: string
+    author: string | null
+  }
+  enqueuedAt: string
+  estimatedTimeToMerge: number | null
+  headCommit: {
+    sha: string
+    message: string
+  } | null
+}
+
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
 
 /**
@@ -283,6 +301,7 @@ export interface RepositoryProvider {
   fetchRepositoryMilestones: () => Promise<ProviderMilestone[]>
   fetchAuthenticatedUser: () => Promise<ProviderAuthenticatedUser | null>
   countUpdatedSince: (since: string) => Promise<ProviderUpdateCounts>
+  fetchMergeQueue: () => Promise<ProviderMergeQueueEntry[]>
   getRequestCount: () => number
 
   actionClose: (number: number) => Promise<void>

@@ -1,7 +1,7 @@
 import type { GhfsResolvedConfig } from '../types'
 import type { RepositoryProvider } from '../types/provider'
 
-export type SyncStage = 'metadata' | 'pagination' | 'fetch' | 'materialize' | 'prune' | 'save'
+export type SyncStage = 'metadata' | 'pagination' | 'fetch' | 'materialize' | 'prune' | 'merge-queue' | 'save'
 
 export interface SyncProgressSnapshot {
   scanned: number
