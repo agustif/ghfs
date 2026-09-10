@@ -48,7 +48,7 @@ export function buildMeSummary(
       })
     }
 
-    if (item.kind === 'pull' && item.data.pullMetadata?.requestedReviewers?.includes(currentUser)) {
+    if (item.kind === 'pull' && item.data.pull?.requestedReviewers?.includes(currentUser)) {
       reviewRequested.push({
         number: item.number,
         title: item.data.item.title,

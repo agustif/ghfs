@@ -655,6 +655,13 @@ function createConfig(): GhfsResolvedConfig {
       closed: false,
       patches: 'open',
     },
+    extended: {
+      graph: true,
+      search: true,
+      me: true,
+      security: true,
+      syncState: true,
+    },
   }
 }
 

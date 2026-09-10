@@ -64,8 +64,8 @@ export function buildGraph(
       addEdge(edges, seenEdges, nodeId, personId, 'assigns')
     }
 
-    if (item.kind === 'pull' && item.data.pullMetadata) {
-      for (const reviewer of item.data.pullMetadata.requestedReviewers ?? []) {
+    if (item.kind === 'pull' && item.data.pull) {
+      for (const reviewer of item.data.pull.requestedReviewers ?? []) {
         const personId = `ghfs:person:${reviewer}`
         if (!nodes.has(personId)) {
           nodes.set(personId, { id: personId, type: 'person', metadata: { login: reviewer } })
@@ -165,21 +165,24 @@ function extractGraphFromText(
 ): void {
   const issuePattern = /#(\d+)/g
   const closesPattern = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi
-  const mentionPattern = /@([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)/g
+  const mentionPattern = /@([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)/gi
 
   let match: RegExpExecArray | null
 
-  while ((match = closesPattern.exec(text)) !== null) {
+  match = closesPattern.exec(text)
+  while (match !== null) {
     const toNumber = Number.parseInt(match[1], 10)
     const toNodeId = `ghfs:issue:${toNumber}`
     if (!nodes.has(toNodeId)) {
       nodes.set(toNodeId, { id: toNodeId, type: 'issue', metadata: { number: toNumber } })
     }
     addEdge(edges, seen, fromNodeId, toNodeId, 'fixes')
+    match = closesPattern.exec(text)
   }
 
   closesPattern.lastIndex = 0
-  while ((match = issuePattern.exec(text)) !== null) {
+  match = issuePattern.exec(text)
+  while (match !== null) {
     const toNumber = Number.parseInt(match[1], 10)
     const toNodeId = `ghfs:issue:${toNumber}`
     const alreadyFixed = edges.some(e => e.from === fromNodeId && e.to === toNodeId && e.relation === 'fixes')
@@ -189,15 +192,18 @@ function extractGraphFromText(
       }
       addEdge(edges, seen, fromNodeId, toNodeId, 'references')
     }
+    match = issuePattern.exec(text)
   }
 
   mentionPattern.lastIndex = 0
-  while ((match = mentionPattern.exec(text)) !== null) {
+  match = mentionPattern.exec(text)
+  while (match !== null) {
     const login = match[1]
     const personId = `ghfs:person:${login}`
     if (!nodes.has(personId)) {
       nodes.set(personId, { id: personId, type: 'person', metadata: { login } })
     }
     addEdge(edges, seen, fromNodeId, personId, 'mentions')
+    match = mentionPattern.exec(text)
   }
 }

@@ -348,6 +348,13 @@ function createSyncContext(storageDirAbsolute: string, syncOverrides: Partial<Sy
         closed: syncOverrides.closed ?? false,
         patches: syncOverrides.patches ?? 'open',
       },
+      extended: {
+        graph: true,
+        search: true,
+        me: true,
+        security: true,
+        syncState: true,
+      },
     },
     syncState: {
       version: 2,

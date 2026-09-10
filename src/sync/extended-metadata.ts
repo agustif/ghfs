@@ -1,8 +1,8 @@
 import type { SyncContext } from './sync-repository-types'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'
-import { buildGraph } from './refs-graph'
 import { buildMeSummary, renderMeSummary } from './me-summary'
+import { buildGraph } from './refs-graph'
 import { buildSearchIndex, renderSearchIndex } from './search-index'
 import { buildSecuritySummary } from './security-summary'
 
@@ -19,10 +19,10 @@ export async function writeExtendedMetadata(context: SyncContext): Promise<void>
     const graph = buildGraph(context.syncState.items, context.syncedAt)
     await writeFile(
       join(storageDirAbsolute, 'graph.jsonl'),
-      graph.nodes.map(n => JSON.stringify({ type: 'node', ...n })).join('\n')
-        + '\n'
-        + graph.edges.map(e => JSON.stringify({ type: 'edge', ...e })).join('\n')
-        + '\n',
+      `${graph.nodes.map(n => JSON.stringify({ ...n, type: 'node' })).join('\n')
+      }\n${
+        graph.edges.map(e => JSON.stringify({ ...e, type: 'edge' })).join('\n')
+      }\n`,
       'utf8',
     )
   }
@@ -57,7 +57,7 @@ export async function writeExtendedMetadata(context: SyncContext): Promise<void>
     if (securitySummary) {
       await writeFile(
         join(securityDir, 'summary.json'),
-        JSON.stringify(securitySummary, null, 2) + '\n',
+        `${JSON.stringify(securitySummary, null, 2)}\n`,
         'utf8',
       )
     }
@@ -66,11 +66,11 @@ export async function writeExtendedMetadata(context: SyncContext): Promise<void>
   if (config.syncState) {
     await writeFile(
       join(storageDirAbsolute, 'sync-state.json'),
-      JSON.stringify({
+      `${JSON.stringify({
         lastSync: context.syncedAt,
         itemCount: Object.keys(context.syncState.items).length,
         items: context.syncState.items,
-      }, null, 2) + '\n',
+      }, null, 2)}\n`,
       'utf8',
     )
   }

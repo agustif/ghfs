@@ -184,6 +184,13 @@ function createContext(overrides: {
         closed: overrides.closed ?? false,
         patches: 'open',
       },
+      extended: {
+        graph: true,
+        search: true,
+        me: true,
+        security: true,
+        syncState: true,
+      },
     },
     syncState: {
       version: 2,
