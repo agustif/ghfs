@@ -479,6 +479,7 @@ extended?: {
 - **In PR**: 15+ endpoints across 8 open PRs
 - **Missing**: 45+ endpoints (releases, actions, governance, advanced intelligence, social/org surfaces)
 - **Gap B (Social/Org)**: 10+ new endpoints identified (see [`social-org-surfaces-gap-b.md`](./social-org-surfaces-gap-b.md))
+- **Missing**: 35+ endpoints (releases, actions, governance, advanced intelligence)
 
 ### Config Coverage
 
