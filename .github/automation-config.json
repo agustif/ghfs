@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "generated": "2026-09-10T09:51:00Z",
+  "repository": {
+    "name": "ghfs",
+    "owner": "agustif",
+    "full_name": "agustif/ghfs",
+    "visibility": "public",
+    "default_branch": "main",
+    "url": "https://github.com/agustif/ghfs"
+  },
+  "features": {
+    "has_issues": true,
+    "has_projects": true,
+    "has_wiki": true,
+    "has_pages": false,
+    "has_discussions": true,
+    "archived": false,
+    "disabled": false
+  },
+  "workflows": [
+    {
+      "id": 354782871,
+      "name": "Release",
+      "path": ".github/workflows/release.yml",
+      "state": "active",
+      "triggers": {
+        "push": {
+          "tags": ["v*"]
+        }
+      },
+      "reusable_workflow": {
+        "repository": "sxzz/workflows",
+        "path": ".github/workflows/release.yml",
+        "ref": "v1"
+      },
+      "permissions": {
+        "contents": "write",
+        "id-token": "write"
+      },
+      "config": {
+        "publish": true
+      }
+    },
+    {
+      "id": 354782872,
+      "name": "Unit Test",
+      "path": ".github/workflows/unit-test.yml",
+      "state": "active",
+      "triggers": {
+        "push": {
+          "branches": ["main"]
+        },
+        "pull_request": {
+          "branches": ["main"]
+        }
+      },
+      "reusable_workflows": [
+        {
+          "job": "unit-test",
+          "repository": "sxzz/workflows",
+          "path": ".github/workflows/unit-test.yml",
+          "ref": "v1",
+          "config": {
+            "node-versions": "22,24",
+            "skip-test": true
+          }
+        },
+        {
+          "job": "coverage",
+          "repository": "sxzz/workflows",
+          "path": ".github/workflows/coverage.yml",
+          "ref": "v1",
+          "needs": ["unit-test"],
+          "permissions": {
+            "id-token": "write"
+          }
+        }
+      ],
+      "permissions": {}
+    },
+    {
+      "id": 354782870,
+      "name": "E2E",
+      "path": ".github/workflows/e2e.yml",
+      "state": "active",
+      "triggers": {
+        "push": {
+          "branches": ["main"]
+        },
+        "pull_request": {
+          "branches": ["main"]
+        }
+      },
+      "permissions": {},
+      "jobs": [
+        {
+          "name": "playwright",
+          "runner": "ubuntu-latest",
+          "steps": [
+            "actions/checkout@v4 (with submodules: recursive)",
+            "pnpm/action-setup@v4",
+            "actions/setup-node@v4 (node: 22, cache: pnpm)",
+            "pnpm install --frozen-lockfile",
+            "pnpm exec playwright install --with-deps chromium",
+            "pnpm build",
+            "pnpm test:e2e",
+            "actions/upload-artifact@v4 (on failure, 7-day retention)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 354782869,
+      "name": "autofix.ci",
+      "path": ".github/workflows/autofix.yml",
+      "state": "active",
+      "triggers": {
+        "pull_request": {}
+      },
+      "reusable_workflow": {
+        "repository": "sxzz/workflows",
+        "path": ".github/workflows/autofix.yml",
+        "ref": "v1"
+      },
+      "permissions": {
+        "contents": "read"
+      }
+    }
+  ],
+  "environments": {
+    "total_count": 0,
+    "environments": []
+  },
+  "rulesets": {
+    "total_count": 0,
+    "rulesets": []
+  },
+  "collaborators": [
+    {
+      "login": "agustif",
+      "permissions": {
+        "admin": true,
+        "maintain": true,
+        "push": true,
+        "pull": true,
+        "triage": true
+      }
+    }
+  ],
+  "funding": {
+    "github": ["antfu"],
+    "opencollective": "antfu"
+  },
+  "git_hooks": {
+    "pre-commit": "pnpm i --frozen-lockfile --ignore-scripts --offline && npx lint-staged"
+  },
+  "lint_staged": {
+    "pattern": "*",
+    "command": "eslint --fix"
+  },
+  "integrations": {
+    "detected": [
+      {
+        "name": "autofix.ci",
+        "type": "github_app",
+        "purpose": "Automated code fixing on PRs",
+        "trigger": "pull_request"
+      },
+      {
+        "name": "sxzz/workflows",
+        "type": "reusable_workflows",
+        "purpose": "Shared workflow library",
+        "version": "v1"
+      }
+    ]
+  },
+  "api_limitations": {
+    "inaccessible": [
+      "webhooks",
+      "github_app_installations",
+      "secrets",
+      "variables",
+      "workflow_permissions",
+      "branch_protection_rules",
+      "autolinks"
+    ],
+    "reason": "GitHub API integration permissions restricted"
+  },
+  "security_notes": [
+    "All secrets and webhook configurations are redacted",
+    "OIDC tokens used for secure authentication (id-token: write)",
+    "Minimal permissions granted per workflow/job",
+    "Frozen lockfile enforced in CI/CD",
+    "Git submodules recursively initialized"
+  ]
+}
