@@ -603,6 +603,31 @@ export interface ProviderViewerStatus {
   subscription: 'subscribed' | 'ignored' | null
 }
 
+export interface ProviderCombinedStatus {
+  state: 'success' | 'failure' | 'pending' | 'error'
+  statuses: Array<{
+    state: 'success' | 'failure' | 'pending' | 'error'
+    context: string
+    description: string | null
+    targetUrl: string | null
+    createdAt: string
+    updatedAt: string
+  }>
+  sha: string
+  totalCount: number
+}
+
+export interface ProviderCheckRun {
+  id: number
+  name: string
+  status: 'queued' | 'in_progress' | 'completed'
+  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  startedAt: string | null
+  completedAt: string | null
+  detailsUrl: string | null
+  htmlUrl: string | null
+}
+
 export interface ProviderTemplateInfo {
   isTemplate: boolean
   templateRepository: string | null
