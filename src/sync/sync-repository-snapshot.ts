@@ -149,6 +149,11 @@ async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
       html_url: repository.html_url,
       fork: repository.fork,
       open_issues_count: repository.open_issues_count,
+      stargazers_count: repository.stargazers_count,
+      watchers_count: repository.watchers_count,
+      forks_count: repository.forks_count,
+      ...(repository.subscribers_count !== undefined ? { subscribers_count: repository.subscribers_count } : {}),
+      ...(repository.network_count !== undefined ? { network_count: repository.network_count } : {}),
       has_issues: repository.has_issues,
       has_projects: repository.has_projects,
       has_wiki: repository.has_wiki,
@@ -163,4 +168,54 @@ async function buildRepoSnapshot(context: SyncContext): Promise<RepoSnapshot> {
     labels,
     milestones,
   }
+}
+
+export async function writeTrafficData(context: SyncContext): Promise<void> {
+  if (!context.config.sync.traffic)
+    return
+
+  const [views, clones, referrers, paths] = await Promise.all([
+    context.provider.fetchTrafficViews(),
+    context.provider.fetchTrafficClones(),
+    context.provider.fetchTrafficReferrers(),
+    context.provider.fetchTrafficPaths(),
+  ])
+
+  const trafficData = {
+    synced_at: context.syncedAt,
+    views,
+    clones,
+    referrers,
+    paths,
+  }
+
+  await mkdir(context.storageDirAbsolute, { recursive: true })
+  await writeFile(
+    join(context.storageDirAbsolute, 'traffic.json'),
+    `${JSON.stringify(trafficData, null, 2)}\n`,
+    'utf8',
+  )
+}
+
+export async function writeSocialData(context: SyncContext): Promise<void> {
+  if (!context.config.sync.social)
+    return
+
+  const [starHistory, contributors] = await Promise.all([
+    context.provider.fetchStarHistory(),
+    context.provider.fetchContributors(),
+  ])
+
+  const socialData = {
+    synced_at: context.syncedAt,
+    star_history: starHistory,
+    contributors,
+  }
+
+  await mkdir(context.storageDirAbsolute, { recursive: true })
+  await writeFile(
+    join(context.storageDirAbsolute, 'social.json'),
+    `${JSON.stringify(socialData, null, 2)}\n`,
+    'utf8',
+  )
 }
