@@ -54,6 +54,8 @@ export default {
     patches: 'all',
     releases: true,
     packages: true,
+      traffic: false,
+      social: false,
   },
 }
 `.trimStart(), 'utf8')

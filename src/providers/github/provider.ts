@@ -9,15 +9,21 @@ import type {
   ProviderCheckRun,
   ProviderCheckStatusState,
   ProviderCombinedStatus,
+  ProviderBranchProtection,
   ProviderComment,
   ProviderCommit,
   ProviderCommitStatus,
+  ProviderGitBlob,
+  ProviderGitCommit,
+  ProviderGitRef,
+  ProviderGitTree,
   ProviderItem,
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
   ProviderMergeQueueEntry,
   ProviderMilestone,
+  ProviderPullFile,
   ProviderPullMetadata,
   ProviderReactions,
   ProviderRelease,
@@ -89,6 +95,7 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchPullMetadata: number => fetchPullMetadata(octokit, owner, repo, number, bumpRequestCount),
     fetchPullPatch: number => fetchPullPatch(octokit, owner, repo, number, bumpRequestCount),
     fetchPullCommits: number => fetchPullCommits(octokit, owner, repo, number, bumpRequestCount),
+    fetchPullFiles: number => fetchPullFiles(octokit, owner, repo, number, bumpRequestCount),
     fetchReviewComments: number => fetchReviewComments(octokit, owner, repo, number, bumpRequestCount),
     fetchTimeline: number => fetchTimeline(octokit, owner, repo, number, bumpRequestCount),
     fetchItemSnapshot: number => fetchItemSnapshot(octokit, owner, repo, number, bumpRequestCount),
@@ -99,6 +106,12 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
     fetchCheckRuns: ref => fetchCheckRuns(octokit, owner, repo, ref, bumpRequestCount),
     fetchCombinedStatus: ref => fetchCombinedStatus(octokit, owner, repo, ref, bumpRequestCount),
+    fetchRepositoryTopics: () => fetchRepositoryTopics(octokit, owner, repo, bumpRequestCount),
+    fetchReleases: limit => fetchReleases(octokit, owner, repo, limit, bumpRequestCount),
+    fetchBranchProtection: branch => fetchBranchProtection(octokit, owner, repo, branch, bumpRequestCount),
+    fetchRecentWorkflowRuns: limit => fetchRecentWorkflowRuns(octokit, owner, repo, limit, bumpRequestCount),
+    fetchRepositoryContent: path => fetchRepositoryContent(octokit, owner, repo, path, bumpRequestCount),
+    fetchPinnedIssues: () => fetchPinnedIssues(octokit, owner, repo, bumpRequestCount),
     getRequestCount: () => requestCount,
     fetchPullReviews: number => fetchPullReviews(octokit, owner, repo, number, bumpRequestCount),
     fetchPullReviewThreads: number => fetchPullReviewThreads(octokit, owner, repo, number, bumpRequestCount),
@@ -152,6 +165,11 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchActionsRunArtifacts: runId => fetchActionsRunArtifacts(octokit, owner, repo, runId, bumpRequestCount),
     fetchWebhooks: () => fetchWebhooks(octokit, owner, repo, bumpRequestCount),
     fetchWebhookDeliveries: (hookId, options) => fetchWebhookDeliveries(octokit, owner, repo, hookId, options, bumpRequestCount),
+    fetchGitRefs: () => fetchGitRefs(octokit, owner, repo, bumpRequestCount),
+    fetchGitCommits: options => fetchGitCommits(octokit, owner, repo, options, bumpRequestCount),
+    fetchGitTree: (sha, recursive) => fetchGitTree(octokit, owner, repo, sha, recursive, bumpRequestCount),
+    fetchGitBlob: sha => fetchGitBlob(octokit, owner, repo, sha, bumpRequestCount),
+    compareCommits: (base, head) => compareCommits(octokit, owner, repo, base, head, bumpRequestCount),
   }
 }
 
@@ -256,6 +274,7 @@ async function fetchPullMetadata(
   const requestedReviewers = pull.requested_reviewers.map(reviewer => reviewer.login)
   const reviewDecision = await fetchPullReviewDecision(octokit, owner, repo, number, requestedReviewers.length > 0, bumpRequestCount)
   const autoMerge = await fetchAutoMergeInfo(octokit, owner, repo, number, bumpRequestCount)
+  const mergeQueueEntry = await fetchMergeQueueEntry(octokit, owner, repo, number, bumpRequestCount)
 
   return {
     isDraft: pull.draft,
@@ -270,6 +289,7 @@ async function fetchPullMetadata(
     mergeableState: pull.mergeable_state ?? 'unknown',
     reviewDecision,
     autoMerge,
+    mergeQueueEntry,
   }
 }
 
@@ -2300,4 +2320,201 @@ interface GitHubCommitStatus {
   context: string
   created_at: string
   updated_at: string
+async function fetchGitRefs(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderGitRef[]> {
+  bumpRequestCount()
+  const refs = await octokit.paginate(octokit.rest.git.listMatchingRefs, {
+    owner,
+    repo,
+    ref: '',
+    per_page: 100,
+  }) as Array<{ ref: string, object: { sha: string, url: string } }>
+
+  return refs.map(ref => ({
+    ref: ref.ref,
+    sha: ref.object.sha,
+    url: ref.object.url,
+  }))
+}
+
+async function fetchGitCommits(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  options: { sha?: string, limit?: number },
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderGitCommit[]> {
+  bumpRequestCount()
+  const limit = options.limit ?? 100
+  const commits = await octokit.paginate(
+    octokit.rest.repos.listCommits,
+    {
+      owner,
+      repo,
+      ...(options.sha ? { sha: options.sha } : {}),
+      per_page: Math.min(limit, 100),
+    },
+    response => response.data.slice(0, limit),
+  ) as Array<{
+    sha: string
+    commit: {
+      message: string
+      author: { name: string, email: string, date: string }
+      committer: { name: string, email: string, date: string }
+      tree: { sha: string }
+    }
+    parents: Array<{ sha: string }>
+    url: string
+    html_url?: string
+  }>
+
+  return commits.map(commit => ({
+    sha: commit.sha,
+    message: commit.commit.message,
+    author: commit.commit.author,
+    committer: commit.commit.committer,
+    tree: commit.commit.tree,
+    parents: commit.parents,
+    url: commit.url,
+    ...(commit.html_url ? { html_url: commit.html_url } : {}),
+  }))
+}
+
+async function fetchGitTree(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  sha: string,
+  recursive: boolean = false,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderGitTree> {
+  bumpRequestCount()
+  const result = await octokit.rest.git.getTree({
+    owner,
+    repo,
+    tree_sha: sha,
+    recursive: recursive ? 'true' : undefined,
+  })
+
+  const tree = result.data as {
+    sha: string
+    url: string
+    tree: Array<{
+      path: string
+      mode: string
+      type: 'blob' | 'tree' | 'commit'
+      sha: string
+      size?: number
+      url: string
+    }>
+    truncated: boolean
+  }
+
+  return {
+    sha: tree.sha,
+    url: tree.url,
+    tree: tree.tree.map(item => ({
+      path: item.path,
+      mode: item.mode,
+      type: item.type,
+      sha: item.sha,
+      ...(item.size !== undefined ? { size: item.size } : {}),
+      url: item.url,
+    })),
+    truncated: tree.truncated,
+  }
+}
+
+async function fetchGitBlob(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  sha: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderGitBlob> {
+  bumpRequestCount()
+  const result = await octokit.rest.git.getBlob({
+    owner,
+    repo,
+    file_sha: sha,
+  })
+
+  const blob = result.data as {
+    sha: string
+    content: string
+    encoding: 'base64' | 'utf-8'
+    size: number
+    url: string
+  }
+
+  return {
+    sha: blob.sha,
+    content: blob.content,
+    encoding: blob.encoding,
+    size: blob.size,
+    url: blob.url,
+  }
+}
+
+async function compareCommits(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  base: string,
+  head: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<{ commits: ProviderGitCommit[] }> {
+  bumpRequestCount()
+  const result = await octokit.rest.repos.compareCommitsWithBasehead({
+    owner,
+    repo,
+    basehead: `${base}...${head}`,
+  })
+
+  const commits = (result.data.commits ?? [])
+    .filter((commit: {
+      sha: string
+      commit: {
+        message: string
+        author?: { name?: string, email?: string, date?: string } | null
+        committer?: { name?: string, email?: string, date?: string } | null
+        tree: { sha: string }
+      }
+      parents: Array<{ sha: string }>
+      url: string
+      html_url?: string
+    }) => {
+      return Boolean(
+        commit.commit.author?.name
+        && commit.commit.author?.email
+        && commit.commit.author?.date
+        && commit.commit.committer?.name
+        && commit.commit.committer?.email
+        && commit.commit.committer?.date,
+      )
+    })
+    .map((commit): ProviderGitCommit => ({
+      sha: commit.sha,
+      message: commit.commit.message,
+      author: {
+        name: commit.commit.author!.name!,
+        email: commit.commit.author!.email!,
+        date: commit.commit.author!.date!,
+      },
+      committer: {
+        name: commit.commit.committer!.name!,
+        email: commit.commit.committer!.email!,
+        date: commit.commit.committer!.date!,
+      },
+      tree: commit.commit.tree,
+      parents: commit.parents,
+      url: commit.url,
+      ...(commit.html_url ? { html_url: commit.html_url } : {}),
+    }))
+
+  return { commits }
 }

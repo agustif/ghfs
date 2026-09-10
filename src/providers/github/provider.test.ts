@@ -915,7 +915,6 @@ describe('createGitHubProvider', () => {
     ])
   })
 
-<<<<<<< HEAD
   it('fetches PR reviews', async () => {
     const listReviews = vi.fn()
     const paginate = vi.fn(async () => [
