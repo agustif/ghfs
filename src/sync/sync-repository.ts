@@ -257,6 +257,15 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
         }
       }
 
+      if (!shouldEarlyReturn) {
+        await writeExtendedMetadata(syncContext)
+        reporter?.onStageUpdate?.({
+          stage: 'save',
+          snapshot: cloneSnapshot(counters),
+          message: 'extended metadata written',
+        })
+      }
+
       syncContext.syncState.ghfsVersion = GHFS_VERSION
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)
     })

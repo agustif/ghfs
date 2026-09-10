@@ -534,6 +534,70 @@ export interface ProviderIssueType {
   description: string | null
   color: string | null
   isEnabled: boolean
+export interface ProviderCommitComment {
+  id: number
+  body: string | null
+  createdAt: string
+  updatedAt: string
+  author: string | null
+  authorAvatarUrl?: string
+  commitId: string
+  path: string | null
+  line: number | null
+  position: number | null
+  htmlUrl?: string
+}
+
+export interface ProviderRepoInvitation {
+  id: number
+  permissions: string
+  createdAt: string
+  inviter: string | null
+  invitee: string | null
+  htmlUrl?: string
+}
+
+export interface ProviderViewerStatus {
+  starred: boolean
+  subscription: 'subscribed' | 'ignored' | null
+}
+
+export interface ProviderTemplateInfo {
+  isTemplate: boolean
+  templateRepository: string | null
+}
+
+export interface ProviderForkStatus {
+  isFork: boolean
+  parent: {
+    fullName: string
+    htmlUrl: string
+    defaultBranch: string
+  } | null
+  source: {
+    fullName: string
+    htmlUrl: string
+  } | null
+}
+
+export interface ProviderNetworkSummary {
+  forks: number
+  subscribers: number
+  watchers: number
+  networkCount: number
+}
+
+export interface ProviderActivityEvent {
+  id: string
+  type: string
+  actor: string | null
+  createdAt: string
+  payload: Record<string, unknown>
+}
+
+export interface ProviderFeeds {
+  timelineUrl: string | null
+  userUrl: string | null
 }
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
@@ -682,6 +746,15 @@ export interface RepositoryProvider {
   fetchIssueFieldValues: (number: number) => Promise<ProviderIssueFieldValue[]>
   fetchRepositoryIssueTypes: () => Promise<ProviderIssueType[]>
   fetchOrganizationIssueFields: (org: string) => Promise<ProviderIssueField[]>
+
+  fetchCommitComments: (limit?: number) => Promise<ProviderCommitComment[]>
+  fetchRepoInvitations: () => Promise<ProviderRepoInvitation[]>
+  fetchViewerStatus: () => Promise<ProviderViewerStatus>
+  fetchTemplateInfo: () => Promise<ProviderTemplateInfo>
+  fetchForkStatus: () => Promise<ProviderForkStatus>
+  fetchNetworkSummary: () => Promise<ProviderNetworkSummary>
+  fetchActivityEvents: (limit?: number) => Promise<ProviderActivityEvent[]>
+  fetchFeeds: () => Promise<ProviderFeeds>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>
