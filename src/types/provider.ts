@@ -496,6 +496,16 @@ export interface RepositoryProvider {
   fetchTeams?: () => Promise<ProviderTeam[]>
   fetchInstalledApps?: () => Promise<ProviderApp[]>
 
+  fetchDependabotAlerts?: (options?: { state?: 'open' | 'dismissed' | 'fixed', limit?: number }) => Promise<ProviderDependabotAlert[]>
+  fetchCodeScanningAlerts?: (options?: { state?: 'open' | 'dismissed' | 'fixed', limit?: number }) => Promise<ProviderCodeScanningAlert[]>
+  fetchSecretScanningAlerts?: (options?: { state?: 'open' | 'resolved', limit?: number }) => Promise<ProviderSecretScanningAlert[]>
+  fetchDeployments?: (options?: { ref?: string, environment?: string, limit?: number }) => Promise<ProviderDeployment[]>
+  fetchEnvironments?: () => Promise<ProviderEnvironment[]>
+  fetchRepoEvents?: (limit?: number) => Promise<ProviderRepoEvent[]>
+  fetchCollaborators?: () => Promise<ProviderCollaborator[]>
+  fetchTeams?: () => Promise<ProviderTeam[]>
+  fetchInstalledApps?: () => Promise<ProviderApp[]>
+
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>
   actionSetTitle: (number: number, title: string) => Promise<void>
