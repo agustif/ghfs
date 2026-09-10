@@ -130,6 +130,13 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       syncState: extendedSyncState,
       pullIntelligence,
     },
+    search: {
+      codeTodos: merged.search?.codeTodos ?? true,
+      commitRefs: merged.search?.commitRefs ?? true,
+      issueQueries: merged.search?.issueQueries ?? {},
+      mentions: merged.search?.mentions ?? false,
+      maxResults: merged.search?.maxResults ?? 100,
+    },
   }
 }
 
@@ -170,6 +177,14 @@ function mergeUserConfig(base: GhfsUserConfig, overrides: Partial<GhfsUserConfig
     extended: {
       ...base.extended,
       ...overrides.extended,
+    },
+    search: {
+      ...base.search,
+      ...overrides.search,
+      issueQueries: {
+        ...base.search?.issueQueries,
+        ...overrides.search?.issueQueries,
+      },
     },
   }
 }

@@ -213,6 +213,13 @@ function createContext(overrides: {
         security: true,
         syncState: true,
       },
+      search: {
+        codeTodos: true,
+        commitRefs: true,
+        issueQueries: {},
+        mentions: false,
+        maxResults: 100,
+      },
     },
     syncState: {
       version: 2,

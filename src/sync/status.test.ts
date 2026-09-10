@@ -117,5 +117,12 @@ function createConfig(cwd: string): GhfsResolvedConfig {
       security: true,
       syncState: true,
     },
+    search: {
+      codeTodos: true,
+      commitRefs: true,
+      issueQueries: {},
+      mentions: false,
+      maxResults: 100,
+    },
   }
 }

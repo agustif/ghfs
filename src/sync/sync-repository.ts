@@ -7,10 +7,8 @@ import { GHFS_VERSION } from '../meta'
 import { createRepositoryProvider } from '../providers/factory'
 import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
-import { writeExtendedMetadata } from './extended-metadata'
+import { runSearchCoverage } from './search'
 import { loadSyncState, saveSyncState } from './state'
-import { syncCollaborators } from './sync-collaborators'
-import { syncPeople } from './sync-people'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,
@@ -217,42 +215,14 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       if (!shouldEarlyReturn)
         await writeRepoSnapshot(syncContext)
 
-      if (!shouldEarlyReturn || ghfsVersionMismatch) {
+      if (!shouldEarlyReturn || ghfsVersionMismatch)
         await writeRepositoryIndexes(syncContext)
-        await writeExtendedMetadata(syncContext).catch(() => {})
-      }
 
-      if (!targetNumbers) {
+      if (!shouldEarlyReturn && !targetNumbers) {
         try {
-          await syncPeople(syncContext)
-          reporter?.onStageUpdate?.({
-            stage: 'save',
-            snapshot: cloneSnapshot(counters),
-            message: 'people sync complete',
-          })
+          await runSearchCoverage(options.config, provider)
         }
-        catch (error) {
-          reporter?.onStageUpdate?.({
-            stage: 'save',
-            snapshot: cloneSnapshot(counters),
-            message: `people sync skipped: ${(error as Error).message}`,
-          })
-        }
-
-        try {
-          await syncCollaborators(syncContext)
-          reporter?.onStageUpdate?.({
-            stage: 'save',
-            snapshot: cloneSnapshot(counters),
-            message: 'collaborators sync complete',
-          })
-        }
-        catch (error) {
-          reporter?.onStageUpdate?.({
-            stage: 'save',
-            snapshot: cloneSnapshot(counters),
-            message: `collaborators sync skipped: ${(error as Error).message}`,
-          })
+        catch {
         }
       }
 
