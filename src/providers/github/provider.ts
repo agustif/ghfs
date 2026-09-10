@@ -18,7 +18,6 @@ import type {
   ProviderLockReason,
   ProviderMergeQueueEntry,
   ProviderMilestone,
-  ProviderPullFile,
   ProviderPullMetadata,
   ProviderReactions,
   ProviderRelease,
@@ -90,7 +89,6 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchPullMetadata: number => fetchPullMetadata(octokit, owner, repo, number, bumpRequestCount),
     fetchPullPatch: number => fetchPullPatch(octokit, owner, repo, number, bumpRequestCount),
     fetchPullCommits: number => fetchPullCommits(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullFiles: number => fetchPullFiles(octokit, owner, repo, number, bumpRequestCount),
     fetchReviewComments: number => fetchReviewComments(octokit, owner, repo, number, bumpRequestCount),
     fetchTimeline: number => fetchTimeline(octokit, owner, repo, number, bumpRequestCount),
     fetchItemSnapshot: number => fetchItemSnapshot(octokit, owner, repo, number, bumpRequestCount),
@@ -148,19 +146,12 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchViewerReactions: (number, target) =>
       fetchViewerReactions(octokit, owner, repo, number, target, fetchAuthenticatedUserCached, bumpRequestCount),
 
-    fetchMergeQueueEntries: () => fetchMergeQueueEntries(octokit, owner, repo, bumpRequestCount),
-    fetchProjectsV2: () => fetchProjectsV2(octokit, owner, repo, bumpRequestCount),
-    fetchProjectV2Fields: projectId => fetchProjectV2Fields(octokit, projectId, bumpRequestCount),
-    fetchProjectV2Items: projectId => fetchProjectV2Items(octokit, projectId, bumpRequestCount),
-    fetchDiscussionCategories: () => fetchDiscussionCategories(octokit, owner, repo, bumpRequestCount),
-    fetchDiscussionPolls: () => fetchDiscussionPolls(octokit, owner, repo, bumpRequestCount),
-    fetchSponsorships: () => fetchSponsorships(octokit, owner, bumpRequestCount),
-    fetchFundingLinks: () => fetchFundingLinks(octokit, owner, repo, bumpRequestCount),
-    fetchItemProjectConnections: number => fetchItemProjectConnections(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullStatusCheckRollup: number => fetchPullStatusCheckRollup(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullReviewThreads: number => fetchPullReviewThreads(octokit, owner, repo, number, bumpRequestCount),
-    fetchCodeOwners: () => fetchCodeOwners(octokit, owner, repo, bumpRequestCount),
-    fetchOrganizationTeams: () => fetchOrganizationTeams(octokit, owner, bumpRequestCount),
+    fetchActionsWorkflowRuns: () => fetchActionsWorkflowRuns(octokit, owner, repo, bumpRequestCount),
+    fetchActionsWorkflowJobs: runId => fetchActionsWorkflowJobs(octokit, owner, repo, runId, bumpRequestCount),
+    fetchActionsJobLogs: jobId => fetchActionsJobLogs(octokit, owner, repo, jobId, bumpRequestCount),
+    fetchActionsRunArtifacts: runId => fetchActionsRunArtifacts(octokit, owner, repo, runId, bumpRequestCount),
+    fetchWebhooks: () => fetchWebhooks(octokit, owner, repo, bumpRequestCount),
+    fetchWebhookDeliveries: (hookId, options) => fetchWebhookDeliveries(octokit, owner, repo, hookId, options, bumpRequestCount),
   }
 }
 

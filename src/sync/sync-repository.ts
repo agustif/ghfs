@@ -7,8 +7,11 @@ import { GHFS_VERSION } from '../meta'
 import { createRepositoryProvider } from '../providers/factory'
 import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
+import { writeExtendedMetadata } from './extended-metadata'
 import { loadSyncState, saveSyncState } from './state'
-import { writePagesBuilds } from './sync-pages-builds'
+import { syncCollaborators } from './sync-collaborators'
+import { syncPeople } from './sync-people'
+import { syncActions, syncWebhooks } from './sync-actions-webhooks'
 import {
   materializePreparedIssue,
   prepareIssueCandidateSync,
@@ -215,10 +218,47 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       if (!shouldEarlyReturn)
         await writeRepoSnapshot(syncContext)
 
-      if (!shouldEarlyReturn || ghfsVersionMismatch)
+      if (!shouldEarlyReturn || ghfsVersionMismatch) {
         await writeRepositoryIndexes(syncContext)
+        await writeExtendedMetadata(syncContext).catch(() => {})
+      }
 
-      await writePagesBuilds(syncContext)
+      if (!targetNumbers) {
+        try {
+          await syncPeople(syncContext)
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: 'people sync complete',
+          })
+        }
+        catch (error) {
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: `people sync skipped: ${(error as Error).message}`,
+          })
+        }
+
+        try {
+          await syncCollaborators(syncContext)
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: 'collaborators sync complete',
+          })
+        }
+        catch (error) {
+          reporter?.onStageUpdate?.({
+            stage: 'save',
+            snapshot: cloneSnapshot(counters),
+            message: `collaborators sync skipped: ${(error as Error).message}`,
+          })
+        }
+      }
+
+      if (!shouldEarlyReturn)
+        await writeKitchenSinkData(syncContext)
 
       if (!shouldEarlyReturn && !targetNumbers) {
         try {
@@ -235,25 +275,29 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)
     })
 
-    let actionsResult: { workflows: number, runs: number, jobs: number, artifacts: number } | undefined
-
-    if (options.config.sync.actions && !targetNumbers) {
-      await runStage('actions', 'Sync GitHub Actions', async () => {
-        const { syncActions } = await import('./actions')
-        const result = await syncActions(syncContext, options.config.sync.actionsRunsPerWorkflow)
-        actionsResult = {
-          workflows: result.workflows.length,
-          runs: result.totalRuns,
-          jobs: result.totalJobs,
-          artifacts: result.totalArtifacts,
-        }
-        reporter?.onStageUpdate?.({
-          stage: 'actions',
-          snapshot: cloneSnapshot(counters),
-          message: `workflows=${actionsResult.workflows} runs=${actionsResult.runs} jobs=${actionsResult.jobs} artifacts=${actionsResult.artifacts}`,
+    await runStage('prune', 'Sync Actions & Webhooks', async () => {
+      if (options.config.sync.actionsLogs || options.config.sync.actionsArtifacts) {
+        await syncActions({
+          provider,
+          storageDirAbsolute,
+          config: options.config,
         })
+      }
+
+      if (options.config.sync.webhooks) {
+        await syncWebhooks({
+          provider,
+          storageDirAbsolute,
+          config: options.config,
+        })
+      }
+
+      reporter?.onStageUpdate?.({
+        stage: 'prune',
+        snapshot: cloneSnapshot(counters),
+        message: 'actions and webhooks synced',
       })
-    }
+    })
 
     const totals = computeTotals(syncContext.syncState.items)
     syncContext.totalIssues = totals.totalIssues
@@ -281,10 +325,6 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
       moved: counters.moved,
       patchesWritten: counters.patchesWritten,
       patchesDeleted: counters.patchesDeleted,
-      actionsWorkflows: actionsResult?.workflows,
-      actionsRuns: actionsResult?.runs,
-      actionsJobs: actionsResult?.jobs,
-      actionsArtifacts: actionsResult?.artifacts,
       durationMs,
     }
 
@@ -338,7 +378,6 @@ function createStageDurations(): Record<SyncStage, number> {
     materialize: 0,
     prune: 0,
     save: 0,
-    actions: 0,
   }
 }
 
