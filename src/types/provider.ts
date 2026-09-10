@@ -312,4 +312,99 @@ export interface RepositoryProvider {
   actionAddReaction: (number: number, reaction: ReactionContent, target: ReactionTarget) => Promise<void>
   actionRemoveReaction: (number: number, reaction: ReactionContent, target: ReactionTarget) => Promise<void>
   fetchViewerReactions: (number: number, target: ReactionTarget) => Promise<ReactionContent[]>
+
+  fetchActionsWorkflowRuns: () => Promise<ProviderActionsWorkflowRun[]>
+  fetchActionsWorkflowJobs: (runId: number) => Promise<ProviderActionsWorkflowJob[]>
+  fetchActionsJobLogs: (jobId: number) => Promise<string>
+  fetchActionsRunArtifacts: (runId: number) => Promise<ProviderActionsArtifact[]>
+  fetchWebhooks: () => Promise<ProviderWebhook[]>
+  fetchWebhookDeliveries: (hookId: number, options?: { perPage?: number, status?: 'success' | 'failure' }) => Promise<ProviderWebhookDelivery[]>
+}
+
+export interface ProviderActionsWorkflowRun {
+  id: number
+  name: string
+  displayTitle: string
+  status: 'queued' | 'in_progress' | 'completed' | null
+  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  workflowId: number
+  workflowName: string
+  headBranch: string
+  headSha: string
+  event: string
+  createdAt: string
+  updatedAt: string
+  runStartedAt?: string | null
+  url: string
+}
+
+export interface ProviderActionsWorkflowJob {
+  id: number
+  runId: number
+  name: string
+  status: 'queued' | 'in_progress' | 'completed'
+  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  startedAt: string
+  completedAt: string | null
+  url: string
+  steps: Array<{
+    name: string
+    status: 'queued' | 'in_progress' | 'completed'
+    conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+    number: number
+    startedAt?: string | null
+    completedAt?: string | null
+  }>
+}
+
+export interface ProviderActionsArtifact {
+  id: number
+  nodeId: string
+  name: string
+  sizeInBytes: number
+  url: string
+  archiveDownloadUrl: string
+  expired: boolean
+  createdAt: string
+  updatedAt: string
+  expiresAt: string
+}
+
+export interface ProviderWebhook {
+  id: number
+  type: string
+  name: string
+  active: boolean
+  events: string[]
+  config: {
+    url?: string
+    contentType?: string
+    insecureSsl?: string
+  }
+  updatedAt: string
+  createdAt: string
+  url: string
+  testUrl: string
+  pingUrl: string
+  deliveriesUrl: string
+}
+
+export interface ProviderWebhookDelivery {
+  id: number
+  guid: string
+  deliveredAt: string
+  redelivery: boolean
+  duration: number
+  status: string
+  statusCode: number
+  event: string
+  action: string | null
+  installationId: number | null
+  repositoryId: number | null
+  throttledAt: string | null
+  url: string
+  requestHeaders?: Record<string, string>
+  requestPayload?: Record<string, unknown>
+  responseHeaders?: Record<string, string>
+  responseBody?: string
 }

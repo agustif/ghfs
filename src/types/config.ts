@@ -63,6 +63,49 @@ export interface GhfsUserConfig {
      * @default 'open'
      */
     patches?: 'open' | 'all' | false
+    /**
+     * GitHub Actions workflow logs sync configuration.
+     *
+     * - `false`: don't sync Actions logs.
+     * - `'failed'`: sync logs only for failed workflow jobs.
+     * - `'recent'`: sync logs for all jobs from recent workflow runs.
+     * - `'full'`: download full logs (default tail strategy: last N KB).
+     * - `'tail'`: download only the tail of logs (last N KB).
+     *
+     * @default false
+     */
+    actionsLogs?: false | 'failed' | 'recent'
+    /**
+     * Maximum size (in KB) for individual Actions log files.
+     * When a log exceeds this size, only the tail is stored.
+     *
+     * @default 512
+     */
+    actionsLogsMaxKb?: number
+    /**
+     * GitHub Actions artifacts sync configuration.
+     *
+     * - `false`: don't sync artifacts metadata.
+     * - `true`: sync artifacts metadata (list only, no downloads).
+     *
+     * @default false
+     */
+    actionsArtifacts?: boolean
+    /**
+     * Webhooks sync configuration.
+     *
+     * - `false`: don't sync webhooks.
+     * - `true`: sync webhook configurations and recent deliveries.
+     *
+     * @default false
+     */
+    webhooks?: boolean
+    /**
+     * Maximum number of webhook deliveries to sync per webhook.
+     *
+     * @default 50
+     */
+    webhooksMaxDeliveries?: number
   }
 }
 

@@ -64,6 +64,11 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const pullsEnabled = merged.sync?.pulls ?? true
   const closedMode = merged.sync?.closed ?? false
   const patchesMode = merged.sync?.patches ?? 'open'
+  const actionsLogs = merged.sync?.actionsLogs ?? false
+  const actionsLogsMaxKb = merged.sync?.actionsLogsMaxKb ?? 512
+  const actionsArtifacts = merged.sync?.actionsArtifacts ?? false
+  const webhooks = merged.sync?.webhooks ?? false
+  const webhooksMaxDeliveries = merged.sync?.webhooksMaxDeliveries ?? 50
 
   return {
     cwd,
@@ -78,6 +83,11 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       pulls: pullsEnabled,
       closed: closedMode,
       patches: patchesMode,
+      actionsLogs,
+      actionsLogsMaxKb,
+      actionsArtifacts,
+      webhooks,
+      webhooksMaxDeliveries,
     },
   }
 }

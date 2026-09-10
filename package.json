@@ -82,12 +82,13 @@
     "tsx": "catalog:",
     "typescript": "catalog:",
     "unimport": "catalog:",
+    "unrun": "catalog:",
     "vitest": "catalog:"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm i --frozen-lockfile --ignore-scripts --offline && npx lint-staged"
   },
   "lint-staged": {
-    "*": "eslint --fix"
+    "*.{ts,tsx,js,jsx,vue}": "eslint --fix"
   }
 }
