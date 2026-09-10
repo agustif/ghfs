@@ -200,6 +200,7 @@ function createContext(
     sync: {
       issues: true,
       pulls: true,
+      projects: false,
       closed: false,
       patches: 'open',
     },

@@ -10,6 +10,7 @@ import type {
   ProviderLabel,
   ProviderLockReason,
   ProviderMilestone,
+  ProviderProjectV2,
   ProviderPullMetadata,
   ProviderReactions,
   ProviderRepository,
@@ -71,6 +72,7 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchAuthenticatedUser: fetchAuthenticatedUserCached,
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
     getRequestCount: () => requestCount,
+    fetchProjectsV2: () => fetchProjectsV2(octokit, owner, repo, bumpRequestCount),
 
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
@@ -1598,4 +1600,218 @@ interface GitHubTimelineEvent {
   /** Populated for `auto_merge_*` / `auto_squash_*` / `auto_rebase_*`. */
   commit_title?: string
   commit_message?: string
+}
+
+async function fetchProjectsV2(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<ProviderProjectV2[]> {
+  try {
+    bumpRequestCount()
+    const data = await octokit.graphql<{
+      repository: {
+        projectsV2: {
+          nodes: Array<{
+            id: string
+            number: number
+            title: string
+            shortDescription: string | null
+            public: boolean
+            closed: boolean
+            url: string
+            createdAt: string
+            updatedAt: string
+            fields: {
+              nodes: Array<{
+                id: string
+                name: string
+                dataType: string
+                options?: Array<{
+                  id: string
+                  name: string
+                }> | null
+              }>
+            }
+            items: {
+              nodes: Array<{
+                id: string
+                content: {
+                  __typename: string
+                  number?: number
+                } | null
+                fieldValues: {
+                  nodes: Array<{
+                    field?: {
+                      id: string
+                      name: string
+                    } | null
+                    value?: string | null
+                    name?: string | null
+                  }>
+                }
+              }>
+            }
+          }>
+        }
+      } | null
+    }>(
+      `query FetchProjectsV2($owner: String!, $repo: String!) {
+        repository(owner: $owner, name: $repo) {
+          projectsV2(first: 20) {
+            nodes {
+              id
+              number
+              title
+              shortDescription
+              public
+              closed
+              url
+              createdAt
+              updatedAt
+              fields(first: 20) {
+                nodes {
+                  ... on ProjectV2Field {
+                    id
+                    name
+                    dataType
+                  }
+                  ... on ProjectV2SingleSelectField {
+                    id
+                    name
+                    dataType
+                    options {
+                      id
+                      name
+                    }
+                  }
+                  ... on ProjectV2IterationField {
+                    id
+                    name
+                    dataType
+                  }
+                }
+              }
+              items(first: 100) {
+                nodes {
+                  id
+                  content {
+                    __typename
+                    ... on Issue {
+                      number
+                    }
+                    ... on PullRequest {
+                      number
+                    }
+                  }
+                  fieldValues(first: 20) {
+                    nodes {
+                      ... on ProjectV2ItemFieldTextValue {
+                        field {
+                          ... on ProjectV2Field {
+                            id
+                            name
+                          }
+                        }
+                        value: text
+                      }
+                      ... on ProjectV2ItemFieldNumberValue {
+                        field {
+                          ... on ProjectV2Field {
+                            id
+                            name
+                          }
+                        }
+                        value: number
+                      }
+                      ... on ProjectV2ItemFieldDateValue {
+                        field {
+                          ... on ProjectV2Field {
+                            id
+                            name
+                          }
+                        }
+                        value: date
+                      }
+                      ... on ProjectV2ItemFieldSingleSelectValue {
+                        field {
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                          }
+                        }
+                        name
+                      }
+                      ... on ProjectV2ItemFieldIterationValue {
+                        field {
+                          ... on ProjectV2IterationField {
+                            id
+                            name
+                          }
+                        }
+                        name: title
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { owner, repo },
+    )
+
+    const projects = data.repository?.projectsV2?.nodes ?? []
+    return projects.map(project => ({
+      id: project.id,
+      number: project.number,
+      title: project.title,
+      shortDescription: project.shortDescription,
+      public: project.public,
+      closed: project.closed,
+      url: project.url,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      fields: project.fields.nodes.map(field => ({
+        id: field.id,
+        name: field.name,
+        dataType: field.dataType,
+        options: field.options ?? undefined,
+      })),
+      items: project.items.nodes
+        .filter(item => item.content && item.content.number)
+        .map((item) => {
+          const contentType = item.content!.__typename === 'PullRequest' ? 'PullRequest' : 'Issue'
+          const contentNumber = item.content!.number!
+          const fieldValues: Record<string, {
+            fieldId: string
+            fieldName: string
+            value: string | null
+          }> = {}
+
+          for (const fieldValue of item.fieldValues.nodes) {
+            if (fieldValue.field) {
+              const key = fieldValue.field.name
+              fieldValues[key] = {
+                fieldId: fieldValue.field.id,
+                fieldName: fieldValue.field.name,
+                value: fieldValue.value ?? fieldValue.name ?? null,
+              }
+            }
+          }
+
+          return {
+            id: item.id,
+            contentType,
+            contentNumber,
+            fieldValues,
+          }
+        }),
+    }))
+  }
+  catch {
+    return []
+  }
 }

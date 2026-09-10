@@ -251,6 +251,41 @@ export interface ProviderUpdateCounts {
 
 export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
 
+export interface ProviderProjectV2Field {
+  id: string
+  name: string
+  dataType: string
+  options?: Array<{
+    id: string
+    name: string
+  }>
+}
+
+export interface ProviderProjectV2Item {
+  id: string
+  contentType: 'Issue' | 'PullRequest'
+  contentNumber: number
+  fieldValues: Record<string, {
+    fieldId: string
+    fieldName: string
+    value: string | null
+  }>
+}
+
+export interface ProviderProjectV2 {
+  id: string
+  number: number
+  title: string
+  shortDescription: string | null
+  public: boolean
+  closed: boolean
+  url: string
+  createdAt: string
+  updatedAt: string
+  fields: ProviderProjectV2Field[]
+  items: ProviderProjectV2Item[]
+}
+
 /**
  * Where a reaction is applied. `item` = issue/PR body (uses `op.number`).
  * `comment` = issue/PR conversation comment. `review` = a PR review body
@@ -284,6 +319,7 @@ export interface RepositoryProvider {
   fetchAuthenticatedUser: () => Promise<ProviderAuthenticatedUser | null>
   countUpdatedSince: (since: string) => Promise<ProviderUpdateCounts>
   getRequestCount: () => number
+  fetchProjectsV2?: () => Promise<ProviderProjectV2[]>
 
   actionClose: (number: number) => Promise<void>
   actionReopen: (number: number) => Promise<void>

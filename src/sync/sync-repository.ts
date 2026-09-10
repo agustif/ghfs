@@ -14,6 +14,7 @@ import {
   reconcileMarkdownFilesByScan,
   rematerializeTrackedMarkdown,
 } from './sync-repository-item'
+import { syncProjects } from './sync-repository-projects'
 import { fetchIssueCandidatesByNumbers, fetchIssueCandidatesByPagination } from './sync-repository-provider'
 import { writeRepositoryIndexes, writeRepoSnapshot } from './sync-repository-snapshot'
 import { pruneMissingOpenTrackedItems, pruneTrackedClosedItems } from './sync-repository-storage'
@@ -216,6 +217,8 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
 
       if (!shouldEarlyReturn || ghfsVersionMismatch)
         await writeRepositoryIndexes(syncContext)
+
+      await syncProjects(syncContext)
 
       syncContext.syncState.ghfsVersion = GHFS_VERSION
       await saveSyncState(syncContext.storageDirAbsolute, syncContext.syncState)

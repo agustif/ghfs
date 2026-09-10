@@ -181,6 +181,7 @@ function createContext(overrides: {
       sync: {
         issues: overrides.issues ?? true,
         pulls: overrides.pulls ?? true,
+        projects: false,
         closed: overrides.closed ?? false,
         patches: 'open',
       },

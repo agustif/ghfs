@@ -30,6 +30,7 @@ export interface MarkdownDocumentInput {
   lastSyncedAt: string
   reactions?: ProviderReactions
   comments: MarkdownComment[]
+  projectStatus?: string | null
   pr?: {
     isDraft: boolean
     merged: boolean
@@ -69,6 +70,7 @@ export function renderIssueMarkdown(input: MarkdownDocumentInput): string {
     labels: input.labels,
     assignees: input.assignees,
     milestone: input.milestone,
+    project_status: input.projectStatus,
     created_at: input.createdAt,
     updated_at: input.updatedAt,
     closed_at: input.closedAt,

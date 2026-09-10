@@ -45,6 +45,15 @@ export interface GhfsUserConfig {
      */
     pulls?: boolean
     /**
+     * Whether to sync GitHub Projects v2.
+     *
+     * When enabled, project boards are synced to `.ghfs/projects/` directory.
+     * Requires GraphQL API access and may increase API usage.
+     *
+     * @default false
+     */
+    projects?: boolean
+    /**
      * When to sync closed issues and pull requests.
      *
      * - `true`: sync all closed issues and pull requests.

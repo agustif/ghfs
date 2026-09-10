@@ -62,6 +62,7 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const bots = merged.bots ?? []
   const issuesEnabled = merged.sync?.issues ?? true
   const pullsEnabled = merged.sync?.pulls ?? true
+  const projectsEnabled = merged.sync?.projects ?? false
   const closedMode = merged.sync?.closed ?? false
   const patchesMode = merged.sync?.patches ?? 'open'
 
@@ -76,6 +77,7 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
     sync: {
       issues: issuesEnabled,
       pulls: pullsEnabled,
+      projects: projectsEnabled,
       closed: closedMode,
       patches: patchesMode,
     },
