@@ -169,6 +169,9 @@ export async function materializePreparedIssue(context: SyncContext, candidate: 
     }
   }
 
+  if (kind === 'pull')
+    await syncPullIntelligence(context, number, paths.targetPath)
+
   return {
     kind,
     action,

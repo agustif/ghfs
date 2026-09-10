@@ -171,6 +171,50 @@ export interface GhfsUserConfig {
      * @default true
      */
     packages?: boolean
+      /**
+       * Whether to sync PR compare data: ahead/behind commits, merge-base (compare.json).
+       *
+       * @default true
+       */
+      compare?: boolean
+      /**
+       * Whether to sync PR stack relationships: base and dependent PRs (stack.json).
+       *
+       * @default true
+       */
+      stack?: boolean
+      /**
+       * Whether to use GraphQL statusCheckRollup for check status (more comprehensive).
+       * When true, check status is fetched via GraphQL; when false, uses REST API.
+       *
+       * @default true
+       */
+      statusCheckRollup?: boolean
+    }
+  }
+  /**
+   * Extended metadata generation for agent ergonomics.
+   */
+  extended?: {
+    /**
+     * Generate activity.md with last N repository events.
+     *
+     * @default true
+     */
+    activity?: boolean
+    /**
+     * Generate agent-hints.md with detected test/lint/build commands.
+     *
+     * @default true
+     */
+    agentHints?: boolean
+    /**
+     * Generate deployments/ with environment and deployment status.
+     * Gracefully skips if deployments unavailable.
+     *
+     * @default true
+     */
+    deployments?: boolean
   }
   /**
    * Search coverage configuration for agent ergonomics.

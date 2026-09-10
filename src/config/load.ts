@@ -76,6 +76,15 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
   const extendedSyncState = merged.extended?.syncState ?? true
   const releasesEnabled = merged.sync?.releases ?? true
   const packagesEnabled = merged.sync?.packages ?? true
+  const pullIntelligence = {
+    reviews: merged.sync?.pullIntelligence?.reviews ?? true,
+    checks: merged.sync?.pullIntelligence?.checks ?? true,
+    files: merged.sync?.pullIntelligence?.files ?? true,
+    gate: merged.sync?.pullIntelligence?.gate ?? true,
+    compare: merged.sync?.pullIntelligence?.compare ?? true,
+    stack: merged.sync?.pullIntelligence?.stack ?? true,
+    statusCheckRollup: merged.sync?.pullIntelligence?.statusCheckRollup ?? true,
+  }
 
   return {
     cwd,
@@ -111,6 +120,7 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       syncState: extendedSyncState,
       releases: releasesEnabled,
       packages: packagesEnabled,
+      pullIntelligence,
     },
   }
 }
