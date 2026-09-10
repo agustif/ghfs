@@ -13,3 +13,7 @@ export {
 export {
   syncRepository,
 } from './sync-repository'
+
+export {
+  writeExtendedMetadata,
+} from './extended-metadata'
