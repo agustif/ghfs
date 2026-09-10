@@ -8,6 +8,7 @@ import { createRepositoryProvider } from '../providers/factory'
 import { formatIssueNumber } from '../utils/format'
 import { normalizeIssueNumbers, resolveSince } from '../utils/sync'
 import { writeExtendedMetadata } from './extended-metadata'
+import { runSearchCoverage } from './search'
 import { loadSyncState, saveSyncState } from './state'
 import { syncCollaborators } from './sync-collaborators'
 import { syncPeople } from './sync-people'
@@ -253,6 +254,14 @@ export async function syncRepository(options: SyncOptions): Promise<SyncSummary>
             snapshot: cloneSnapshot(counters),
             message: `collaborators sync skipped: ${(error as Error).message}`,
           })
+        }
+      }
+
+      if (!shouldEarlyReturn && !targetNumbers) {
+        try {
+          await runSearchCoverage(options.config, provider)
+        }
+        catch {
         }
       }
 

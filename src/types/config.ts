@@ -210,12 +210,55 @@ export interface GhfsUserConfig {
      */
     deployments?: boolean
   }
+  /**
+   * Search coverage configuration for agent ergonomics.
+   */
+  search?: {
+    /**
+     * Whether to search code for TODO/FIXME comments and save to .ghfs/search/code-todos.jsonl
+     *
+     * @default true
+     */
+    codeTodos?: boolean
+    /**
+     * Whether to search commits for "fixes #" references and save to .ghfs/search/commit-refs.jsonl
+     *
+     * @default true
+     */
+    commitRefs?: boolean
+    /**
+     * Optional saved issue searches to run. Each query is saved to .ghfs/search/issues-<key>.jsonl
+     *
+     * @example
+     * {
+     *   'p1-bugs': 'is:issue is:open label:bug label:p1',
+     *   'needs-triage': 'is:issue is:open no:label'
+     * }
+     *
+     * @default {}
+     */
+    issueQueries?: Record<string, string>
+    /**
+     * Whether to search for mentions of the repository name in other issues (heavy operation)
+     *
+     * @default false
+     */
+    mentions?: boolean
+    /**
+     * Maximum number of search results per query to avoid rate limits
+     *
+     * @default 100
+     */
+    maxResults?: number
+  }
 }
 
-export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended'> & {
+export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended' | 'search'> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: Required<GhfsUserConfig['sync']>
-  extended: Required<NonNullable<GhfsUserConfig['extended']>>
   extended?: GhfsUserConfig['extended']
+  search: Required<Omit<NonNullable<GhfsUserConfig['search']>, 'issueQueries'>> & {
+    issueQueries: Record<string, string>
+  }
 }

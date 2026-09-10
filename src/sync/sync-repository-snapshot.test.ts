@@ -216,6 +216,13 @@ function createContext(
       security: true,
       syncState: true,
     },
+    search: {
+      codeTodos: true,
+      commitRefs: true,
+      issueQueries: {},
+      mentions: false,
+      maxResults: 100,
+    },
   }
 
   return {
@@ -295,6 +302,9 @@ function createProviderMock(overrides: Partial<RepositoryProvider> = {}): Reposi
     fetchAppInstallations: vi.fn(async () => []),
     fetchCodeowners: vi.fn(async () => null),
     getRequestCount: vi.fn(() => 0),
+    searchCode: vi.fn(async () => []),
+    searchCommits: vi.fn(async () => []),
+    searchIssues: vi.fn(async () => []),
     actionClose: vi.fn(async () => {}),
     actionReopen: vi.fn(async () => {}),
     actionSetTitle: vi.fn(async () => {}),

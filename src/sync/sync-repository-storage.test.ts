@@ -367,6 +367,13 @@ function createSyncContext(storageDirAbsolute: string, syncOverrides: Partial<Sy
         security: true,
         syncState: true,
       },
+      search: {
+        codeTodos: true,
+        commitRefs: true,
+        issueQueries: {},
+        mentions: false,
+        maxResults: 100,
+      },
     },
     syncState: {
       version: 2,
