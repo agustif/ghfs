@@ -351,6 +351,8 @@ function createSyncContext(storageDirAbsolute: string, syncOverrides: Partial<Sy
       sync: {
         issues: syncOverrides.issues ?? true,
         pulls: syncOverrides.pulls ?? true,
+        discussions: syncOverrides.discussions ?? true,
+        wiki: syncOverrides.wiki ?? true,
         closed: syncOverrides.closed ?? false,
         patches: syncOverrides.patches ?? 'open',
         meta: true,

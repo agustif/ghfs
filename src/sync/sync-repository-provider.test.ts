@@ -185,6 +185,8 @@ function createContext(overrides: {
       sync: {
         issues: overrides.issues ?? true,
         pulls: overrides.pulls ?? true,
+        discussions: overrides.discussions ?? true,
+        wiki: overrides.wiki ?? true,
         closed: overrides.closed ?? false,
         patches: 'open',
         meta: true,

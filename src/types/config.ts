@@ -45,6 +45,18 @@ export interface GhfsUserConfig {
      */
     pulls?: boolean
     /**
+     * Whether to sync discussions.
+     *
+     * @default true
+     */
+    discussions?: boolean
+    /**
+     * Whether to sync wiki pages.
+     *
+     * @default true
+     */
+    wiki?: boolean
+    /**
      * When to sync closed issues and pull requests.
      *
      * - `true`: sync all closed issues and pull requests.
