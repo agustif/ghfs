@@ -23,6 +23,26 @@ It will sync the open issues and pull requests to the local filesystem under `.g
   issues.md   # index of fetched issues
   pulls.md    # index of fetched pull requests
   execute.md  # queued operations
+  rate-limit.json  # current token rate limit snapshot
+  permissions.json  # authenticated user's permissions
+  community-profile.json  # community health files checklist
+  interaction-limits.json  # interaction limits if set
+  custom-properties.json  # custom properties
+  topics.json  # repository topics
+  deploy-keys.json  # deploy keys metadata
+  tag-protection.json  # tag protection rules
+  autolinks.json  # autolink references
+  metadata/
+    notifications/
+      participating.json  # participating notifications for this repo
+    environments/
+      production.json  # environment protection rules
+      staging.json
+      index.json  # environments index
+    actions/
+      caches.json  # actions caches list
+    pages/
+      builds.json  # pages builds history
   issues/
     00134-some-bug.md
     closed/
@@ -203,6 +223,21 @@ export default defineConfig({
   sync: {
     issues: true, // set false to skip issue sync
     pulls: true, // set false to skip pull request sync
+    metadata: {
+      notifications: true, // participating notifications for this repo
+      rateLimit: true, // current token rate limit snapshot
+      permissions: true, // authenticated user's permission
+      communityProfile: true, // community health files checklist
+      interactionLimits: true, // interaction limits if set
+      customProperties: true, // custom properties
+      topics: true, // repository topics
+      environments: true, // environments + protection rules
+      deployKeys: true, // deploy keys metadata (no private key material)
+      actionsCaches: true, // actions caches list
+      pagesBuilds: true, // pages builds history
+      tagProtection: true, // tag protection rules
+      autolinks: true, // autolink references
+    },
   },
   // other options...
 })

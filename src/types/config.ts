@@ -63,11 +63,98 @@ export interface GhfsUserConfig {
      * @default 'open'
      */
     patches?: 'open' | 'all' | false
+    /**
+     * Whether to sync repository metadata surfaces.
+     *
+     * @default true
+     */
+    metadata?: {
+      /**
+       * Whether to sync participating notifications.
+       *
+       * @default true
+       */
+      notifications?: boolean
+      /**
+       * Whether to sync rate limit information.
+       *
+       * @default true
+       */
+      rateLimit?: boolean
+      /**
+       * Whether to sync authenticated user permissions.
+       *
+       * @default true
+       */
+      permissions?: boolean
+      /**
+       * Whether to sync community profile.
+       *
+       * @default true
+       */
+      communityProfile?: boolean
+      /**
+       * Whether to sync interaction limits.
+       *
+       * @default true
+       */
+      interactionLimits?: boolean
+      /**
+       * Whether to sync custom properties.
+       *
+       * @default true
+       */
+      customProperties?: boolean
+      /**
+       * Whether to sync topics.
+       *
+       * @default true
+       */
+      topics?: boolean
+      /**
+       * Whether to sync environments.
+       *
+       * @default true
+       */
+      environments?: boolean
+      /**
+       * Whether to sync deploy keys metadata.
+       *
+       * @default true
+       */
+      deployKeys?: boolean
+      /**
+       * Whether to sync actions caches.
+       *
+       * @default true
+       */
+      actionsCaches?: boolean
+      /**
+       * Whether to sync pages builds history.
+       *
+       * @default true
+       */
+      pagesBuilds?: boolean
+      /**
+       * Whether to sync tag protection rules.
+       *
+       * @default true
+       */
+      tagProtection?: boolean
+      /**
+       * Whether to sync autolinks.
+       *
+       * @default true
+       */
+      autolinks?: boolean
+    }
   }
 }
 
 export type GhfsResolvedConfig = Required<GhfsUserConfig> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
-  sync: Required<GhfsUserConfig['sync']>
+  sync: Required<GhfsUserConfig['sync']> & {
+    metadata: Required<NonNullable<GhfsUserConfig['sync']>['metadata']>
+  }
 }

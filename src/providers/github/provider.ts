@@ -72,6 +72,20 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     countUpdatedSince: since => countUpdatedSince(octokit, owner, repo, since, bumpRequestCount),
     getRequestCount: () => requestCount,
 
+    fetchNotifications: () => fetchNotifications(octokit, owner, repo, bumpRequestCount),
+    fetchRateLimit: () => fetchRateLimit(octokit, bumpRequestCount),
+    fetchPermission: () => fetchPermission(octokit, owner, repo, bumpRequestCount),
+    fetchCommunityProfile: () => fetchCommunityProfile(octokit, owner, repo, bumpRequestCount),
+    fetchInteractionLimits: () => fetchInteractionLimits(octokit, owner, repo, bumpRequestCount),
+    fetchCustomProperties: () => fetchCustomProperties(octokit, owner, repo, bumpRequestCount),
+    fetchTopics: () => fetchTopics(octokit, owner, repo, bumpRequestCount),
+    fetchEnvironments: () => fetchEnvironments(octokit, owner, repo, bumpRequestCount),
+    fetchDeployKeys: () => fetchDeployKeys(octokit, owner, repo, bumpRequestCount),
+    fetchActionsCaches: () => fetchActionsCaches(octokit, owner, repo, bumpRequestCount),
+    fetchPagesBuilds: () => fetchPagesBuilds(octokit, owner, repo, bumpRequestCount),
+    fetchTagProtection: () => fetchTagProtection(octokit, owner, repo, bumpRequestCount),
+    fetchAutolinks: () => fetchAutolinks(octokit, owner, repo, bumpRequestCount),
+
     actionClose: number => actionClose(octokit, owner, repo, number, bumpRequestCount),
     actionReopen: number => actionReopen(octokit, owner, repo, number, bumpRequestCount),
     actionSetTitle: (number, title) => actionSetTitle(octokit, owner, repo, number, title, bumpRequestCount),
@@ -1443,6 +1457,256 @@ function mapReactions(reactions: GitHubReactions | null | undefined): ProviderRe
     rocket: reactions?.rocket,
     eyes: reactions?.eyes,
   })
+}
+
+async function fetchNotifications(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderNotification[]> {
+  bumpRequestCount()
+  try {
+    const notifications = await octokit.paginate(octokit.rest.activity.listRepoNotificationsForAuthenticatedUser, {
+      owner,
+      repo,
+      participating: true,
+      per_page: 100,
+    })
+    return notifications as import('../../types/provider').ProviderNotification[]
+  }
+  catch {
+    return []
+  }
+}
+
+async function fetchRateLimit(
+  octokit: Octokit,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderRateLimit> {
+  bumpRequestCount()
+  const result = await octokit.rest.rateLimit.get()
+  return result.data as import('../../types/provider').ProviderRateLimit
+}
+
+async function fetchPermission(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderPermission> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.rest.repos.getCollaboratorPermissionLevel({
+      owner,
+      repo,
+      username: await fetchAuthenticatedUser(octokit, bumpRequestCount).then(u => u?.login ?? ''),
+    })
+    return {
+      permission: result.data.permission as 'admin' | 'push' | 'pull' | 'none',
+      role_name: result.data.role_name,
+    }
+  }
+  catch {
+    return { permission: 'none', role_name: 'none' }
+  }
+}
+
+async function fetchCommunityProfile(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderCommunityProfile> {
+  bumpRequestCount()
+  const result = await octokit.rest.repos.getCommunityProfileMetrics({
+    owner,
+    repo,
+  })
+  return result.data as import('../../types/provider').ProviderCommunityProfile
+}
+
+async function fetchInteractionLimits(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderInteractionLimits | null> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.rest.interactions.getRestrictionsForRepo({
+      owner,
+      repo,
+    })
+    return result.data as import('../../types/provider').ProviderInteractionLimits
+  }
+  catch {
+    return null
+  }
+}
+
+async function fetchCustomProperties(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderCustomProperty[]> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.request('GET /repos/{owner}/{repo}/properties/values', {
+      owner,
+      repo,
+    })
+    return result.data as import('../../types/provider').ProviderCustomProperty[]
+  }
+  catch {
+    return []
+  }
+}
+
+async function fetchTopics(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<string[]> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.rest.repos.getAllTopics({
+      owner,
+      repo,
+    })
+    return result.data.names ?? []
+  }
+  catch {
+    return []
+  }
+}
+
+async function fetchEnvironments(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderEnvironment[]> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.rest.repos.getAllEnvironments({
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return result.data.environments as import('../../types/provider').ProviderEnvironment[]
+  }
+  catch {
+    return []
+  }
+}
+
+async function fetchDeployKeys(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderDeployKey[]> {
+  bumpRequestCount()
+  try {
+    const keys = await octokit.paginate(octokit.rest.repos.listDeployKeys, {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return keys.map(key => ({
+      id: key.id,
+      key: key.key,
+      url: key.url,
+      title: key.title,
+      verified: key.verified ?? false,
+      created_at: key.created_at ?? '',
+      read_only: key.read_only ?? true,
+    }))
+  }
+  catch {
+    return []
+  }
+}
+
+async function fetchActionsCaches(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderActionsCache[]> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.rest.actions.getActionsCacheList({
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return result.data.actions_caches as import('../../types/provider').ProviderActionsCache[]
+  }
+  catch {
+    return []
+  }
+}
+
+async function fetchPagesBuilds(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderPagesBuild[]> {
+  bumpRequestCount()
+  try {
+    const builds = await octokit.paginate(octokit.rest.repos.listPagesBuilds, {
+      owner,
+      repo,
+      per_page: 100,
+    })
+    return builds as import('../../types/provider').ProviderPagesBuild[]
+  }
+  catch {
+    return []
+  }
+}
+
+async function fetchTagProtection(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderTagProtection[]> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.rest.repos.listTagProtection({
+      owner,
+      repo,
+    })
+    return result.data as import('../../types/provider').ProviderTagProtection[]
+  }
+  catch {
+    return []
+  }
+}
+
+async function fetchAutolinks(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  bumpRequestCount: BumpRequestCount,
+): Promise<import('../../types/provider').ProviderAutolink[]> {
+  bumpRequestCount()
+  try {
+    const result = await octokit.rest.repos.listAutolinks({
+      owner,
+      repo,
+    })
+    return result.data as import('../../types/provider').ProviderAutolink[]
+  }
+  catch {
+    return []
+  }
 }
 
 interface GitHubIssue {
