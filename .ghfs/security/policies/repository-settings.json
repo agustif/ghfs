@@ -1,0 +1,114 @@
+{
+  "collection_metadata": {
+    "collected_at": "2026-09-10T09:41:00Z",
+    "repository": "agustif/ghfs",
+    "repository_url": "https://github.com/agustif/ghfs",
+    "data_sources": [
+      "GitHub REST API",
+      "GitHub GraphQL API"
+    ]
+  },
+  "repository_info": {
+    "owner": "agustif",
+    "name": "ghfs",
+    "full_name": "agustif/ghfs",
+    "private": false,
+    "has_issues": true
+  },
+  "security_features": {
+    "vulnerability_alerts": {
+      "enabled": false,
+      "source": "GraphQL repository.hasVulnerabilityAlertsEnabled",
+      "recommendation": "Enable in Settings > Security > Code security and analysis"
+    },
+    "security_policy": {
+      "enabled": false,
+      "url": null,
+      "file_exists": false,
+      "source": "GraphQL repository.isSecurityPolicyEnabled",
+      "recommendation": "Create SECURITY.md file in repository root"
+    },
+    "private_vulnerability_reporting": {
+      "enabled": false,
+      "source": "REST API /repos/{owner}/{repo}/private-vulnerability-reporting",
+      "recommendation": "Enable in Settings > Security > Code security and analysis"
+    },
+    "dependabot_alerts": {
+      "enabled": false,
+      "source": "REST API /repos/{owner}/{repo}/dependabot/alerts returned 403",
+      "recommendation": "Enable Dependabot alerts in repository settings"
+    },
+    "dependabot_config": {
+      "exists": false,
+      "path": ".github/dependabot.yml",
+      "source": "Repository file check",
+      "recommendation": "Create .github/dependabot.yml to configure automated dependency updates"
+    },
+    "secret_scanning": {
+      "status": "not_accessible",
+      "enabled": null,
+      "source": "REST API /repos/{owner}/{repo}/secret-scanning/alerts returned 403",
+      "note": "May require GitHub Advanced Security for private repositories",
+      "recommendation": "For public repos, enable in settings. For private repos, requires GitHub Advanced Security license"
+    },
+    "code_scanning": {
+      "status": "not_accessible",
+      "enabled": null,
+      "source": "REST API /repos/{owner}/{repo}/code-scanning/alerts returned 403",
+      "note": "Requires CodeQL or other code scanning workflow to be configured",
+      "recommendation": "Add a CodeQL workflow in .github/workflows/ or enable through Security tab"
+    },
+    "security_and_analysis": {
+      "raw_value": null,
+      "source": "REST API /repos/{owner}/{repo} security_and_analysis field",
+      "note": "This field is null, suggesting no advanced security features are configured"
+    }
+  },
+  "security_coverage_summary": {
+    "total_features_checked": 7,
+    "enabled_count": 0,
+    "disabled_count": 5,
+    "not_accessible_count": 2,
+    "overall_status": "MINIMAL - Most security features are disabled",
+    "risk_level": "MEDIUM",
+    "priority_actions": [
+      "Enable Dependabot alerts for vulnerability detection",
+      "Create SECURITY.md to document security disclosure process",
+      "Enable private vulnerability reporting",
+      "Configure Dependabot with .github/dependabot.yml",
+      "Consider enabling code scanning with CodeQL"
+    ]
+  },
+  "compliance_notes": {
+    "open_source_best_practices": {
+      "security_policy": false,
+      "vulnerability_disclosure": false,
+      "dependency_updates": false,
+      "score": "1/3 - Needs improvement"
+    },
+    "github_recommended": {
+      "dependabot_alerts": false,
+      "dependabot_updates": false,
+      "secret_scanning": null,
+      "code_scanning": null,
+      "score": "Limited security coverage"
+    }
+  },
+  "data_quality": {
+    "api_errors_encountered": [
+      "Secret scanning: 403 Resource not accessible",
+      "Code scanning alerts: 403 Resource not accessible", 
+      "Code scanning analyses: 403 Resource not accessible",
+      "Dependabot alerts: 403 Disabled",
+      "SBOM: 404 Not Found",
+      "Community profile: 404 Not Found"
+    ],
+    "successful_queries": [
+      "Repository security advisories",
+      "Private vulnerability reporting settings",
+      "GraphQL repository security configuration",
+      "Vulnerability alerts"
+    ],
+    "completeness": "Partial - some data inaccessible due to feature availability or permissions"
+  }
+}

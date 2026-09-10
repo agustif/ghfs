@@ -1,0 +1,129 @@
+{
+  "snapshot_metadata": {
+    "version": "1.0.0",
+    "created_at": "2026-09-10T09:41:00Z",
+    "repository": {
+      "owner": "agustif",
+      "name": "ghfs",
+      "full_name": "agustif/ghfs",
+      "url": "https://github.com/agustif/ghfs",
+      "private": false
+    },
+    "collection_info": {
+      "collected_by": "ghfs security coverage automation",
+      "collection_method": "GitHub CLI (gh) and REST/GraphQL APIs",
+      "tools_used": [
+        "gh api (GitHub CLI)",
+        "GitHub REST API v3",
+        "GitHub GraphQL API v4"
+      ]
+    },
+    "scope": {
+      "coverage_areas": [
+        "Repository security advisories",
+        "Private vulnerability reporting settings",
+        "Secret scanning alerts and configuration",
+        "Code scanning alerts and analyses",
+        "Dependabot alerts and configuration",
+        "Dependency graph and SBOM",
+        "Security policy documentation",
+        "Repository security settings"
+      ],
+      "data_redaction": {
+        "secret_values": "ALL secret values are redacted",
+        "personal_information": "Preserved where relevant for security context",
+        "policy": "Security metadata only, no sensitive values"
+      }
+    }
+  },
+  "coverage_completeness": {
+    "total_categories": 8,
+    "successfully_collected": 3,
+    "partially_collected": 0,
+    "not_accessible": 5,
+    "details": {
+      "advisories": {
+        "status": "complete",
+        "items_found": 0
+      },
+      "private_vulnerability_reporting": {
+        "status": "complete",
+        "enabled": false
+      },
+      "secret_scanning": {
+        "status": "not_accessible",
+        "reason": "403 Resource not accessible by integration"
+      },
+      "code_scanning": {
+        "status": "not_accessible",
+        "reason": "403 Resource not accessible by integration"
+      },
+      "dependabot_alerts": {
+        "status": "not_accessible",
+        "reason": "Feature disabled in repository settings"
+      },
+      "dependency_graph": {
+        "status": "not_accessible",
+        "reason": "404 SBOM endpoint not available"
+      },
+      "security_policy": {
+        "status": "complete",
+        "file_exists": false
+      },
+      "repository_settings": {
+        "status": "complete"
+      }
+    }
+  },
+  "access_limitations": {
+    "notes": [
+      "Some security features require GitHub Advanced Security",
+      "Some features require explicit enablement in repository settings",
+      "API access depends on authentication scope and permissions",
+      "This is a public repository; some features may have different availability for private repos"
+    ],
+    "recommended_access": [
+      "Repository admin access for full security configuration",
+      "GitHub Advanced Security license for secret/code scanning (private repos)",
+      "Appropriate API token scopes (repo, security_events)"
+    ]
+  },
+  "quality_metrics": {
+    "api_success_rate": "37.5%",
+    "data_freshness": "Real-time (collected on 2026-09-10)",
+    "coverage_completeness": "37.5%",
+    "notes": "Lower coverage due to disabled security features, not collection failures"
+  },
+  "file_manifest": {
+    "root": ".ghfs/security/",
+    "files": [
+      "README.md",
+      "snapshot-metadata.json",
+      "advisories/published.json",
+      "secret-scanning/alerts.json",
+      "secret-scanning/locations.json",
+      "secret-scanning/push-protection-bypasses.json",
+      "code-scanning/alerts.json",
+      "code-scanning/analyses.json",
+      "dependabot/alerts.json",
+      "dependabot/secrets.json",
+      "dependency-graph/sbom.json",
+      "policies/security-policy.md",
+      "policies/private-reporting.json",
+      "policies/dependabot.yml",
+      "policies/repository-settings.json"
+    ],
+    "total_files": 15
+  },
+  "next_collection": {
+    "recommendation": "Re-run after enabling security features",
+    "suggested_interval": "Weekly or after security configuration changes",
+    "triggers": [
+      "After enabling Dependabot alerts",
+      "After enabling code scanning",
+      "After enabling secret scanning",
+      "After security vulnerabilities are reported",
+      "After major dependency updates"
+    ]
+  }
+}

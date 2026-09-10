@@ -45,6 +45,42 @@ export interface GhfsUserConfig {
      */
     pulls?: boolean
     /**
+     * Whether to sync discussions.
+     *
+     * @default true
+     */
+    discussions?: boolean
+    /**
+     * Whether to sync wiki pages.
+     *
+     * @default true
+     */
+    wiki?: boolean
+    /**
+     * Whether to sync merge queue entries.
+     *
+     * @default true
+     */
+    mergeQueue?: boolean
+    /**
+     * Whether to sync releases and tags.
+     *
+     * @default true
+     */
+    releases?: boolean
+    /**
+     * Whether to sync recent workflow runs for open PRs.
+     *
+     * @default true
+     */
+    workflows?: boolean
+    /**
+     * Whether to sync repository metadata (topics, features, CODEOWNERS, security advisories).
+     *
+     * @default true
+     */
+    metadata?: boolean
+    /**
      * When to sync closed issues and pull requests.
      *
      * - `true`: sync all closed issues and pull requests.
@@ -165,12 +201,57 @@ export interface GhfsUserConfig {
      * @default true
      */
     syncState?: boolean
+      /**
+       * Whether to sync PR compare data: ahead/behind commits, merge-base (compare.json).
+       *
+       * @default true
+       */
+      compare?: boolean
+      /**
+       * Whether to sync PR stack relationships: base and dependent PRs (stack.json).
+       *
+       * @default true
+       */
+      stack?: boolean
+      /**
+       * Whether to use GraphQL statusCheckRollup for check status (more comprehensive).
+       * When true, check status is fetched via GraphQL; when false, uses REST API.
+       *
+       * @default true
+       */
+      statusCheckRollup?: boolean
+    }
+  }
+  /**
+   * Extended metadata generation for agent ergonomics.
+   */
+  extended?: {
+    /**
+     * Generate activity.md with last N repository events.
+     *
+     * @default true
+     */
+    activity?: boolean
+    /**
+     * Generate agent-hints.md with detected test/lint/build commands.
+     *
+     * @default true
+     */
+    agentHints?: boolean
+    /**
+     * Generate deployments/ with environment and deployment status.
+     * Gracefully skips if deployments unavailable.
+     *
+     * @default true
+     */
+    deployments?: boolean
   }
 }
 
-export type GhfsResolvedConfig = Required<GhfsUserConfig> & {
+export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended'> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: Required<GhfsUserConfig['sync']>
   extended: Required<NonNullable<GhfsUserConfig['extended']>>
+  extended?: GhfsUserConfig['extended']
 }

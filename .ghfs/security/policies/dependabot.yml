@@ -1,0 +1,71 @@
+# Dependabot Configuration
+
+## Status
+
+❌ No Dependabot configuration file found at `.github/dependabot.yml`
+
+## What is Dependabot?
+
+Dependabot automatically:
+- Checks for dependency updates
+- Opens pull requests to update dependencies
+- Alerts you to security vulnerabilities
+- Keeps dependencies up to date
+
+## Recommended Configuration
+
+Create `.github/dependabot.yml` with:
+
+```yaml
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      # Group all non-major updates together
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # Automatically approve and merge minor/patch updates
+    reviewers:
+      - "agustif"
+    labels:
+      - "dependencies"
+      - "automated"
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+```
+
+## Benefits of Dependabot
+
+1. **Security**: Automatic security updates for vulnerable dependencies
+2. **Freshness**: Keep dependencies up to date without manual effort
+3. **Convenience**: PRs are automatically opened and tested by CI
+4. **Grouping**: Can group related updates to reduce PR noise
+5. **Customization**: Fine-grained control over update frequency and behavior
+
+## Current Status
+
+- **Configuration file**: ❌ Not found at `.github/dependabot.yml`
+- **Dependabot alerts**: ❌ Disabled in repository settings
+- **Recommendation**: Create configuration file and enable Dependabot alerts
+
+## Next Steps
+
+1. Create `.github/dependabot.yml` with the recommended configuration above
+2. Enable Dependabot alerts in repository settings
+3. Enable Dependabot security updates for automatic vulnerability patching
+4. Review and merge the initial set of update PRs
+5. Adjust configuration based on team preferences

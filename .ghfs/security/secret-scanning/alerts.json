@@ -1,0 +1,25 @@
+{
+  "collection_metadata": {
+    "collected_at": "2026-09-10T09:41:00Z",
+    "repository": "agustif/ghfs",
+    "endpoint": "GET /repos/{owner}/{repo}/secret-scanning/alerts",
+    "documentation": "https://docs.github.com/rest/secret-scanning/secret-scanning"
+  },
+  "access_status": {
+    "accessible": false,
+    "error": "Resource not accessible by integration",
+    "http_status": 403,
+    "reason": "Secret scanning may require GitHub Advanced Security or specific permissions"
+  },
+  "alerts": null,
+  "summary": {
+    "note": "Secret scanning alerts are not accessible. This may indicate:",
+    "possible_reasons": [
+      "Secret scanning is not enabled for this repository",
+      "Repository requires GitHub Advanced Security (for private repos)",
+      "Insufficient API permissions",
+      "Feature not configured in repository settings"
+    ]
+  },
+  "redaction_policy": "All secret values are redacted in security snapshots. Only metadata about alert types, locations, and resolution status would be included."
+}

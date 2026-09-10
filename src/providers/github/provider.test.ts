@@ -117,14 +117,22 @@ describe('createGitHubProvider', () => {
       },
     )
 
-    const graphql = vi.fn(async () => ({
-      repository: {
-        pullRequest: {
-          reviewDecision: 'REVIEW_REQUIRED',
-          latestOpinionatedReviews: { nodes: [] },
+    const graphql = vi.fn()
+      .mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            reviewDecision: 'REVIEW_REQUIRED',
+            latestOpinionatedReviews: { nodes: [] },
+          },
         },
-      },
-    }))
+      })
+      .mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            mergeQueueEntry: null,
+          },
+        },
+      })
 
     mockedCreateGitHubClient.mockReturnValue({
       rest: {
@@ -238,6 +246,7 @@ describe('createGitHubProvider', () => {
       mergeable: true,
       mergeableState: 'clean',
       reviewDecision: 'review_required',
+      mergeQueueEntry: null,
     })
   })
 

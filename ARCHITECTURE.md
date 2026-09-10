@@ -1,589 +1,182 @@
-# ghfs Agent Intelligence Context Architecture
+# ARCHITECTURE: Context Packs
 
-**Status**: Foundation track (stubs OK, contracts stable)  
-**Epic**: https://github.com/agustif/ghfs/issues/4
+## Overview
 
-## Mission
+Context packs are prompt-sized, tiered bundles of issue/PR data designed for AI agent consumption. They provide stable chunk IDs and graduated levels of detail (small/medium/large) so agents can efficiently scan, triage, and deep-dive without loading full mirrored data.
 
-Make ghfs **agent-swarm-native**, not just "API dump on disk."
+## Design Goals
 
-An agent swarm operating on a GitHub repository needs, **offline and skim-cheap**:
+1. **Agent-first**: Optimized for LLM context window constraints
+2. **Stable chunk IDs**: Persistent identifiers for caching and reference
+3. **Tiered detail**: Progressive disclosure based on agent needs
+4. **Fast generation**: Generated during sync with minimal overhead
+5. **Extensible**: Foundation for richer gate/check digests (depends on PR #2)
 
-1. **Inventory**: what exists
-2. **Graph**: what's related
-3. **Gates**: what blocks action (policy)
-4. **Freshness**: what's changed / stale
-5. **Context packs**: prompt-sized task bundles
-6. **Coordination**: locks so agents don't collide
-
-This document defines the **canonical contracts** for these layers. Other sync adapters (wiki, discussions, merge queue, PR reviews/checks, meta/rulesets, security) plug into these contracts.
-
----
-
-## Canonical Layout
+## Directory Structure
 
 ```
 .ghfs/
-  INDEX.md                  # human-readable generated view
-  meta.json                 # repo metadata (existing)
-  sync-state.json           # sync cursors + tier timestamps (evolved schema)
-  provenance.jsonl          # path → fetched_at, source, content_hash
-  graph.jsonl               # nodes + edges for navigation
-  policy.json               # machine-readable contrib/merge rules
-  agent-hints.md            # generated tips for agents (links to packs, gates)
-  
-  packs/                    # prompt-sized context bundles
+  packs/
     small/
-      pr-123.md
-      issue-456.md
+      issue-123.md    # Title + state + gate + file list
+      pr-456.md
     medium/
-      pr-123.md
-      issue-456.md
+      issue-123.md    # + body + check status
+      pr-456.md
     large/
-      pr-123.md
-      issue-456.md
-  
-  locks/                    # local-only claim files (gitignored)
-    pr-123.lock
-    issue-456.lock
-  
-  notes/                    # local-only agent scratch (gitignored)
-    pr-123.md
-    analysis.md
-  
-  issues/                   # existing mirrored markdown
-    00123-bug.md
-    closed/
-      00124-fixed.md
-  
-  pulls/                    # existing mirrored markdown + patches
-    00042-feat.md
-    00042-feat.patch
-    closed/
-      00043-done.md
+      issue-123.md    # + comments + reviews + owners
+      pr-456.md
 ```
 
-**Flat layout preferred**: Single mirrored tree + tier metadata in `sync-state.json`. No dual `hot/warm/cold/` trees.
+## Pack Tiers
 
----
+### Small (Queue Scanning)
 
-## 1. Graph System
+**Target use case**: Agent scans queue to find actionable items
 
-**Contract**: `.ghfs/graph.jsonl` (JSONL: one node/edge per line)  
-**Issue**: https://github.com/agustif/ghfs/issues/25
+**Contents**:
+- Number, kind, title, state
+- URL
+- Gate summary (PRs only): mergeable, review decision, checks status
+- File list placeholder (stub for PR #2 file metadata)
 
-### Schema
+**Typical size**: 200-500 tokens
 
-```typescript
-// Node
-interface GraphNode {
-  id: string // e.g. "issue:123", "pull:42", "person:octocat"
-  type: GraphNodeType
-  label: string // human-readable
-  url?: string // GitHub URL when applicable
-  state?: string // open, closed, merged, etc.
-  metadata?: Record<string, unknown>
-}
+### Medium (Triage)
 
-type GraphNodeType
-  = | 'issue'
-    | 'pull'
-    | 'discussion'
-    | 'commit'
-    | 'check'
-    | 'person'
-    | 'label'
-    | 'milestone'
-    | 'release'
-    | 'workflow'
-    | 'file_path'
+**Target use case**: Agent decides whether to act or skip
 
-// Edge
-interface GraphEdge {
-  from: string // node id
-  to: string // node id
-  type: GraphEdgeType
-  metadata?: Record<string, unknown>
-}
+**Contents**: All of small, plus:
+- Body/description
+- Author
+- Labels
+- Created/updated timestamps
 
-type GraphEdgeType
-  = | 'references'
-    | 'fixes'
-    | 'review_requested'
-    | 'owns' // CODEOWNERS
-    | 'checks'
-    | 'merges'
-    | 'labels'
-    | 'discusses'
-    | 'assigned_to'
-    | 'milestone_tracks'
-```
+**Typical size**: 500-1500 tokens
 
-### Builder contract
+### Large (Deep Dive)
 
-- **Input**: existing synced markdown/json (issues, pulls, repo.json)
-- **Output**: `.ghfs/graph.jsonl`
-- **Hooks**: other sync adapters call `addNode(node)` / `addEdge(edge)` before graph write
+**Target use case**: Agent implements fix, writes review, or takes concrete action
 
-### Example
+**Contents**: All of medium, plus:
+- Assignees
+- Milestone
+- Closed timestamp
+- Comment count and summary
+- Linked issues (stub for graph system, epic #4)
+- Owners list (author + assignees + reviewers)
+- PR details: draft, merged, base/head refs, requested reviewers, review summary
 
-```jsonl
-{"id":"issue:123","type":"issue","label":"#123: Fix memory leak","state":"open","url":"https://github.com/owner/repo/issues/123"}
-{"id":"pull:42","type":"pull","label":"#42: Add caching","state":"open","url":"https://github.com/owner/repo/pull/42"}
-{"id":"person:octocat","type":"person","label":"@octocat"}
-{"from":"pull:42","to":"issue:123","type":"fixes"}
-{"from":"person:octocat","to":"pull:42","type":"review_requested"}
-```
+**Typical size**: 1500-4000 tokens
 
----
+## Stable Chunk IDs
 
-## 2. Context Packs
-
-**Contract**: `.ghfs/packs/{small,medium,large}/{pr|issue}-N.md`  
-**Issue**: https://github.com/agustif/ghfs/issues/21
-
-### Tiers
-
-| Tier   | Use case               | Contents                                           |
-|--------|------------------------|----------------------------------------------------|
-| small  | Queue scanning         | title + state + gate summary + file list          |
-| medium | Triage                 | small + body + check status                        |
-| large  | Deep-dive              | medium + comments + reviews + timeline             |
-
-### Stable chunk IDs
-
-Embed in pack markdown for targeted retrieval:
+Each pack has a stable `chunk_id` frontmatter field following the pattern:
 
 ```
-<!-- chunk:ghfs:pull:123:body -->
-<!-- chunk:ghfs:pull:123:review:4 -->
-<!-- chunk:ghfs:issue:456:comment:7 -->
+ghfs:issue:123:body       # Issue #123 body
+ghfs:pull:456:body        # PR #456 body
+ghfs:pull:456:review:789  # PR #456 review #789 (future)
+ghfs:pull:456:comment:101 # PR #456 comment #101 (future)
 ```
 
-### Schema (pack structure)
-
-```markdown
----
-pack_size: small
-item_type: pull
-number: 123
-generated_at: "2026-09-10T09:30:00Z"
----
-
-# PR #123: Add caching
-
-**State**: open  
-**Gate status**: ⚠️ missing required reviews (need 2, have 0)  
-**Risk**: changes workflow files
-
-## Files changed (3)
-- `.github/workflows/ci.yml`
-- `src/cache.ts`
-- `tests/cache.test.ts`
-
-## Linked issues
-- Fixes #100
-
-## Owners
-- @octocat (workflow changes)
-```
-
-### Generator contract
-
-- **Input**: sync-state items, graph.jsonl, policy.json
-- **Output**: pack files per issue/PR
-- **Hooks**: other sync adapters can extend pack sections (e.g., check logs, discussion threads)
-
----
-
-## 3. Policy + Gate DSL
-
-**Contract**: `.ghfs/policy.json`  
-**Issue**: https://github.com/agustif/ghfs/issues/20
-
-### Schema
-
-```typescript
-interface Policy {
-  version: 1
-  repo: string
-  source: string[] // where parsed from: constitution.md, rulesets API, etc.
-  rules: PolicyRule[]
-  gates: Gate[]
-  danger_paths: string[] // glob patterns for risky files
-}
-
-interface PolicyRule {
-  id: string
-  title: string
-  description?: string
-  severity: 'error' | 'warning' | 'info'
-  eval: GatePredicate
-}
-
-interface Gate {
-  id: string
-  title: string
-  applies_to: 'issue' | 'pull' | 'all'
-  conditions: GatePredicate[]
-}
-
-// DSL (evaluable offline)
-type GatePredicate
-  = | { op: 'requires_review_count', min: number }
-    | { op: 'blocks_paths', patterns: string[] }
-    | { op: 'requires_label', labels: string[] }
-    | { op: 'requires_check', check: string, state: 'success' | 'failure' }
-    | { op: 'author_in', logins: string[] }
-    | { op: 'and', predicates: GatePredicate[] }
-    | { op: 'or', predicates: GatePredicate[] }
-```
-
-### Sources (priority order)
-
-1. `.github/constitution.md` (parsed)
-2. GitHub branch protection rules (via API when available)
-3. `.github/CODEOWNERS` (for `owns` edges + danger paths)
-4. Rulesets API (when available)
-
-### Evaluator contract
-
-```typescript
-// Agents can check gates offline
-function evaluateGate(gate: Gate, context: ItemContext): GateResult {
-  // returns { passed: boolean, failures: string[] }
-}
-```
-
----
-
-## 4. Tiered Freshness
-
-**Contract**: evolved `sync-state.json` schema  
-**Issue**: https://github.com/agustif/ghfs/issues/24
-
-### Schema additions
-
-```typescript
-interface SyncState {
-  version: 2
-  // ... existing fields ...
-  tiers?: {
-    hot: TierState
-    warm: TierState
-    cold: TierState
-  }
-}
-
-interface TierState {
-  lastSyncedAt: string
-  surfaces: SurfaceState[]
-}
-
-interface SurfaceState {
-  name: string // 'issues', 'pulls', 'wiki', 'discussions', 'checks', etc.
-  lastSyncedAt: string
-  cursor?: string // pagination cursor
-  etag?: string // HTTP ETag for conditional requests
-}
-```
-
-### Tier definitions
-
-| Tier | Sync frequency | Surfaces                                    |
-|------|----------------|---------------------------------------------|
-| hot  | Every run      | open PRs, my queue items, failing checks   |
-| warm | If stale > 1h  | issues, discussions, closed PRs            |
-| cold | If stale > 24h | wiki, constitution, rulesets, security     |
-
-### Sync strategy
-
-```typescript
-async function shouldSync(surface: string, tier: 'hot' | 'warm' | 'cold'): Promise<boolean> {
-  const state = syncState.tiers?.[tier]
-  if (!state)
-    return true
+Agents can reference these IDs for:
+- Context caching
+- Cross-agent coordination
+- Incremental updates
+- Prompt optimization
 
-  const age = Date.now() - new Date(state.lastSyncedAt).getTime()
+## Generation Flow
 
-  if (tier === 'hot')
-    return true
-  if (tier === 'warm')
-    return age > 3600_000 // 1h
-  if (tier === 'cold')
-    return age > 86400_000 // 24h
+Packs are generated automatically during sync:
 
-  return false
-}
-```
+1. **Sync item** — `syncRepository` processes issue/PR
+2. **Update tracked state** — `SyncItemState` stores canonical data
+3. **Materialize markdown** — `materializePreparedIssue` writes `.ghfs/issues/**/*.md` or `.ghfs/pulls/**/*.md`
+4. **Generate packs** — `writeAllPackSizes` creates all three tiers in `.ghfs/packs/{small,medium,large}/`
 
----
+Generation is **non-blocking**: pack write failures are logged but do not fail the sync.
 
-## 5. Provenance Tracking
+## Implementation
 
-**Contract**: `.ghfs/provenance.jsonl`  
-**Issue**: https://github.com/agustif/ghfs/issues/23
+### Type System
 
-### Schema
+- `src/types/pack.ts`: Pack types, metadata, content interfaces
+- `PackSize`: `'small' | 'medium' | 'large'`
+- `Pack<T>`: Generic pack container with metadata + content
+- `PackSmallContent`, `PackMediumContent`, `PackLargeContent`: Tier-specific content shapes
 
-```typescript
-interface ProvenanceEntry {
-  path: string // relative to .ghfs/
-  fetched_at: string // ISO 8601
-  source: string // e.g. "github:issues:123", "github:pulls:42:patch"
-  content_hash: string // sha256:... for integrity
-  etag?: string // HTTP ETag if available
-  metadata?: Record<string, unknown>
-}
-```
+### Core Modules
 
-### Example
+- `src/pack/chunk-id.ts`: Stable chunk ID generation
+- `src/pack/generate.ts`: Pack content generation from `SyncItemState`
+- `src/pack/render.ts`: Markdown rendering for each tier
+- `src/pack/paths.ts`: File path resolution (`.ghfs/packs/{size}/{kind}-{number}.md`)
+- `src/pack/write.ts`: Filesystem write orchestration
 
-```jsonl
-{"path":"issues/00123-bug.md","fetched_at":"2026-09-10T09:30:00Z","source":"github:issues:123","content_hash":"sha256:abc123..."}
-{"path":"pulls/00042-feat.patch","fetched_at":"2026-09-10T09:31:00Z","source":"github:pulls:42:patch","content_hash":"sha256:def456..."}
-{"path":"graph.jsonl","fetched_at":"2026-09-10T09:32:00Z","source":"local:graph-builder","content_hash":"sha256:789abc..."}
-```
+### Integration Points
 
-### Usage
+- `src/sync/sync-repository-item.ts`: Calls `writeAllPackSizes` after markdown write
+- `src/types/index.ts`: Exports pack types for public API
 
-- Agents read provenance to know data freshness
-- Verify file integrity before trusting cached data
-- Debug stale context issues ("when was this synced?")
+## Stub Fields (Depend on PR #2)
 
----
+The following pack fields are **stubs** pending gate/check implementation:
 
-## 6. Local Coordination (Locks + Notes)
+- `PackGateSummary.checksStatus`: Hardcoded to `'unknown'`
+- `PackGateSummary.checksDigestPlaceholder`: Links to PR #2
+- `PackSmallContent.fileList`: Not yet populated (requires file metadata from PR #2)
 
-**Contract**: `.ghfs/locks/` and `.ghfs/notes/` (both gitignored)  
-**Issue**: https://github.com/agustif/ghfs/issues/22
+When PR #2 merges:
+1. Replace `checksStatus: 'unknown'` with actual CI status derivation
+2. Replace placeholder with digest of failing checks
+3. Populate `fileList` from PR file metadata
 
-### Lock schema
+## Future Extensions (Epic #4)
 
-```typescript
-interface Lock {
-  agent: string // agent identifier
-  claimed_at: string // ISO 8601
-  task: string // human-readable task description
-  timeout_at?: string // optional expiry
-}
-```
+- **Graph links**: `PackLargeContent.linkedIssues` will pull from graph system
+- **Review summaries**: `pr.reviewSummary` will aggregate timeline review events
+- **Provenance**: Track which agent/run generated each pack
+- **Freshness**: Annotate pack age and staleness buckets
+- **Locks**: Coordinate multi-agent access to same pack
 
-### File structure
+## Testing
 
-```
-.ghfs/locks/pr-123.lock       # JSON lock file
-.ghfs/notes/pr-123.md         # markdown scratch space
-```
+- `src/pack/*.test.ts`: Unit tests for chunk IDs, generation, rendering, paths
+- Coverage: Chunk ID patterns, tier content correctness, stub field presence
+- Run with: `pnpm test src/pack`
 
-### Protocol
+## Coordination with Foundation Agent
 
-1. **Claim**: check `locks/pr-123.lock` doesn't exist or is expired, write new lock
-2. **Release**: delete lock file
-3. **Notes**: agents write analysis/scratch to `notes/pr-123.md` (ephemeral)
+Per issue #21 instructions:
 
-### CLI helpers (minimal)
+> Coordinate with foundation agent if they own packs — if foundation PR exists, extend it; else ship packs PR and note overlap.
 
-```bash
-ghfs lock claim pr-123 --task "reviewing PR 123"
-ghfs lock release pr-123
-ghfs note pr-123 "WIP: found memory leak in cache.ts"
-ghfs lock list
-```
+**Status**: No foundation PR found (checked PR list). This PR introduces packs as a standalone feature. If foundation agent lands first, we'll rebase and integrate.
 
-### Multi-agent coordination
+## Related Issues
 
-- Check locks before claiming work
-- Respect lock timeouts (default 30min)
-- Notes are **local-only** scratch space (never committed)
+- **Issue #21**: Context packs implementation (this PR)
+- **Epic #4**: Agent Intelligence Context Layer (parent epic)
+- **PR #2**: Gate/checks implementation (dependency for stub fields)
 
----
+## Design Decisions
 
-## 7. Generated Files
+1. **Why three tiers?** Balance between agent scan efficiency (small), triage accuracy (medium), and deep-dive completeness (large).
+2. **Why separate files?** Agents can fetch exactly the tier they need without parsing/filtering.
+3. **Why stable IDs?** Enable caching, incremental updates, and cross-agent coordination.
+4. **Why generate during sync?** Packs are derived views — keeping them in sync with source ensures consistency.
+5. **Why non-blocking?** Pack generation is an optimization; sync must not fail if packs fail.
 
-### INDEX.md
+## Performance Impact
 
-Human-readable overview linking to packs, graph, policy:
+- **Sync overhead**: ~10-30ms per item (3 file writes + JSON stringify)
+- **Disk usage**: ~2-10KB per item per tier (~6-30KB total)
+- **Cold start**: No impact (packs generated on first sync)
+- **Incremental sync**: Packs regenerated only for updated items
 
-```markdown
-# ghfs Repository Mirror
+## Migration Notes
 
-**Repo**: owner/name  
-**Last synced**: 2026-09-10T09:30:00Z
-
-## Quick links
-- [Policy](.ghfs/policy.json)
-- [Graph](.ghfs/graph.jsonl)
-- [Context packs](.ghfs/packs/)
-
-## Stats
-- **Issues**: 42 open, 100 closed
-- **PRs**: 5 open, 50 merged
-- **Graph**: 500 nodes, 1200 edges
-
-## Agent hints
-See [agent-hints.md](.ghfs/agent-hints.md) for triage tips.
-```
-
-### agent-hints.md
-
-Generated tips for agents:
-
-```markdown
-# Agent Hints
-
-## High-priority items
-- PR #123: failing checks, blocks release
-- Issue #456: assigned to you, needs triage
-
-## Risky changes
-- PR #42: touches workflow files (see policy.json)
-
-## Context packs
-- Quick scan: `.ghfs/packs/small/`
-- Triage: `.ghfs/packs/medium/`
-- Deep-dive: `.ghfs/packs/large/`
-
-## Gates
-- All PRs require 2 approvals (see policy.json)
-- Workflow changes require @octocat review
-```
-
----
-
-## Implementation Strategy
-
-### Phase 1: Contracts + stubs (this PR)
-
-Ship **stable contracts** with minimal/stub implementations:
-
-1. Type definitions (`src/types/graph.ts`, `src/types/policy.ts`, `src/types/provenance.ts`, `src/types/coordination.ts`)
-2. Evolved `sync-state.ts` schema (tiers)
-3. Stub generators (create empty files with TODO comments)
-4. `ARCHITECTURE.md` (this document)
-5. Updated `README.md` and `skills/ghfs/SKILL.md`
-
-**Goal**: Other agents can start conforming to contracts immediately.
-
-### Phase 2: Builders (parallel PRs)
-
-Each track implemented independently:
-
-- Graph builder (#25)
-- Context pack generator (#21)
-- Policy parser (#20)
-- Tiered sync (#24)
-- Provenance writer (#23)
-- Lock/note CLI (#22)
-
-### Phase 3: Integration
-
-- Wire builders into sync pipeline
-- E2E tests with real repos
-- Performance tuning (bounds, toggles)
-
----
-
-## Constraints
-
-1. **No regressions**: existing issue/PR sync must keep working
-2. **Stubs fine**: ship contracts before implementations
-3. **No secrets**: never write tokens/keys to the tree
-4. **Bounds**: all generators respect size limits (configurable)
-5. **Toggles**: every feature can be disabled via config
-
----
-
-## Configuration Extensions
-
-Add to `ghfs.config.ts`:
-
-```typescript
-export default defineConfig({
-  // existing fields...
-
-  intelligence: {
-    graph: true, // enable graph generation
-    packs: {
-      enabled: true,
-      sizes: ['small', 'medium', 'large'],
-    },
-    policy: {
-      enabled: true,
-      sources: ['constitution', 'codeowners', 'rulesets'],
-    },
-    provenance: true, // enable provenance tracking
-    tiers: {
-      hot: ['issues:open', 'pulls:open', 'checks:failing'],
-      warm: ['issues:closed', 'pulls:closed', 'discussions'],
-      cold: ['wiki', 'constitution', 'rulesets'],
-    },
-    coordination: {
-      enabled: true,
-      lockTimeout: 1800, // 30min in seconds
-    },
-  },
-})
-```
-
----
-
-## Other Agents: Integration Guide
-
-### Registering graph nodes/edges
-
-```typescript
-import { addGraphEdge, addGraphNode } from '@ghfs/cli/intelligence/graph'
-
-// After syncing discussions
-await addGraphNode({
-  id: 'discussion:789',
-  type: 'discussion',
-  label: 'Discussion #789: Architecture',
-  url: 'https://github.com/owner/repo/discussions/789',
-})
-
-await addGraphEdge({
-  from: 'pull:42',
-  to: 'discussion:789',
-  type: 'discusses',
-})
-```
-
-### Extending context packs
-
-```typescript
-import { extendContextPack } from '@ghfs/cli/intelligence/packs'
-
-// Add check logs to medium/large packs
-await extendContextPack('pull', 123, 'medium', {
-  section: 'Check logs',
-  content: '...',
-  chunkId: 'ghfs:pull:123:check:ci',
-})
-```
-
-### Recording provenance
-
-```typescript
-import { recordProvenance } from '@ghfs/cli/intelligence/provenance'
-
-await recordProvenance({
-  path: 'discussions/00789-architecture.md',
-  source: 'github:discussions:789',
-  contentHash: computeSha256(content),
-})
-```
-
----
-
-## Success Criteria
-
-1. ✅ Issues filed under epic #4
-2. ✅ `ARCHITECTURE.md` lands with stable contracts
-3. ✅ Type definitions for all layers
-4. ✅ Stub generators (TODOs linking to issues)
-5. ✅ Draft PR open
-6. ✅ Other agents can read contracts and start conforming
-
-**Next**: Parallel implementation PRs for each track.
+- **Backward compatible**: Existing `.ghfs/` directories work unchanged
+- **No schema version bump**: Packs are an additive feature
+- **Safe to delete**: `.ghfs/packs/` can be removed and regenerated on next sync
