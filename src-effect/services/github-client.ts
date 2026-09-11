@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import { Autolink, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -153,6 +153,7 @@ export class GitHubClient extends Context.Service<
       perPage?: number
     }) => Effect.Effect<Array<DeploymentInput>, GitHubError>
     fetchAuthenticatedUser: () => Effect.Effect<AuthenticatedUserInput | null, GitHubError>
+    fetchAutolinks: () => Effect.Effect<Array<Autolink>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -2809,6 +2810,58 @@ export class GitHubClient extends Context.Service<
         },
       )
 
+
+
+      type GitHubAutolinkWire = {
+        id?: number | null
+        key_prefix?: string | null
+        url_template?: string | null
+        is_alphanumeric?: boolean | null
+        updated_at?: string | null
+      }
+
+      function mapAutolink(row: GitHubAutolinkWire): Autolink | null {
+        const id = row.id
+        const keyPrefix = row.key_prefix?.trim()
+        const urlTemplate = row.url_template?.trim()
+        if (typeof id !== "number" || !keyPrefix || !urlTemplate) return null
+        if (typeof row.is_alphanumeric !== "boolean") return null
+
+        return Autolink.make({
+          id,
+          keyPrefix,
+          urlTemplate,
+          isAlphanumeric: row.is_alphanumeric,
+          ...(row.updated_at !== undefined
+            ? { updatedAt: row.updated_at ?? null }
+            : {}),
+        })
+      }
+
+      const fetchAutolinks = Effect.fn("GitHubClient.fetchAutolinks")(function* (): Effect.fn.Return<
+        Array<Autolink>,
+        GitHubError
+      > {
+        return yield* Effect.gen(function* () {
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/autolinks`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const rows = (Array.isArray(json) ? json : []) as Array<GitHubAutolinkWire>
+          return rows.flatMap((row) => {
+            const autolink = mapAutolink(row)
+            return autolink ? [autolink] : []
+          })
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed([] as Array<Autolink>)
+          )
+        )
+      })
+
       return GitHubClient.of({
         fetchRepo,
         fetchIssues,
@@ -2844,6 +2897,7 @@ export class GitHubClient extends Context.Service<
         fetchActivityEvents,
         fetchDeployments,
         fetchAuthenticatedUser,
+        fetchAutolinks,
         fetchPatch,
         closeIssue,
         reopenIssue,
