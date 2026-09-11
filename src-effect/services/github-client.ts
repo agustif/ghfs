@@ -1,7 +1,7 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { CodeownersFile, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import type { ActivityEventInput, CodeownersFile, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
@@ -146,6 +146,9 @@ export class GitHubClient extends Context.Service<
     fetchSecretScanningAlerts: (params?: {
       limit?: number
     }) => Effect.Effect<Array<SecretScanningAlertLean>, GitHubError>
+    fetchActivityEvents: (params?: {
+      limit?: number
+    }) => Effect.Effect<Array<ActivityEventInput>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -2632,6 +2635,59 @@ export class GitHubClient extends Context.Service<
         },
       )
 
+
+      type GitHubRepoEventWire = {
+        id?: string | number
+        type?: string
+        actor?: { login?: string } | null
+        created_at?: string
+        payload?: Record<string, unknown> | null
+      }
+
+      function mapActivityEventInput(row: GitHubRepoEventWire): ActivityEventInput {
+        return {
+          id: row.id != null ? String(row.id) : "",
+          type: row.type ?? "UnknownEvent",
+          actor: row.actor?.login ?? null,
+          createdAt: row.created_at ?? "",
+          // Transient — formatEventDescription only; ActivitySummary encode omits payload.
+          payload: row.payload ?? null,
+        }
+      }
+
+      function emptyEventsOnDisabled(
+        effect: Effect.Effect<Array<ActivityEventInput>, GitHubError>,
+      ): Effect.Effect<Array<ActivityEventInput>, GitHubError> {
+        return effect.pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed([] as Array<ActivityEventInput>),
+          ),
+        )
+      }
+
+      const fetchActivityEvents = Effect.fn("GitHubClient.fetchActivityEvents")(
+        function* (params: { limit?: number } = {}): Effect.fn.Return<
+          Array<ActivityEventInput>,
+          GitHubError
+        > {
+          return yield* Effect.gen(function* () {
+            // Cue default 50; GitHub max per_page 100.
+            const limit = Math.min(Math.max(params.limit ?? 50, 1), 100)
+            const searchParams = new URLSearchParams()
+            searchParams.set("per_page", String(limit))
+            const response = yield* client
+              .get(`/repos/${owner}/${name}/events?${searchParams.toString()}`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+            const rows = (Array.isArray(json) ? json : []) as Array<GitHubRepoEventWire>
+            return rows.slice(0, limit).map(mapActivityEventInput)
+          }).pipe(emptyEventsOnDisabled)
+        },
+      )
+
       return GitHubClient.of({
         fetchRepo,
         fetchIssues,
@@ -2664,6 +2720,7 @@ export class GitHubClient extends Context.Service<
         fetchDependabotAlerts,
         fetchCodeScanningAlerts,
         fetchSecretScanningAlerts,
+        fetchActivityEvents,
         fetchPatch,
         closeIssue,
         reopenIssue,
