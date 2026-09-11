@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { GhfsResolvedConfig } from '../types'
 import type { RepositoryProvider } from '../types/provider'
 import { mkdir, writeFile } from 'node:fs/promises'

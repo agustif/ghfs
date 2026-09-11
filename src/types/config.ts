@@ -164,6 +164,15 @@ export interface GhfsUserConfig {
      * @default false
      */
     interactionLimits?: boolean
+    actionsArtifacts?: boolean
+    actionsLogsMaxKb?: number
+    actionsLogs?: boolean
+    webhooksMaxDeliveries?: number
+    webhooks?: boolean
+    social?: boolean
+    people?: boolean
+    commitsLimit?: number | false
+    timelineLimit?: number | false
     /**
      * Pull request intelligence features.
      */
@@ -349,7 +358,6 @@ export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended' | 'sy
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: NonNullable<GhfsUserConfig['sync']>
-  search?: NonNullable<GhfsUserConfig['search']> & {
   search: NonNullable<GhfsUserConfig['search']> & {
     issueQueries: Record<string, string>
   }

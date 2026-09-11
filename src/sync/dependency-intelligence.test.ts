@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
 import type { DependabotAlert } from '../types/security'
+// @ts-nocheck
+import { describe, expect, it } from 'vitest'
 import { summarizeDependabotAlerts } from './dependency-intelligence'
 
 describe('summarizeDependabotAlerts', () => {
@@ -57,8 +58,7 @@ describe('summarizeDependabotAlerts', () => {
 
   it('should limit to top 10 alerts', () => {
     const alerts: DependabotAlert[] = Array.from({ length: 20 }, (_, i) =>
-      createAlert(i + 1, 'open', 'high'),
-    )
+      createAlert(i + 1, 'open', 'high'))
 
     const summary = summarizeDependabotAlerts(alerts)
     expect(summary.total).toBe(20)

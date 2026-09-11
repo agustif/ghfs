@@ -88,3 +88,8 @@ export function getWebhooksConfigPath(storageDirAbsolute: string): string {
 export function getWebhookDeliveriesPath(storageDirAbsolute: string, hookId: number): string {
   return join(getWebhooksDir(storageDirAbsolute), `${hookId}-deliveries.json`)
 }
+
+export function getPackageMarkdownPath(storageDir: string, name: string): string {
+  const safe = name.replace(/[^\w.-]+/g, '-')
+  return `${storageDir}/packages/${safe}.md`
+}

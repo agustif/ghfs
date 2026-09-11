@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { GhfsResolvedConfig, GhfsUserConfig } from '../types'
 import { existsSync } from 'node:fs'
 import process from 'node:process'

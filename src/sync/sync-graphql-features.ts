@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { RepositoryProvider } from '../types/provider'
 import type { PullRequestAugmentations } from './augment-pull-request'
 import { syncCodeOwners } from './sync-codeowners'

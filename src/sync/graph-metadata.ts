@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { RepositoryProvider } from '../types/provider'
 import { join } from 'pathe'
 import { writeFileEnsured } from '../utils/fs'

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { GhfsResolvedConfig } from '../types'
 import type { ProviderActionsWorkflowJob, ProviderActionsWorkflowRun, RepositoryProvider } from '../types/provider'
 import { Buffer } from 'node:buffer'

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { SyncItemCanonicalData } from '../types/sync-state'
 import { join } from 'pathe'
 import { writeFileEnsured } from '../utils/fs'

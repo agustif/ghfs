@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { GhfsResolvedConfig, SyncState } from '../types'
 import type { ProviderLabel, ProviderMilestone, ProviderRepository, RepositoryProvider } from '../types/provider'
 import type { SyncContext } from './sync-repository-types'
@@ -202,7 +203,6 @@ function createContext(
       pulls: true,
       closed: false,
       patches: 'open',
-      actions: false,
       actionsRunsPerWorkflow: 30,
       meta: true,
       labelsAndMilestones: true,

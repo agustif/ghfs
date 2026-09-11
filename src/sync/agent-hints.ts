@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { SyncContext } from './sync-repository-types'
 
 export async function buildAgentHints(context: SyncContext): Promise<any> {

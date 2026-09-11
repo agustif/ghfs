@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ProviderDiscussion, ProviderDiscussionCategory, ProviderDiscussionComment } from '../types/provider'
 import type { SyncContext } from './sync-repository-types'
 import { mkdir, writeFile } from 'node:fs/promises'

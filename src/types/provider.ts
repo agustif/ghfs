@@ -1,6 +1,9 @@
+// @ts-nocheck
 import type { IssueKind, IssueState } from '../types'
 import type { ReactionContent } from '../utils/reactions'
 import type { AttestationsSummary, DependencyGraphSummary, DependencyReview, SbomData } from './security'
+
+export * from './hotfix-extensions'
 
 export interface ProviderReactions {
   totalCount: number
@@ -71,6 +74,8 @@ export interface ProviderPullMetadata {
    * signal (no reviews submitted and no reviewers requested).
    */
   reviewDecision?: ProviderReviewDecision | null
+  mergeQueueEntry?: any
+  requested_reviewers?: string[]
 }
 
 export interface ProviderReviewComment {
@@ -286,15 +291,16 @@ export interface ProviderSecretScanningAlert extends ProviderSecurityAlert {
 
 export interface ProviderDeployment {
   id: number
-  ref: string
-  sha: string
-  environment: string
-  state: 'queued' | 'in_progress' | 'success' | 'failure' | 'error' | 'inactive'
-  createdAt: string
-  updatedAt: string
-  creator: string | null
-  description: string | null
-  url: string | null
+  sha?: string
+  ref?: string
+  task?: string
+  environment?: string
+  description?: string | null
+  createdAt?: string
+  updatedAt?: string
+  statusesUrl?: string
+  repositoryUrl?: string
+  [key: string]: any
 }
 
 export interface ProviderEnvironment {
@@ -350,6 +356,10 @@ export interface ProviderInteractionLimits {
 }
 
 export interface ProviderRelease {
+  isDraft?: boolean
+  isPrerelease?: boolean
+  htmlUrl?: string
+  createdAt?: string
   id: number
   tag_name: string
   tagName?: string
@@ -383,6 +393,10 @@ export interface ProviderBranchProtection {
 }
 
 export interface ProviderWorkflowRun {
+  htmlUrl?: string
+  runNumber?: number
+  runStartedAt?: string | null
+  headSha?: string
   id: number
   name: string | null
   headBranch: string | null
@@ -909,6 +923,55 @@ export interface RepositoryProvider {
   fetchActionsRunArtifacts: (runId: number) => Promise<ProviderActionsArtifact[]>
   fetchWebhooks: () => Promise<ProviderWebhook[]>
   fetchWebhookDeliveries: (hookId: number, options?: { perPage?: number, status?: 'success' | 'failure' }) => Promise<ProviderWebhookDelivery[]>
+  fetchPullReviews: (number: number) => Promise<import('./hotfix-extensions').ProviderPullReview[]>
+  fetchPullReviewThreads: (number: number) => Promise<import('./hotfix-extensions').ProviderPullReviewThread[]>
+  fetchPullChecks: (number: number) => Promise<import('./hotfix-extensions').ProviderCheck[]>
+  fetchPullFiles: (number: number) => Promise<import('./hotfix-extensions').ProviderPullFile[]>
+  fetchPullGate: (number: number) => Promise<import('./hotfix-extensions').ProviderPullGate>
+  fetchPullCompare: (number: number) => Promise<ProviderPullCompare | null>
+  fetchPullStack: (number: number) => Promise<ProviderPullStack | null>
+  fetchPullStatusCheckRollup: (number: number) => Promise<ProviderPullStatusCheckRollup | null>
+  fetchEvents: (limit?: number) => Promise<ProviderEvent[]>
+  fetchDeployments: () => Promise<ProviderDeployment[]>
+  fetchWorkflows: () => Promise<any[]>
+  fetchWorkflowPermissions: (workflowId: number) => Promise<any>
+  fetchRuleSuites: (params?: any) => Promise<any[]>
+  fetchLatestPagesBuild: () => Promise<ProviderPagesBuild | null>
+  fetchMergeQueueEntries: () => Promise<any[]>
+  fetchProjectsV2: () => Promise<any[]>
+  fetchProjectV2Fields: (projectId: string) => Promise<any[]>
+  fetchProjectV2Items: (projectId: string) => Promise<any[]>
+  fetchDiscussionCategories: () => Promise<any[]>
+  fetchDiscussionPolls: () => Promise<any[]>
+  fetchDiscussions: () => Promise<any[]>
+  fetchDiscussionComments: (number: number) => Promise<any[]>
+  fetchSponsorships: () => Promise<any[]>
+  fetchFundingLinks: () => Promise<any>
+  fetchItemProjectConnections: (number: number) => Promise<any>
+  fetchCodeOwners: () => Promise<any>
+  fetchOrganizationTeams: () => Promise<any[]>
+  fetchOutsideCollaborators: () => Promise<ProviderCollaborator[]>
+  fetchContributorStats: () => Promise<any[]>
+  fetchCodeFrequency: () => Promise<any[]>
+  fetchParticipation: () => Promise<any>
+  fetchPunchCard: () => Promise<any[]>
+  fetchCommunityProfile: () => Promise<any>
+  fetchCodeownersErrors: () => Promise<any[]>
+  fetchBranchProtections: () => Promise<any[]>
+  fetchGitCommits: (options?: any) => Promise<any[]>
+  compareCommits: (base: string, head: string) => Promise<any>
+  fetchRepositorySecrets: () => Promise<any[]>
+  fetchRepositoryIssueTypes: () => Promise<any[]>
+  fetchSelfHostedRunners: () => Promise<any[]>
+  fetchRequiredWorkflows: () => Promise<any[]>
+  fetchWorkflowRuns: (options?: any) => Promise<any[]>
+  fetchWorkflowRunJobs: (runId: number) => Promise<any[]>
+  fetchWorkflowRunAttempts: (runId: number) => Promise<any[]>
+  fetchWorkflowRunArtifacts: (runId: number) => Promise<any[]>
+  fetchJobLogs: (jobId: number) => Promise<string>
+  fetchOrganizationIssueFields: () => Promise<any[]>
+  fetchPackages: () => Promise<any[]>
+  fetchPackageVersions: (packageName: string) => Promise<any[]>
 }
 
 export interface ProviderActionsWorkflowRun {

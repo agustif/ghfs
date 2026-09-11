@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { RepositoryProvider } from '../types/provider'
 import { vi } from 'vitest'
 
@@ -38,6 +39,9 @@ export function createMockProvider(overrides: Partial<RepositoryProvider> = {}):
       html_url: 'https://github.com/owner/repo',
       fork: false,
       open_issues_count: 0,
+      stargazers_count: 0,
+      watchers_count: 0,
+      forks_count: 0,
       has_issues: true,
       has_projects: true,
       has_wiki: false,

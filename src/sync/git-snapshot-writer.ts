@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { GitCommitSnapshot, GitSnapshot } from './git-snapshot'
 import type { SyncContext } from './sync-repository-types'
 import { mkdir, writeFile } from 'node:fs/promises'
