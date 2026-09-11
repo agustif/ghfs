@@ -1,6 +1,6 @@
 import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/unstable/cli'
-import { ExecutionEngine, SyncEngine } from '../services'
+import { ExecutionEngine, SyncEngineStreaming } from '../services'
 import { applyCommand, planCommand } from './apply-commands'
 
 export const syncCommand = Command.make(
@@ -13,7 +13,7 @@ export const syncCommand = Command.make(
   Effect.fn('syncCommand')(function* ({ full, since, repo }) {
     yield* Effect.log('Running sync command', { full, since, repo })
 
-    const syncEngine = yield* SyncEngine
+    const syncEngine = yield* SyncEngineStreaming
     const summary = yield* syncEngine.sync({
       full,
       since: Option.getOrUndefined(since),
