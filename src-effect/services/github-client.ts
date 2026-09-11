@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, PullRequest, Release, Repo, TimelineEvent, WikiPage, Workflow } from '../domain'
+import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, PullRequest, Release, Repo, RepoPackage, TimelineEvent, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, ReactionSummary, Release, TimelineEvent, WikiPage, Workflow } from '../domain'
+import { Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, ReactionSummary, Release, RepoPackage, TimelineEvent, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -89,6 +89,11 @@ export class GitHubClient extends Context.Service<
       entries: Array<MergeQueueEntry>
       pageInfo: { hasNextPage: boolean; endCursor: string | null }
     }, GitHubError>
+    fetchPackages: (params?: {
+      page?: number
+      perPage?: number
+      packageType?: string
+    }) => Effect.Effect<Array<RepoPackage>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -1070,6 +1075,98 @@ export class GitHubClient extends Context.Service<
         }
       })
 
+      const KNOWN_PACKAGE_TYPES = [
+        "npm",
+        "maven",
+        "rubygems",
+        "docker",
+        "nuget",
+        "container",
+      ] as const
+
+      type GitHubPackageWire = {
+        id?: number
+        name: string
+        package_type: string
+        visibility?: string
+        created_at: string
+        updated_at: string
+        html_url?: string
+        url?: string
+        owner?: { login?: string | null } | null
+        repository?: { full_name?: string | null } | null
+      }
+
+      function mapPackage(row: GitHubPackageWire, fallbackOwner: string): RepoPackage {
+        const htmlUrl = row.html_url ?? undefined
+        const fullName = row.repository?.full_name ?? undefined
+        const ownerLogin = row.owner?.login ?? fallbackOwner
+
+        return new RepoPackage({
+          name: row.name,
+          packageType: row.package_type,
+          visibility: row.visibility ?? "private",
+          owner: ownerLogin,
+          createdAt: DateTime.fromDateUnsafe(new Date(row.created_at)),
+          updatedAt: DateTime.fromDateUnsafe(new Date(row.updated_at)),
+          ...(htmlUrl ? { htmlUrl } : {}),
+          ...(fullName ? { repository: { fullName } } : {}),
+        })
+      }
+
+      const fetchPackagesForType = Effect.fn("GitHubClient.fetchPackagesForType")(
+        function* (params: {
+          packageType: string
+          page?: number
+          perPage?: number
+        }): Effect.fn.Return<Array<RepoPackage>, GitHubError> {
+          const searchParams = new URLSearchParams()
+          searchParams.set("package_type", params.packageType)
+          if (params.page) searchParams.set("page", String(params.page))
+          searchParams.set("per_page", String(params.perPage ?? 100))
+
+          // Prefer org-scoped list (Packages are often org/user scoped; org = repo owner).
+          const orgPath = `/orgs/${owner}/packages?${searchParams.toString()}`
+          const userPath = `/users/${owner}/packages?${searchParams.toString()}`
+
+          const tryGet = (path: string) =>
+            client.get(path).pipe(Effect.mapError(toGitHubError))
+
+          const response = yield* tryGet(orgPath).pipe(
+            Effect.catchAll(() => tryGet(userPath)),
+          )
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const rows = (Array.isArray(json) ? json : []) as Array<GitHubPackageWire>
+          return rows.map((row) => mapPackage(row, owner))
+        },
+      )
+
+      const fetchPackages = Effect.fn("GitHubClient.fetchPackages")(function* (params: {
+        page?: number
+        perPage?: number
+        packageType?: string
+      } = {}): Effect.fn.Return<Array<RepoPackage>, GitHubError> {
+        const types = params.packageType
+          ? [params.packageType]
+          : [...KNOWN_PACKAGE_TYPES]
+
+        const pages = yield* Effect.forEach(
+          types,
+          (packageType) =>
+            fetchPackagesForType({
+              packageType,
+              page: params.page,
+              perPage: params.perPage,
+            }).pipe(
+              // Missing registry / 404 for a type → empty page (keep SyncPackages resilient).
+              Effect.catchAll(() => Effect.succeed([] as Array<RepoPackage>)),
+            ),
+          { concurrency: 1 },
+        )
+
+        return pages.flat()
+      })
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -1255,6 +1352,7 @@ export class GitHubClient extends Context.Service<
         fetchWikiPages,
         fetchWorkflows,
         fetchMergeQueueEntries,
+        fetchPackages,
         fetchPatch,
         closeIssue,
         reopenIssue,
