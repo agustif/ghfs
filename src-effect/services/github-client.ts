@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, Person, PullRequest, Release, Repo, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, Person, ProjectV2, PullRequest, Release, Repo, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, Person, ReactionSummary, Release, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, Person, ProjectV2, ReactionSummary, Release, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -112,6 +112,13 @@ export class GitHubClient extends Context.Service<
       perPage?: number
     }) => Effect.Effect<Array<Collaborator>, GitHubError>
     fetchCodeowners: () => Effect.Effect<CodeownersFile | null, GitHubError>
+    fetchProjectsV2: (params?: {
+      after?: string | null
+      first?: number
+    }) => Effect.Effect<{
+      projects: Array<ProjectV2>
+      pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    }, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -1642,6 +1649,121 @@ export class GitHubClient extends Context.Service<
         }
       )
 
+      const PROJECTS_V2_QUERY = `
+  query ProjectsV2($owner: String!, $name: String!, $first: Int!, $after: String) {
+    repository(owner: $owner, name: $name) {
+      projectsV2(first: $first, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          number
+          title
+          shortDescription
+          public
+          closed
+          url
+          createdAt
+          updatedAt
+          closedAt
+          owner {
+            ... on Organization {
+              login
+            }
+            ... on User {
+              login
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+      type GqlProjectV2Node = {
+        id: string
+        number: number
+        title: string
+        shortDescription: string | null
+        public: boolean
+        closed: boolean
+        url: string
+        createdAt: string
+        updatedAt: string
+        closedAt: string | null
+        owner?: { login?: string | null } | null
+      }
+
+      type GqlProjectsV2Response = {
+        data?: {
+          repository?: {
+            projectsV2?: {
+              pageInfo: { hasNextPage: boolean; endCursor: string | null }
+              nodes: Array<GqlProjectV2Node | null>
+            } | null
+          } | null
+        }
+        errors?: Array<{ message: string }>
+      }
+
+      function mapProjectV2(node: GqlProjectV2Node): ProjectV2 {
+        return new ProjectV2({
+          id: node.id,
+          number: node.number,
+          title: node.title,
+          url: node.url,
+          closed: node.closed ?? false,
+          public: node.public ?? false,
+          shortDescription: node.shortDescription ?? null,
+          createdAt: DateTime.fromDateUnsafe(new Date(node.createdAt)),
+          updatedAt: DateTime.fromDateUnsafe(new Date(node.updatedAt)),
+          closedAt: node.closedAt
+            ? DateTime.fromDateUnsafe(new Date(node.closedAt))
+            : null,
+          ownerLogin: node.owner?.login ?? "",
+        })
+      }
+
+      const fetchProjectsV2 = Effect.fn("GitHubClient.fetchProjectsV2")(function* (params: {
+        after?: string | null
+        first?: number
+      } = {}): Effect.fn.Return<{
+        projects: Array<ProjectV2>
+        pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      }, GitHubError> {
+        const json = (yield* graphql(PROJECTS_V2_QUERY, {
+          owner,
+          name,
+          first: params.first ?? 100,
+          after: params.after ?? null,
+        })) as GqlProjectsV2Response
+
+        if (json.errors?.length) {
+          return yield* Effect.fail(
+            new GitHubError({
+              status: 200,
+              message: json.errors.map((e) => e.message).join("; "),
+              details: "GraphQL errors on repository.projectsV2",
+            }),
+          )
+        }
+
+        const connection = json.data?.repository?.projectsV2
+        const nodes = (connection?.nodes ?? []).filter(
+          (n): n is GqlProjectV2Node => n != null,
+        )
+        return {
+          projects: nodes.map(mapProjectV2),
+          pageInfo: {
+            hasNextPage: connection?.pageInfo.hasNextPage ?? false,
+            endCursor: connection?.pageInfo.endCursor ?? null,
+          },
+        }
+      })
+
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -1832,6 +1954,7 @@ export class GitHubClient extends Context.Service<
         fetchTeams,
         fetchCollaborators,
         fetchCodeowners,
+        fetchProjectsV2,
         fetchPatch,
         closeIssue,
         reopenIssue,
