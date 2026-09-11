@@ -26,3 +26,4 @@ export * from "./sync-projects-v2"
 
 export * from "./sync-pages-builds"
 export * from "./sync-sponsorships"
+export * from "./sync-actions-webhooks"

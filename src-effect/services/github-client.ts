@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoPackage, Sponsorship, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoPackage, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoPackage, Sponsorship, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoPackage, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -130,6 +130,10 @@ export class GitHubClient extends Context.Service<
       sponsorships: Array<Sponsorship>
       pageInfo: { hasNextPage: boolean; endCursor: string | null }
     }, GitHubError>
+    fetchActionsWebhooks: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<Webhook>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -2184,6 +2188,91 @@ export class GitHubClient extends Context.Service<
         }
       })
 
+
+      type GitHubWebhookWire = {
+        id?: number | null
+        type?: string | null
+        name?: string | null
+        active?: boolean | null
+        events?: Array<string> | null
+        config?: {
+          url?: string | null
+          content_type?: string | null
+          insecure_ssl?: string | null
+          secret?: string | null
+        } | null
+        created_at?: string | null
+        updated_at?: string | null
+      }
+
+      // Redact hostname chars (legacy sync-actions-webhooks redactUrlHost).
+      function redactUrlHost(url: string): string {
+        try {
+          const parsed = new URL(url)
+          return `${parsed.protocol}//${parsed.hostname.replace(/./g, "*")}${parsed.pathname}`
+        } catch {
+          return "[redacted]"
+        }
+      }
+
+      function mapWebhook(row: GitHubWebhookWire): Webhook | null {
+        const id = row.id
+        const type = row.type?.trim()
+        const name = row.name?.trim()
+        const createdAt = row.created_at
+        const updatedAt = row.updated_at
+        if (
+          typeof id !== "number" ||
+          !Number.isInteger(id) ||
+          !type ||
+          !name ||
+          !createdAt ||
+          !updatedAt
+        ) {
+          return null
+        }
+
+        const wireConfig = row.config ?? {}
+        const rawUrl = wireConfig.url?.trim()
+        const contentType = wireConfig.content_type?.trim()
+        const insecureSsl = wireConfig.insecure_ssl?.trim()
+
+        return new Webhook({
+          id,
+          type,
+          name,
+          active: row.active ?? false,
+          events: Array.isArray(row.events) ? row.events : [],
+          config: {
+            ...(rawUrl ? { url: redactUrlHost(rawUrl) } : {}),
+            ...(contentType ? { contentType } : {}),
+            ...(insecureSsl ? { insecureSsl } : {}),
+            secret: "[redacted]",
+          },
+          createdAt: DateTime.fromDateUnsafe(new Date(createdAt)),
+          updatedAt: DateTime.fromDateUnsafe(new Date(updatedAt)),
+        })
+      }
+
+      const fetchActionsWebhooks = Effect.fn("GitHubClient.fetchActionsWebhooks")(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<Webhook>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        if (params.page) searchParams.set("page", String(params.page))
+        searchParams.set("per_page", String(params.perPage ?? 100))
+
+        const response = yield* client
+          .get(`/repos/${owner}/${name}/hooks?${searchParams.toString()}`)
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        const rows = (Array.isArray(json) ? json : []) as Array<GitHubWebhookWire>
+        return rows.flatMap((row) => {
+          const hook = mapWebhook(row)
+          return hook ? [hook] : []
+        })
+      })
+
       return GitHubClient.of({
         fetchRepo,
         fetchIssues,
@@ -2209,6 +2298,7 @@ export class GitHubClient extends Context.Service<
         fetchProjectsV2,
         fetchPagesBuilds,
         fetchSponsorships,
+        fetchActionsWebhooks,
         fetchPatch,
         closeIssue,
         reopenIssue,
