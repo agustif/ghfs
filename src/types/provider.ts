@@ -302,6 +302,8 @@ export interface ProviderEnvironment {
   url: string | null
 }
 
+export type ProviderEvent = ProviderRepoEvent
+
 export interface ProviderRepoEvent {
   id: string
   type: string

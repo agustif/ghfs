@@ -12,8 +12,8 @@ import type {
   ProviderReviewThread,
   ProviderSponsorship,
   ProviderStatusCheckRollup,
-  ProviderTeam,
 } from '../../types/graphql-provider'
+import type { ProviderTeam } from '../../types/provider'
 import { Buffer } from 'node:buffer'
 import {
   DISCUSSION_CATEGORIES_QUERY,

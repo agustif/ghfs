@@ -68,6 +68,7 @@ export interface GhfsUserConfig {
      * @default true
      */
     releases?: boolean
+    packages?: boolean
     /**
      * Whether to sync recent workflow runs for open PRs.
      *
@@ -348,7 +349,7 @@ export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended' | 'sy
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
   sync: NonNullable<GhfsUserConfig['sync']>
-  search: NonNullable<GhfsUserConfig['search']> & {
+  search?: NonNullable<GhfsUserConfig['search']> & {
     issueQueries: Record<string, string>
   }
   extended: NonNullable<GhfsUserConfig['extended']>

@@ -1,4 +1,5 @@
 import type { Octokit } from 'octokit'
+import type { ProviderMergeQueueEntry } from '../../types/graphql-provider'
 import type {
   MergeOptions,
   PaginateItemsOptions,
@@ -20,7 +21,6 @@ import type {
   ProviderItemSnapshot,
   ProviderLabel,
   ProviderLockReason,
-  ProviderMergeQueueEntry,
   ProviderMilestone,
   ProviderNetworkSummary,
   ProviderPullMetadata,
