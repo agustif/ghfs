@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -153,6 +153,9 @@ export class GitHubClient extends Context.Service<
     fetchNetworkSummary: () => Effect.Effect<NetworkSummary, GitHubError>
     fetchFeeds: () => Effect.Effect<Feeds, GitHubError>
     fetchBranchProtection: (branch: string) => Effect.Effect<BranchProtection | null, GitHubError>
+    fetchRecentWorkflowRuns: (params?: {
+      limit?: number
+    }) => Effect.Effect<Array<WorkflowRun>, GitHubError>
     fetchRepository: () => Effect.Effect<RepoMetadata, GitHubError>
     fetchRepositoryTopics: () => Effect.Effect<Array<string>, GitHubError>
     fetchPinnedIssues: () => Effect.Effect<Array<number>, GitHubError>
@@ -2788,6 +2791,73 @@ export class GitHubClient extends Context.Service<
         }
       )
 
+      type GitHubWorkflowRunWire = {
+        id: number
+        name?: string | null
+        head_branch?: string | null
+        head_sha: string
+        status: string
+        conclusion?: string | null
+        workflow_id: number
+        created_at: string
+        updated_at: string
+        html_url?: string | null
+        event: string
+        actor?: { login?: string | null } | null
+      }
+
+      type GitHubWorkflowRunsListResponse = {
+        workflow_runs?: Array<GitHubWorkflowRunWire>
+        total_count?: number
+      }
+
+      function mapWorkflowRun(row: GitHubWorkflowRunWire): WorkflowRun {
+        const htmlUrl = row.html_url ?? undefined
+        return new WorkflowRun({
+          id: row.id,
+          name: row.name ?? null,
+          headBranch: row.head_branch ?? null,
+          headSha: row.head_sha,
+          status: row.status,
+          conclusion: row.conclusion ?? null,
+          workflowId: row.workflow_id,
+          createdAt: DateTime.fromDateUnsafe(new Date(row.created_at)),
+          updatedAt: DateTime.fromDateUnsafe(new Date(row.updated_at)),
+          ...(htmlUrl ? { htmlUrl } : {}),
+          event: row.event,
+          actor: row.actor?.login ?? null,
+        })
+      }
+
+      const fetchRecentWorkflowRuns = Effect.fn("GitHubClient.fetchRecentWorkflowRuns")(
+        function* (params: { limit?: number } = {}): Effect.fn.Return<
+          Array<WorkflowRun>,
+          GitHubError
+        > {
+          const limit = Math.min(Math.max(params.limit ?? 20, 1), 100)
+          const searchParams = new URLSearchParams()
+          searchParams.set("per_page", String(limit))
+
+          return yield* Effect.gen(function* () {
+            const response = yield* client
+              .get(`/repos/${owner}/${name}/actions/runs?${searchParams.toString()}`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = (yield* response.json.pipe(
+              Effect.mapError(toGitHubError)
+            )) as GitHubWorkflowRunsListResponse
+            const rows = Array.isArray(json.workflow_runs) ? json.workflow_runs : []
+            return rows.slice(0, limit).map(mapWorkflowRun)
+          }).pipe(
+            Effect.catchIf(
+              (error): error is GitHubError =>
+                error instanceof GitHubError &&
+                (error.status === 404 || error.status === 403),
+              () => Effect.succeed([] as Array<WorkflowRun>)
+            )
+          )
+        }
+      )
+
       type GitHubRepositoryWire = {
         name?: string
         full_name?: string
@@ -3720,6 +3790,7 @@ export class GitHubClient extends Context.Service<
         fetchNetworkSummary,
         fetchFeeds,
         fetchBranchProtection,
+        fetchRecentWorkflowRuns,
         fetchRepository,
         fetchRepositoryTopics,
         fetchPinnedIssues,
