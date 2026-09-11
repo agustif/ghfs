@@ -54,10 +54,11 @@ import {
   SyncTemplate,
   SyncForkStatus,
   SyncNetworkSummary,
+  SyncActivityEvents,
 } from '../services'
 
 /** AppLayer @ tip 200cc0f (#198 Schema-first execute.md).
- * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments / SyncSecuritySummary / SyncActivitySummary / SyncDeploymentsSummary / SyncMeSummary / SyncAutolinks / SyncRuleSuites / SyncSearchCodeTodos / SyncSearchCommitRefs / SyncSearchMentions / SyncSearchIssueQueries / SyncLatestPagesBuild / SyncStatus / SyncAgentHints / SyncGate / SyncWorkflowPermissions / SyncViewerStatus / SyncCommitComments / SyncInvitations / SyncTemplate / SyncForkStatus / SyncNetworkSummary — no service body rewrites.
+ * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments / SyncSecuritySummary / SyncActivitySummary / SyncDeploymentsSummary / SyncMeSummary / SyncAutolinks / SyncRuleSuites / SyncSearchCodeTodos / SyncSearchCommitRefs / SyncSearchMentions / SyncSearchIssueQueries / SyncLatestPagesBuild / SyncStatus / SyncAgentHints / SyncGate / SyncWorkflowPermissions / SyncViewerStatus / SyncCommitComments / SyncInvitations / SyncTemplate / SyncForkStatus / SyncNetworkSummary / SyncActivityEvents — no service body rewrites.
  */
 export const AppLayer = Layer.mergeAll(
   GhfsConfig.layer,
@@ -113,5 +114,6 @@ export const AppLayer = Layer.mergeAll(
   SyncTemplate.layer,
   SyncForkStatus.layer,
   SyncNetworkSummary.layer,
+  SyncActivityEvents.layer,
   NodeContext.layer,
 )
