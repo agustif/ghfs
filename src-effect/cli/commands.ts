@@ -1,6 +1,7 @@
 import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/unstable/cli'
 import { ExecutionEngine, SyncEngine } from '../services'
+import { applyCommand, planCommand } from './apply-commands'
 
 export const syncCommand = Command.make(
   'sync',
@@ -47,7 +48,15 @@ export const statusCommand = Command.make(
   }),
 )
 
+export { applyCommand, planCommand }
+
 export const app = Command.make('ghfs').pipe(
   Command.withDescription('GitHub issues/PRs as filesystem'),
-  Command.withSubcommands([syncCommand, executeCommand, statusCommand]),
+  Command.withSubcommands([
+    syncCommand,
+    executeCommand,
+    statusCommand,
+    planCommand,
+    applyCommand,
+  ]),
 )

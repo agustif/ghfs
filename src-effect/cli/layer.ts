@@ -1,6 +1,6 @@
 import { NodeContext } from '@effect/platform-node'
 import { Layer } from 'effect'
-import { ExecutionEngine, GhfsConfig, GitHubClient, MirrorFs, SyncEngine } from '../services'
+import { ApplyEngine, ExecutionEngine, GhfsConfig, GitHubClient, MirrorFs, SyncEngine } from '../services'
 
 /** Single application Layer composition root for the Effect CLI. */
 export const AppLayer = Layer.mergeAll(
@@ -9,5 +9,6 @@ export const AppLayer = Layer.mergeAll(
   MirrorFs.layer,
   SyncEngine.layer,
   ExecutionEngine.layer,
+  ApplyEngine.layer,
   NodeContext.layer,
 )
