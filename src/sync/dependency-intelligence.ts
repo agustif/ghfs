@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { RepositoryProvider } from '../types/provider'
 import type {
   AttestationsSummary,

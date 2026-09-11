@@ -1,5 +1,5 @@
 import type { Dirent } from 'node:fs'
-import { access, mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'pathe'
 import { PULL_DIR_NAME } from '../constants'
 

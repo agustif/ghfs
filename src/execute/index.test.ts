@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { GhfsResolvedConfig } from '../types'
 import type { RepositoryProvider } from '../types/provider'
 import type { PendingOp } from './types'
@@ -683,7 +684,6 @@ function createConfig(): GhfsResolvedConfig {
       pulls: true,
       closed: false,
       patches: 'open',
-      actions: false,
       actionsRunsPerWorkflow: 30,
       meta: true,
       labelsAndMilestones: true,

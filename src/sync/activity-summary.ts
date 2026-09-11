@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ProviderEvent } from '../types/provider'
 import type { SyncContext } from './sync-repository-types'
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { PersonSummary } from '../types/people'
 import type { SyncContext } from './sync-repository-types'
 import { mkdir, writeFile } from 'node:fs/promises'

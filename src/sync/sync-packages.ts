@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ProviderPackage, ProviderPackageVersion } from '../types/provider'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'

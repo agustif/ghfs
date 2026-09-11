@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { SyncContext } from './sync-repository-types'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'

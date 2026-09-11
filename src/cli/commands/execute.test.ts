@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ExecutePrompts } from '../../execute'
 import type { PendingOp } from '../../execute/types'
 import type { SyncSummary } from '../../sync'

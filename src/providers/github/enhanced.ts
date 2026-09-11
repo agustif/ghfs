@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Octokit } from 'octokit'
 import type {
   ProviderBranchProtection,

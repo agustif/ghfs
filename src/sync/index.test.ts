@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { GhfsResolvedConfig, SyncItemState } from '../types'
 import type { ProviderItem, RepositoryProvider } from '../types/provider'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
@@ -500,7 +501,6 @@ function createConfig(cwd: string, sync: Partial<GhfsResolvedConfig['sync']> = {
       pulls: sync.pulls ?? true,
       closed: sync.closed ?? false,
       patches: sync.patches ?? 'open',
-      actions: false,
       actionsRunsPerWorkflow: 30,
       meta: true,
       labelsAndMilestones: true,

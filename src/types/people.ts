@@ -49,3 +49,9 @@ export interface CollaboratorsSummary {
   apps: GitHubAppInfo[]
   syncedAt: string
 }
+
+export interface PeopleSnapshot {
+  people: PersonSummary[]
+  collaborators?: CollaboratorsSummary
+  syncedAt: string
+}

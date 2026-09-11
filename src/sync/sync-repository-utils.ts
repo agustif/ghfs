@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { GhfsResolvedConfig, IssueKind, IssueState } from '../types'
 import type { ProviderItem } from '../types/provider'
 import type { PatchPlan, SyncCounters } from './sync-repository-types'

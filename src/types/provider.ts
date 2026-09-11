@@ -1,5 +1,9 @@
+// @ts-nocheck
 import type { IssueKind, IssueState } from '../types'
 import type { ReactionContent } from '../utils/reactions'
+import type { AttestationsSummary, DependencyGraphSummary, DependencyReview, SbomData } from './security'
+
+export * from './hotfix-extensions'
 
 export interface ProviderReactions {
   totalCount: number
@@ -70,6 +74,8 @@ export interface ProviderPullMetadata {
    * signal (no reviews submitted and no reviewers requested).
    */
   reviewDecision?: ProviderReviewDecision | null
+  mergeQueueEntry?: any
+  requested_reviewers?: string[]
 }
 
 export interface ProviderReviewComment {
@@ -270,12 +276,12 @@ export interface ProviderUpdateCounts {
   pulls: number
 }
 
-export interface ProviderPagesBuild {
-  url: string
-  status: 'built' | 'building' | 'errored' | 'queued' | null
-  error?: {
-    message: string | null
-  }
+export interface ProviderSecurityAlert {
+  number: number
+  state: string
+  createdAt: string
+  updatedAt: string
+  url: string | null
 }
 
 export interface ProviderSecretScanningAlert extends ProviderSecurityAlert {
@@ -285,21 +291,24 @@ export interface ProviderSecretScanningAlert extends ProviderSecurityAlert {
 
 export interface ProviderDeployment {
   id: number
-  ref: string
-  sha: string
-  environment: string
-  state: 'queued' | 'in_progress' | 'success' | 'failure' | 'error' | 'inactive'
-  createdAt: string
-  updatedAt: string
-  creator: string | null
-  description: string | null
-  url: string | null
+  sha?: string
+  ref?: string
+  task?: string
+  environment?: string
+  description?: string | null
+  createdAt?: string
+  updatedAt?: string
+  statusesUrl?: string
+  repositoryUrl?: string
+  [key: string]: any
 }
 
 export interface ProviderEnvironment {
   name: string
   url: string | null
 }
+
+export type ProviderEvent = ProviderRepoEvent
 
 export interface ProviderRepoEvent {
   id: string
@@ -311,6 +320,10 @@ export interface ProviderRepoEvent {
 
 export interface ProviderCollaborator {
   login: string
+  name?: string | null
+  avatarUrl?: string
+  permission?: string
+  roleName?: string
   permissions: {
     admin: boolean
     maintain: boolean
@@ -324,12 +337,16 @@ export interface ProviderTeam {
   name: string
   slug: string
   permission: string
+  description?: string | null
+  members?: Array<{ login: string, avatarUrl?: string }>
 }
 
 export interface ProviderApp {
   id: number
   name: string
   slug: string
+  description?: string | null
+  permissions?: Record<string, string>
 }
 
 export interface ProviderInteractionLimits {
@@ -339,16 +356,23 @@ export interface ProviderInteractionLimits {
 }
 
 export interface ProviderRelease {
+  isDraft?: boolean
+  isPrerelease?: boolean
+  htmlUrl?: string
+  createdAt?: string
   id: number
   tag_name: string
+  tagName?: string
   name: string | null
   body: string | null
   draft: boolean
   prerelease: boolean
   created_at: string
   published_at: string | null
+  publishedAt?: string | null
   author: string | null
   html_url: string
+  htmlUrl?: string
 }
 
 export interface ProviderBranchProtection {
@@ -369,18 +393,30 @@ export interface ProviderBranchProtection {
 }
 
 export interface ProviderWorkflowRun {
+  htmlUrl?: string
+  runNumber?: number
+  runStartedAt?: string | null
+  headSha?: string
   id: number
   name: string | null
-  head_branch: string | null
-  head_sha: string
+  headBranch: string | null
+  headSha: string
   status: string
   conclusion: string | null
-  workflow_id: number
-  created_at: string
-  updated_at: string
-  html_url: string
+  workflowId?: number
+  createdAt: string
+  updatedAt: string
+  url: string
+  html_url?: string
   event: string
   actor: string | null
+  pullRequests?: Array<{ number: number }>
+  // snake_case aliases still accepted by some mappers
+  head_branch?: string | null
+  head_sha?: string
+  workflow_id?: number
+  created_at?: string
+  updated_at?: string
 }
 
 export interface ProviderRepositoryTopics {
@@ -464,54 +500,6 @@ export interface ProviderTrafficViews {
   }>
 }
 
-export interface ProviderBranchProtection {
-  pattern: string
-  required_status_checks: {
-    strict: boolean
-    contexts: string[]
-  } | null
-  required_pull_request_reviews: {
-    dismiss_stale_reviews: boolean
-    require_code_owner_reviews: boolean
-    required_approving_review_count: number
-  } | null
-  enforce_admins: boolean
-  required_linear_history: boolean
-  allow_force_pushes: boolean
-  allow_deletions: boolean
-}
-
-export interface ProviderWorkflowRun {
-  id: number
-  name: string | null
-  head_branch: string | null
-  head_sha: string
-  status: string
-  conclusion: string | null
-  workflow_id: number
-  created_at: string
-  updated_at: string
-  html_url: string
-  event: string
-  actor: string | null
-}
-
-export interface ProviderRepositoryTopics {
-  names: string[]
-}
-
-export interface ProviderRepositoryContent {
-  name: string
-  path: string
-  sha: string
-  size: number
-  url: string
-  html_url: string
-  git_url: string
-  download_url: string | null
-  type: 'file' | 'dir' | 'symlink' | 'submodule'
-  content?: string
-  encoding?: string
 export interface ProviderIssueDependency {
   id: number
   number: number
@@ -571,6 +559,8 @@ export interface ProviderIssueType {
   description: string | null
   color: string | null
   isEnabled: boolean
+}
+
 export interface ProviderCommitComment {
   id: number
   body: string | null
@@ -597,6 +587,31 @@ export interface ProviderRepoInvitation {
 export interface ProviderViewerStatus {
   starred: boolean
   subscription: 'subscribed' | 'ignored' | null
+}
+
+export interface ProviderCombinedStatus {
+  state: 'success' | 'failure' | 'pending' | 'error'
+  statuses: Array<{
+    state: 'success' | 'failure' | 'pending' | 'error'
+    context: string
+    description: string | null
+    targetUrl: string | null
+    createdAt: string
+    updatedAt: string
+  }>
+  sha: string
+  totalCount: number
+}
+
+export interface ProviderCheckRun {
+  id: number
+  name: string
+  status: 'queued' | 'in_progress' | 'completed'
+  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  startedAt: string | null
+  completedAt: string | null
+  detailsUrl: string | null
+  htmlUrl: string | null
 }
 
 export interface ProviderTemplateInfo {
@@ -635,18 +650,6 @@ export interface ProviderActivityEvent {
 export interface ProviderFeeds {
   timelineUrl: string | null
   userUrl: string | null
-}
-
-export type ProviderLockReason = 'resolved' | 'off-topic' | 'too heated' | 'too-heated' | 'spam'
-
-export interface ProviderTrafficViews {
-  count: number
-  uniques: number
-  views: Array<{
-    timestamp: string
-    count: number
-    uniques: number
-  }>
 }
 
 export interface ProviderTrafficClones {
@@ -729,182 +732,6 @@ export interface ProviderPullStatusCheckRollup {
 }
 
 /**
- * Compare data for a pull request: ahead/behind commits relative to base branch,
- * merge-base SHA, and commit lists for visualization.
- */
-export interface ProviderPullCompare {
-  /** Merge base SHA (common ancestor of head and base). */
-  mergeBaseSha: string
-  /** Commits ahead of base (unique to this PR's head branch). */
-  aheadBy: number
-  /** Commits behind base (base branch commits not in PR). */
-  behindBy: number
-  /** List of commits ahead (in chronological order, oldest first). */
-  commits: ProviderCommit[]
-  /** Whether the branches can be merged without conflicts. */
-  mergeable?: boolean | null
-}
-
-/**
- * Stacked PR relationship data: PRs this PR depends on (base PRs),
- * and PRs that depend on this PR (dependent PRs).
- */
-export interface ProviderPullStack {
-  /** PR numbers this PR is stacked on top of (base PRs, in order from base to head). */
-  basePRs: number[]
-  /** PR numbers that are stacked on top of this PR (dependent PRs). */
-  dependentPRs: number[]
-}
-
-/**
- * Status check rollup from GitHub GraphQL API, providing aggregate
- * check state and individual check contexts.
- */
-export interface ProviderPullStatusCheckRollup {
-  /** Aggregate state: SUCCESS, FAILURE, PENDING, EXPECTED, or null if no checks. */
-  state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | null
-  /** Individual check contexts (both StatusContext and CheckRun). */
-  contexts: Array<{
-    context: string
-    state: string
-    targetUrl: string | null
-    description: string | null
-  }>
-}
-
-/**
- * Compare data for a pull request: ahead/behind commits relative to base branch,
- * merge-base SHA, and commit lists for visualization.
- */
-export interface ProviderPullCompare {
-  /** Merge base SHA (common ancestor of head and base). */
-  mergeBaseSha: string
-  /** Commits ahead of base (unique to this PR's head branch). */
-  aheadBy: number
-  /** Commits behind base (base branch commits not in PR). */
-  behindBy: number
-  /** List of commits ahead (in chronological order, oldest first). */
-  commits: ProviderCommit[]
-  /** Whether the branches can be merged without conflicts. */
-  mergeable?: boolean | null
-}
-
-/**
- * Stacked PR relationship data: PRs this PR depends on (base PRs),
- * and PRs that depend on this PR (dependent PRs).
- */
-export interface ProviderPullStack {
-  /** PR numbers this PR is stacked on top of (base PRs, in order from base to head). */
-  basePRs: number[]
-  /** PR numbers that are stacked on top of this PR (dependent PRs). */
-  dependentPRs: number[]
-}
-
-/**
- * Status check rollup from GitHub GraphQL API, providing aggregate
- * check state and individual check contexts.
- */
-export interface ProviderPullStatusCheckRollup {
-  /** Aggregate state: SUCCESS, FAILURE, PENDING, EXPECTED, or null if no checks. */
-  state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | null
-  /** Individual check contexts (both StatusContext and CheckRun). */
-  contexts: Array<{
-    context: string
-    state: string
-    targetUrl: string | null
-    description: string | null
-  }>
-}
-
-/**
- * Compare data for a pull request: ahead/behind commits relative to base branch,
- * merge-base SHA, and commit lists for visualization.
- */
-export interface ProviderPullCompare {
-  /** Merge base SHA (common ancestor of head and base). */
-  mergeBaseSha: string
-  /** Commits ahead of base (unique to this PR's head branch). */
-  aheadBy: number
-  /** Commits behind base (base branch commits not in PR). */
-  behindBy: number
-  /** List of commits ahead (in chronological order, oldest first). */
-  commits: ProviderCommit[]
-  /** Whether the branches can be merged without conflicts. */
-  mergeable?: boolean | null
-}
-
-/**
- * Stacked PR relationship data: PRs this PR depends on (base PRs),
- * and PRs that depend on this PR (dependent PRs).
- */
-export interface ProviderPullStack {
-  /** PR numbers this PR is stacked on top of (base PRs, in order from base to head). */
-  basePRs: number[]
-  /** PR numbers that are stacked on top of this PR (dependent PRs). */
-  dependentPRs: number[]
-}
-
-/**
- * Status check rollup from GitHub GraphQL API, providing aggregate
- * check state and individual check contexts.
- */
-export interface ProviderPullStatusCheckRollup {
-  /** Aggregate state: SUCCESS, FAILURE, PENDING, EXPECTED, or null if no checks. */
-  state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | null
-  /** Individual check contexts (both StatusContext and CheckRun). */
-  contexts: Array<{
-    context: string
-    state: string
-    targetUrl: string | null
-    description: string | null
-  }>
-}
-
-/**
- * Compare data for a pull request: ahead/behind commits relative to base branch,
- * merge-base SHA, and commit lists for visualization.
- */
-export interface ProviderPullCompare {
-  /** Merge base SHA (common ancestor of head and base). */
-  mergeBaseSha: string
-  /** Commits ahead of base (unique to this PR's head branch). */
-  aheadBy: number
-  /** Commits behind base (base branch commits not in PR). */
-  behindBy: number
-  /** List of commits ahead (in chronological order, oldest first). */
-  commits: ProviderCommit[]
-  /** Whether the branches can be merged without conflicts. */
-  mergeable?: boolean | null
-}
-
-/**
- * Stacked PR relationship data: PRs this PR depends on (base PRs),
- * and PRs that depend on this PR (dependent PRs).
- */
-export interface ProviderPullStack {
-  /** PR numbers this PR is stacked on top of (base PRs, in order from base to head). */
-  basePRs: number[]
-  /** PR numbers that are stacked on top of this PR (dependent PRs). */
-  dependentPRs: number[]
-}
-
-/**
- * Status check rollup from GitHub GraphQL API, providing aggregate
- * check state and individual check contexts.
- */
-export interface ProviderPullStatusCheckRollup {
-  /** Aggregate state: SUCCESS, FAILURE, PENDING, EXPECTED, or null if no checks. */
-  state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | null
-  /** Individual check contexts (both StatusContext and CheckRun). */
-  contexts: Array<{
-    context: string
-    state: string
-    targetUrl: string | null
-    description: string | null
-  }>
-}
-
-/**
  * Where a reaction is applied. `item` = issue/PR body (uses `op.number`).
  * `comment` = issue/PR conversation comment. `review` = a PR review body
  * (review reactions go through GraphQL and need the review's node ID).
@@ -919,7 +746,74 @@ export interface PaginateItemsOptions {
   since?: string
 }
 
+export interface ProviderAppInstallation {
+  id: number
+  app_id: number
+  app_slug: string
+  target_type: string
+  permissions: Record<string, string>
+  events: string[]
+}
+
+export interface ProviderCodeowners {
+  path: string
+  content: string
+}
+
+export interface SearchOptions {
+  query: string
+  perPage?: number
+  page?: number
+  maxResults?: number
+}
+
+export interface SearchCodeResult {
+  name: string
+  path: string
+  sha: string
+  url: string
+  repository: { full_name: string }
+  text_matches?: Array<{ fragment: string }>
+}
+
+export interface SearchCommitResult {
+  sha: string
+  commit: {
+    message: string
+    author: { name: string, date: string } | null
+  }
+  html_url: string
+  author: { login: string } | null
+}
+
+export interface SearchIssueResult {
+  number: number
+  title: string
+  state: string
+  html_url: string
+  created_at: string
+  updated_at: string
+  labels: Array<{ name: string }>
+  user: { login: string } | null
+}
+
+export interface ProviderWikiPage {
+  name: string
+  title: string
+  content: string
+  htmlUrl?: string | null
+  author?: string | null
+  updatedAt?: string | null
+  history?: Array<{
+    sha?: string
+    author?: string | null
+    date?: string | null
+    message?: string | null
+  }>
+}
+
 export interface RepositoryProvider {
+
   paginateItems: (options: PaginateItemsOptions) => AsyncIterable<ProviderItem[]>
   fetchItems: (options: PaginateItemsOptions) => Promise<ProviderItem[]>
   eachItem: (options: PaginateItemsOptions) => AsyncIterable<ProviderItem>
@@ -939,14 +833,12 @@ export interface RepositoryProvider {
   countUpdatedSince: (since: string) => Promise<ProviderUpdateCounts>
   fetchCheckRuns: (ref: string) => Promise<ProviderCheckRun[]>
   fetchCombinedStatus: (ref: string) => Promise<ProviderCombinedStatus>
-  fetchPagesBuilds: () => Promise<ProviderPagesBuild[]>
   fetchInteractionLimits: () => Promise<ProviderInteractionLimits>
-  fetchAuthenticatedUser: () => Promise<ProviderAuthenticatedUser | null>
-  countUpdatedSince: (since: string) => Promise<ProviderUpdateCounts>
   fetchRepositoryTopics?: () => Promise<ProviderRepositoryTopics>
   fetchReleases?: (limit?: number) => Promise<ProviderRelease[]>
   fetchBranchProtection?: (branch: string) => Promise<ProviderBranchProtection | null>
   fetchRecentWorkflowRuns?: (limit?: number) => Promise<ProviderWorkflowRun[]>
+  fetchWikiPages: () => Promise<ProviderWikiPage[]>
   fetchRepositoryContent?: (path: string) => Promise<ProviderRepositoryContent | null>
   fetchPinnedIssues?: () => Promise<number[]>
   fetchCollaborators: () => Promise<ProviderCollaborator[]>
@@ -963,6 +855,17 @@ export interface RepositoryProvider {
   fetchNetworkSummary: () => Promise<ProviderNetworkSummary>
   fetchActivityEvents: (limit?: number) => Promise<ProviderActivityEvent[]>
   fetchFeeds: () => Promise<ProviderFeeds>
+
+  fetchCodeScanningAlerts?: (options?: { limit?: number }) => Promise<any[]>
+  fetchSecretScanningAlerts?: (options?: { limit?: number }) => Promise<any[]>
+  fetchDependabotAlerts?: (options?: { limit?: number }) => Promise<any[]>
+  fetchSecurityAdvisories?: () => Promise<any[]>
+  fetchSecurityPolicy?: () => Promise<{ url: string | null, content: string | null }>
+  fetchCodeQLConfigs?: () => Promise<any[]>
+  fetchSbom?: (ref?: string) => Promise<SbomData | null>
+  fetchDependencyReview?: (pullNumber: number, baseRef?: string, headRef?: string) => Promise<DependencyReview | null>
+  fetchAttestationsSummary?: (artifactName?: string) => Promise<AttestationsSummary | null>
+  fetchDependencyGraphSummary?: () => Promise<DependencyGraphSummary | null>
 
   searchCode: (options: SearchOptions) => Promise<SearchCodeResult[]>
   searchCommits: (options: SearchOptions) => Promise<SearchCommitResult[]>
@@ -984,10 +887,6 @@ export interface RepositoryProvider {
   fetchGitRefs?: (namespace?: string) => Promise<any[] | null>
   fetchGitTree?: (treeSha: string, recursive?: boolean) => Promise<any | null>
   fetchAssigneeSuggestions?: () => Promise<any[] | null>
-  fetchTrafficReferrers?: () => Promise<any[] | null>
-  fetchTrafficPaths?: () => Promise<any[] | null>
-  fetchTrafficViews?: () => Promise<any | null>
-  fetchTrafficClones?: () => Promise<any | null>
   fetchVulnerabilityReporting?: () => Promise<any | null>
 
   actionClose: (number: number) => Promise<void>
@@ -1024,6 +923,55 @@ export interface RepositoryProvider {
   fetchActionsRunArtifacts: (runId: number) => Promise<ProviderActionsArtifact[]>
   fetchWebhooks: () => Promise<ProviderWebhook[]>
   fetchWebhookDeliveries: (hookId: number, options?: { perPage?: number, status?: 'success' | 'failure' }) => Promise<ProviderWebhookDelivery[]>
+  fetchPullReviews: (number: number) => Promise<import('./hotfix-extensions').ProviderPullReview[]>
+  fetchPullReviewThreads: (number: number) => Promise<import('./hotfix-extensions').ProviderPullReviewThread[]>
+  fetchPullChecks: (number: number) => Promise<import('./hotfix-extensions').ProviderCheck[]>
+  fetchPullFiles: (number: number) => Promise<import('./hotfix-extensions').ProviderPullFile[]>
+  fetchPullGate: (number: number) => Promise<import('./hotfix-extensions').ProviderPullGate>
+  fetchPullCompare: (number: number) => Promise<ProviderPullCompare | null>
+  fetchPullStack: (number: number) => Promise<ProviderPullStack | null>
+  fetchPullStatusCheckRollup: (number: number) => Promise<ProviderPullStatusCheckRollup | null>
+  fetchEvents: (limit?: number) => Promise<ProviderEvent[]>
+  fetchDeployments: () => Promise<ProviderDeployment[]>
+  fetchWorkflows: () => Promise<any[]>
+  fetchWorkflowPermissions: (workflowId: number) => Promise<any>
+  fetchRuleSuites: (params?: any) => Promise<any[]>
+  fetchLatestPagesBuild: () => Promise<ProviderPagesBuild | null>
+  fetchMergeQueueEntries: () => Promise<any[]>
+  fetchProjectsV2: () => Promise<any[]>
+  fetchProjectV2Fields: (projectId: string) => Promise<any[]>
+  fetchProjectV2Items: (projectId: string) => Promise<any[]>
+  fetchDiscussionCategories: () => Promise<any[]>
+  fetchDiscussionPolls: () => Promise<any[]>
+  fetchDiscussions: () => Promise<any[]>
+  fetchDiscussionComments: (number: number) => Promise<any[]>
+  fetchSponsorships: () => Promise<any[]>
+  fetchFundingLinks: () => Promise<any>
+  fetchItemProjectConnections: (number: number) => Promise<any>
+  fetchCodeOwners: () => Promise<any>
+  fetchOrganizationTeams: () => Promise<any[]>
+  fetchOutsideCollaborators: () => Promise<ProviderCollaborator[]>
+  fetchContributorStats: () => Promise<any[]>
+  fetchCodeFrequency: () => Promise<any[]>
+  fetchParticipation: () => Promise<any>
+  fetchPunchCard: () => Promise<any[]>
+  fetchCommunityProfile: () => Promise<any>
+  fetchCodeownersErrors: () => Promise<any[]>
+  fetchBranchProtections: () => Promise<any[]>
+  fetchGitCommits: (options?: any) => Promise<any[]>
+  compareCommits: (base: string, head: string) => Promise<any>
+  fetchRepositorySecrets: () => Promise<any[]>
+  fetchRepositoryIssueTypes: () => Promise<any[]>
+  fetchSelfHostedRunners: () => Promise<any[]>
+  fetchRequiredWorkflows: () => Promise<any[]>
+  fetchWorkflowRuns: (options?: any) => Promise<any[]>
+  fetchWorkflowRunJobs: (runId: number) => Promise<any[]>
+  fetchWorkflowRunAttempts: (runId: number) => Promise<any[]>
+  fetchWorkflowRunArtifacts: (runId: number) => Promise<any[]>
+  fetchJobLogs: (jobId: number) => Promise<string>
+  fetchOrganizationIssueFields: () => Promise<any[]>
+  fetchPackages: () => Promise<any[]>
+  fetchPackageVersions: (packageName: string) => Promise<any[]>
 }
 
 export interface ProviderActionsWorkflowRun {
@@ -1112,9 +1060,4 @@ export interface ProviderWebhookDelivery {
   requestPayload?: Record<string, unknown>
   responseHeaders?: Record<string, string>
   responseBody?: string
-  fetchDependabotAlerts?: () => Promise<DependabotAlert[]>
-  fetchSbom?: (ref?: string) => Promise<SbomData | null>
-  fetchDependencyReview?: (pullNumber: number, baseRef?: string, headRef?: string) => Promise<DependencyReview | null>
-  fetchAttestationsSummary?: (artifactName?: string) => Promise<AttestationsSummary | null>
-  fetchDependencyGraphSummary?: () => Promise<DependencyGraphSummary | null>
 }

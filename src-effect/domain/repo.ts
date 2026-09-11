@@ -1,6 +1,6 @@
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
-export class Repo extends Schema.Class<Repo>("Repo")({
+export class Repo extends Schema.Class<Repo>('Repo')({
   owner: Schema.String,
   name: Schema.String,
   fullName: Schema.String,
@@ -10,15 +10,15 @@ export class Repo extends Schema.Class<Repo>("Repo")({
     Schema.Struct({
       name: Schema.String,
       color: Schema.String,
-      description: Schema.NullOr(Schema.String)
-    })
+      description: Schema.NullOr(Schema.String),
+    }),
   ),
   milestones: Schema.Array(
     Schema.Struct({
       number: Schema.Int,
       title: Schema.String,
-      state: Schema.Literal("open", "closed"),
-      description: Schema.NullOr(Schema.String)
-    })
-  )
+      state: Schema.Literals(['open', 'closed']),
+      description: Schema.NullOr(Schema.String),
+    }),
+  ),
 }) {}

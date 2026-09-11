@@ -1,9 +1,9 @@
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
-export class Issue extends Schema.Class<Issue>("Issue")({
+export class Issue extends Schema.Class<Issue>('Issue')({
   number: Schema.Int,
   title: Schema.String,
-  state: Schema.Literal("open", "closed"),
+  state: Schema.Literals(['open', 'closed']),
   body: Schema.NullOr(Schema.String),
   labels: Schema.Array(Schema.String),
   assignees: Schema.Array(Schema.String),
@@ -18,7 +18,7 @@ export class Issue extends Schema.Class<Issue>("Issue")({
       author: Schema.String,
       body: Schema.String,
       createdAt: Schema.DateTimeUtc,
-      updatedAt: Schema.DateTimeUtc
-    })
-  )
+      updatedAt: Schema.DateTimeUtc,
+    }),
+  ),
 }) {}

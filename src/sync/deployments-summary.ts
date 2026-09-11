@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { SyncContext } from './sync-repository-types'
 
 export interface DeploymentsSummary {

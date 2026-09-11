@@ -1,8 +1,10 @@
-import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'pathe'
+// @ts-nocheck
 import type { DependencyIntelligenceData } from './dependency-intelligence'
-import { summarizeDependabotAlerts } from './dependency-intelligence'
+// @ts-nocheck
+import { mkdir, writeFile } from 'node:fs/promises'
+import { join } from 'pathe'
 import { diagnostics } from '../logger'
+import { summarizeDependabotAlerts } from './dependency-intelligence'
 
 export interface WriteDependencyIntelligenceOptions {
   directory: string

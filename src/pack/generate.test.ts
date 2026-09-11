@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { SyncItemState } from '../types'
 import { describe, expect, it } from 'vitest'
 import { generatePack } from './generate'

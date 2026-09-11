@@ -11,13 +11,13 @@ export {
 } from './execution-log'
 
 export {
+  writeExtendedMetadata,
+} from './extended-metadata'
+
+export {
   writeExtendedMetadataErgonomics,
 } from './extended-metadata-ergonomics'
 
 export {
   syncRepository,
 } from './sync-repository'
-
-export {
-  writeExtendedMetadata,
-} from './extended-metadata'

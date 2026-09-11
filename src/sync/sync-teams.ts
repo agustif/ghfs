@@ -1,10 +1,10 @@
-import type { ProviderTeam } from '../types/graphql-provider'
+import type { ProviderGraphQLTeam } from '../types/graphql-provider'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'pathe'
 
 export async function syncTeams(
   directory: string,
-  teams: ProviderTeam[],
+  teams: ProviderGraphQLTeam[],
 ): Promise<void> {
   const teamsDir = join(directory, 'teams')
   await mkdir(teamsDir, { recursive: true })
@@ -20,7 +20,7 @@ export async function syncTeams(
   }
 }
 
-function renderTeamsIndex(teams: ProviderTeam[]): string {
+function renderTeamsIndex(teams: ProviderGraphQLTeam[]): string {
   const lines: string[] = [
     '# Organization Teams',
     '',
@@ -39,7 +39,7 @@ function renderTeamsIndex(teams: ProviderTeam[]): string {
   return lines.join('\n')
 }
 
-function renderTeam(team: ProviderTeam): string {
+function renderTeam(team: ProviderGraphQLTeam): string {
   const lines: string[] = [
     '---',
     `id: ${team.id}`,

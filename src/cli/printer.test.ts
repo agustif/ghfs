@@ -314,14 +314,9 @@ describe('createCliPrinter', () => {
         'merge-queue': 0,
         'releases': 0,
         'workflows': 0,
+        'actions': 0,
+        'graphql': 0,
         'save': 1,
-        metadata: 1,
-        pagination: 1,
-        fetch: 1,
-        materialize: 1,
-        prune: 1,
-        graphql: 1,
-        save: 1,
       },
     })
 

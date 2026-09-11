@@ -1,5 +1,5 @@
-import { resolve } from 'pathe'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { resolve } from 'pathe'
 
 export interface Lock {
   agent: string

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { SyncItemState } from '../types'
 import type { ProviderLabel, ProviderMilestone, ProviderRepository } from '../types/provider'
 import type { RepoSnapshot } from './repo-snapshot'

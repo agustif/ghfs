@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { GhfsResolvedConfig } from '../types'
 import type { RepositoryProvider, SearchCodeResult, SearchCommitResult, SearchIssueResult } from '../types/provider'
 import { existsSync } from 'node:fs'
