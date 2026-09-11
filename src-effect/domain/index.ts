@@ -62,3 +62,5 @@ export * from "./repo-activity-event"
 export * from "./feeds"
 
 export * from "./branch-protection"
+
+export * from "./issue-type"
