@@ -38,3 +38,4 @@ export * from "./rule-suite"
 export * from "./search-code-todo"
 
 export * from "./search-commit-ref"
+export * from "./search-mention"

@@ -1,7 +1,7 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
@@ -165,6 +165,10 @@ export class GitHubClient extends Context.Service<
       query: string
       maxResults?: number
     }) => Effect.Effect<Array<SearchCommitHit>, GitHubError>
+    searchIssues: (params: {
+      query: string
+      maxResults?: number
+    }) => Effect.Effect<Array<SearchIssueHit>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -3102,6 +3106,93 @@ export class GitHubClient extends Context.Service<
       })
 
 
+
+      type GitHubSearchIssueWire = {
+        number?: number | null
+        title?: string | null
+        state?: string | null
+        html_url?: string | null
+        url?: string | null
+        created_at?: string | null
+        updated_at?: string | null
+        labels?: Array<{ name?: string | null } | string> | null
+        user?: { login?: string | null } | null
+      }
+
+      type GitHubSearchIssuesResponse = {
+        items?: Array<GitHubSearchIssueWire> | null
+      }
+
+      function mapSearchIssueHit(row: GitHubSearchIssueWire): SearchIssueHit | null {
+        const number = typeof row.number === "number" ? row.number : Number.NaN
+        const title = row.title?.trim()
+        const url = (row.html_url ?? row.url)?.trim()
+        const rawState = row.state?.trim().toLowerCase()
+        if (!Number.isFinite(number) || !title || !url) return null
+        if (rawState !== "open" && rawState !== "closed") return null
+        const labels = (row.labels ?? [])
+          .map((l) => (typeof l === "string" ? l.trim() : l.name?.trim()))
+          .filter((n): n is string => Boolean(n))
+        const author = row.user?.login?.trim() || null
+        const created = row.created_at?.trim() || ""
+        const updated = row.updated_at?.trim() || ""
+        return {
+          number,
+          title,
+          state: rawState,
+          url,
+          labels,
+          author,
+          created,
+          updated,
+        }
+      }
+
+      function emptySearchIssuesOnDisabled(
+        effect: Effect.Effect<Array<SearchIssueHit>, GitHubError>,
+      ): Effect.Effect<Array<SearchIssueHit>, GitHubError> {
+        return effect.pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 ||
+                error.status === 403 ||
+                error.status === 422),
+            () => Effect.succeed([] as Array<SearchIssueHit>),
+          ),
+        )
+      }
+
+      const searchIssues = Effect.fn("GitHubClient.searchIssues")(function* (params: {
+        query: string
+        maxResults?: number
+      }): Effect.fn.Return<Array<SearchIssueHit>, GitHubError> {
+        // Cue default 100; GitHub search per_page max is 100.
+        const limit = Math.min(Math.max(params.maxResults ?? 100, 1), 100)
+        // Pass query as-is — NO `repo:owner/name` scope (mentions is cross-repo text search).
+        const q = params.query.trim()
+        const searchParams = new URLSearchParams()
+        searchParams.set("q", q)
+        searchParams.set("per_page", String(limit))
+        // Single-page observe: page 1 only (no Stream.paginate this slice)
+        searchParams.set("page", "1")
+
+        return yield* Effect.gen(function* () {
+          const response = yield* client
+            .get(`/search/issues?${searchParams.toString()}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = (yield* response.json.pipe(
+            Effect.mapError(toGitHubError),
+          )) as GitHubSearchIssuesResponse
+          const rows = Array.isArray(json.items) ? json.items : []
+          return rows.slice(0, limit).flatMap((row) => {
+            const hit = mapSearchIssueHit(row)
+            return hit ? [hit] : []
+          })
+        }).pipe(emptySearchIssuesOnDisabled)
+      })
+
+
       return GitHubClient.of({
         fetchRepo,
         fetchIssues,
@@ -3141,6 +3232,7 @@ export class GitHubClient extends Context.Service<
         fetchRuleSuites,
         searchCode,
         searchCommits,
+        searchIssues,
         fetchPatch,
         closeIssue,
         reopenIssue,

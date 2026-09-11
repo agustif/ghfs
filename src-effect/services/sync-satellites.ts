@@ -288,6 +288,7 @@ export class SyncSatellites extends Context.Service<
         // Stage note (not wired): rule-suites observe satellite — SyncRuleSuites; gate syncRuleSuites default false; prefer next snapshot surface.
         // Stage note (not wired): search-code-todos observe satellite — SyncSearchCodeTodos; gate syncSearchCodeTodos default false; prefer next snapshot surface.
         // Stage note (not wired): search-commit-refs observe satellite — SyncSearchCommitRefs; gate syncSearchCommitRefs default false; prefer next snapshot surface.
+// Stage note (not wired): search-mentions observe satellite — SyncSearchMentions; gate syncSearchMentions default false; prefer next snapshot surface.
         const stages: Array<SatelliteStageSpec> = [
           {
             name: "SyncMetadata",
