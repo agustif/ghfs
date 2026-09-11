@@ -49,3 +49,5 @@ export * from "./sync-search-issue-queries"
 export * from "./sync-latest-pages-build"
 
 export * from "./sync-status"
+
+export * from "./sync-agent-hints"
