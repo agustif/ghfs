@@ -59,3 +59,5 @@ export * from "./network-summary"
 export * from "./repo-activity-event"
 
 export * from "./feeds"
+
+export * from "./branch-protection"
