@@ -53,3 +53,5 @@ export * from "./sync-status"
 export * from "./sync-agent-hints"
 
 export * from "./sync-gate"
+
+export * from "./sync-workflow-permissions"
