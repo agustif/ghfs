@@ -65,3 +65,5 @@ export * from "./sync-fork-status"
 export * from "./sync-network-summary"
 
 export * from "./sync-activity-events"
+
+export * from "./sync-feeds"

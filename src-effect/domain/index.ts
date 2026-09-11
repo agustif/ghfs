@@ -57,3 +57,5 @@ export * from "./fork-status"
 export * from "./network-summary"
 
 export * from "./repo-activity-event"
+
+export * from "./feeds"
