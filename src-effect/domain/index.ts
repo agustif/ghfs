@@ -32,3 +32,5 @@ export * from "./activity-summary"
 export * from "./deployments-summary"
 export * from "./me-summary"
 export * from "./autolink"
+
+export * from "./rule-suite"

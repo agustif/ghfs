@@ -37,3 +37,5 @@ export * from "./sync-activity-summary"
 export * from "./sync-deployments-summary"
 export * from "./sync-me-summary"
 export * from "./sync-autolinks"
+
+export * from "./sync-rule-suites"

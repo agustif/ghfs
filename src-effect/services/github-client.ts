@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -154,6 +154,9 @@ export class GitHubClient extends Context.Service<
     }) => Effect.Effect<Array<DeploymentInput>, GitHubError>
     fetchAuthenticatedUser: () => Effect.Effect<AuthenticatedUserInput | null, GitHubError>
     fetchAutolinks: () => Effect.Effect<Array<Autolink>, GitHubError>
+    fetchRuleSuites: (params?: {
+      limit?: number
+    }) => Effect.Effect<Array<RuleSuite>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -2862,6 +2865,86 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+
+      type GitHubRuleSuiteWire = {
+        id?: number | null
+        actor_id?: number | null
+        actor_name?: string | null
+        before_sha?: string | null
+        after_sha?: string | null
+        ref?: string | null
+        repository_id?: number | null
+        repository_name?: string | null
+        pushed_at?: string | null
+        result?: string | null
+        evaluation_result?: string | null
+      }
+
+      function mapRuleSuite(row: GitHubRuleSuiteWire): RuleSuite | null {
+        const id = row.id
+        const beforeSha = row.before_sha?.trim()
+        const afterSha = row.after_sha?.trim()
+        const ref = row.ref?.trim()
+        const repositoryId = row.repository_id
+        const repositoryName = row.repository_name?.trim()
+        const pushedAt = row.pushed_at
+        const result = row.result?.trim()
+        if (
+          typeof id !== "number" ||
+          !beforeSha ||
+          !afterSha ||
+          !ref ||
+          typeof repositoryId !== "number" ||
+          !repositoryName ||
+          !pushedAt ||
+          !result
+        ) {
+          return null
+        }
+
+        return RuleSuite.make({
+          id,
+          actorId: row.actor_id ?? null,
+          actorName: row.actor_name?.trim() ?? null,
+          beforeSha,
+          afterSha,
+          ref,
+          repositoryId,
+          repositoryName,
+          pushedAt: DateTime.fromDateUnsafe(new Date(pushedAt)),
+          result,
+          evaluationResult: row.evaluation_result?.trim() ?? null,
+        })
+      }
+
+      const fetchRuleSuites = Effect.fn("GitHubClient.fetchRuleSuites")(function* (params: {
+        limit?: number
+      } = {}): Effect.fn.Return<Array<RuleSuite>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        searchParams.set("per_page", String(params.limit ?? 30))
+        // Single-fetch observe: page 1 only (legacy limit: 30 cue)
+        searchParams.set("page", "1")
+
+        return yield* Effect.gen(function* () {
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/rulesets/rule-suites?${searchParams.toString()}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const rows = (Array.isArray(json) ? json : []) as Array<GitHubRuleSuiteWire>
+          return rows.flatMap((row) => {
+            const suite = mapRuleSuite(row)
+            return suite ? [suite] : []
+          })
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed([] as Array<RuleSuite>)
+          )
+        )
+      })
+
       return GitHubClient.of({
         fetchRepo,
         fetchIssues,
@@ -2898,6 +2981,7 @@ export class GitHubClient extends Context.Service<
         fetchDeployments,
         fetchAuthenticatedUser,
         fetchAutolinks,
+        fetchRuleSuites,
         fetchPatch,
         closeIssue,
         reopenIssue,
