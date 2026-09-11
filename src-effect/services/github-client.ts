@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoPackage, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoPackage, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoPackage, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoPackage, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -134,6 +134,7 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<Webhook>, GitHubError>
+    fetchInteractionLimits: () => Effect.Effect<InteractionLimits, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -2273,6 +2274,53 @@ export class GitHubClient extends Context.Service<
         })
       })
 
+
+      type GitHubInteractionLimitsWire = {
+        limit?: "existing_users" | "contributors_only" | "collaborators_only" | null
+        origin?: string
+        expires_at?: string | null
+      }
+
+      const EMPTY_INTERACTION_LIMITS = new InteractionLimits({
+        limit: null,
+        origin: "repository",
+        expiresAt: null,
+      })
+
+      function mapInteractionLimits(row: GitHubInteractionLimitsWire): InteractionLimits {
+        const limit = row.limit ?? null
+        const origin =
+          typeof row.origin === "string" && row.origin.length > 0
+            ? row.origin
+            : "repository"
+        const expiresAt = row.expires_at ?? null
+        return new InteractionLimits({
+          limit,
+          origin,
+          expiresAt,
+        })
+      }
+
+      const fetchInteractionLimits = Effect.fn("GitHubClient.fetchInteractionLimits")(
+        function* (): Effect.fn.Return<InteractionLimits, GitHubError> {
+          return yield* Effect.gen(function* () {
+            const response = yield* client
+              .get(`/repos/${owner}/${name}/interaction-limits`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = (yield* response.json.pipe(
+              Effect.mapError(toGitHubError)
+            )) as GitHubInteractionLimitsWire
+            return mapInteractionLimits(json)
+          }).pipe(
+            Effect.catchIf(
+              (error): error is GitHubError =>
+                error instanceof GitHubError && error.status === 404,
+              () => Effect.succeed(EMPTY_INTERACTION_LIMITS)
+            )
+          )
+        }
+      )
+
       return GitHubClient.of({
         fetchRepo,
         fetchIssues,
@@ -2299,6 +2347,7 @@ export class GitHubClient extends Context.Service<
         fetchPagesBuilds,
         fetchSponsorships,
         fetchActionsWebhooks,
+        fetchInteractionLimits,
         fetchPatch,
         closeIssue,
         reopenIssue,
