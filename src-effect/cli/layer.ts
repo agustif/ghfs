@@ -20,10 +20,11 @@ import {
   SyncWiki,
   SyncWorkflows,
   SyncMergeQueue,
+  SyncPackages,
 } from '../services'
 
 /** AppLayer @ tip 200cc0f (#198 Schema-first execute.md).
- * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue — no service body rewrites.
+ * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages — no service body rewrites.
  */
 export const AppLayer = Layer.mergeAll(
   GhfsConfig.layer,
@@ -45,5 +46,6 @@ export const AppLayer = Layer.mergeAll(
   SyncWiki.layer,
   SyncWorkflows.layer,
   SyncMergeQueue.layer,
+  SyncPackages.layer,
   NodeContext.layer,
 )
