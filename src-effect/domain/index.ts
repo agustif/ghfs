@@ -64,3 +64,4 @@ export * from "./feeds"
 export * from "./branch-protection"
 
 export * from "./issue-type"
+export * from "./issue-field"

@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -157,6 +157,9 @@ export class GitHubClient extends Context.Service<
       limit?: number
     }) => Effect.Effect<Array<WorkflowRun>, GitHubError>
     fetchRepositoryIssueTypes: () => Effect.Effect<Array<IssueType>, GitHubError>
+    fetchOrganizationIssueFields: (params?: {
+      org?: string
+    }) => Effect.Effect<Array<IssueField>, GitHubError>
     fetchRepository: () => Effect.Effect<RepoMetadata, GitHubError>
     fetchRepositoryTopics: () => Effect.Effect<Array<string>, GitHubError>
     fetchPinnedIssues: () => Effect.Effect<Array<number>, GitHubError>
@@ -2900,6 +2903,74 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+
+      type GitHubIssueFieldOptionWire = {
+        id: number
+        name: string
+        description?: string | null
+        color?: string | null
+      }
+
+      type GitHubIssueFieldWire = {
+        id: number
+        node_id: string
+        name: string
+        description?: string | null
+        data_type: string
+        options?: Array<GitHubIssueFieldOptionWire> | null
+      }
+
+      function mapIssueFieldOption(row: GitHubIssueFieldOptionWire) {
+        return {
+          id: row.id,
+          name: row.name,
+          description: row.description ?? null,
+          color: row.color ?? null,
+        }
+      }
+
+      function mapIssueField(row: GitHubIssueFieldWire): IssueField {
+        const options =
+          row.options === undefined
+            ? undefined
+            : row.options === null
+              ? null
+              : row.options.map(mapIssueFieldOption)
+
+        return new IssueField({
+          id: row.id,
+          nodeId: row.node_id,
+          name: row.name,
+          description: row.description ?? null,
+          dataType: row.data_type,
+          ...(options !== undefined ? { options } : {}),
+        })
+      }
+
+      const fetchOrganizationIssueFields = Effect.fn(
+        "GitHubClient.fetchOrganizationIssueFields"
+      )(function* (params: { org?: string } = {}): Effect.fn.Return<
+        Array<IssueField>,
+        GitHubError
+      > {
+        const org = params.org ?? owner
+        return yield* Effect.gen(function* () {
+          const response = yield* client
+            .get(`/orgs/${org}/issue-fields`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const rows = (Array.isArray(json) ? json : []) as Array<GitHubIssueFieldWire>
+          return rows.map(mapIssueField)
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed([] as Array<IssueField>)
+          )
+        )
+      })
+
       type GitHubRepositoryWire = {
         name?: string
         full_name?: string
@@ -3834,6 +3905,7 @@ export class GitHubClient extends Context.Service<
         fetchBranchProtection,
         fetchRecentWorkflowRuns,
         fetchRepositoryIssueTypes,
+        fetchOrganizationIssueFields,
         fetchRepository,
         fetchRepositoryTopics,
         fetchPinnedIssues,
