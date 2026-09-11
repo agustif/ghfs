@@ -1,6 +1,6 @@
 import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/unstable/cli'
-import { ExecutionEngine, SyncEngineStreaming } from '../services'
+import { ExecutionEngine, SyncEngineStreaming, SyncSatellites } from '../services'
 import { applyCommand, planCommand } from './apply-commands'
 
 export const syncCommand = Command.make(
@@ -20,6 +20,11 @@ export const syncCommand = Command.make(
     })
 
     yield* Effect.log('Sync complete!', summary)
+
+    // Additive satellite stage wiring (labels, metadata, wiki, …)
+    const satellites = yield* SyncSatellites
+    const satelliteSummary = yield* satellites.sync()
+    yield* Effect.log('Satellite sync complete!', satelliteSummary)
   }),
 )
 
