@@ -65,3 +65,5 @@ export * from "./branch-protection"
 
 export * from "./issue-type"
 export * from "./issue-field"
+
+export * from "./custom-property-value"
