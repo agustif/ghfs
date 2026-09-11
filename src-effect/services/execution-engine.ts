@@ -2,6 +2,7 @@ import type { ExecuteOp, GitHubError } from '../domain'
 import { FileSystem } from '@effect/platform'
 import { Context, Effect, Layer } from 'effect'
 import { ExecuteError } from '../domain'
+import { parseExecuteMdEffect } from '../domain/execute-md'
 import { GhfsConfig } from './config'
 import { GitHubClient } from './github-client'
 
@@ -47,40 +48,49 @@ export class ExecutionEngine extends Context.Service<
         Array<ExecuteOp>,
         ExecuteError
       > {
-        const filePath = `${config.directory}/execute.yml`
-        const exists = yield* fs.exists(filePath)
+        const yamlOps: Array<ExecuteOp> = []
+        const ymlPath = `${config.directory}/execute.yml`
+        const ymlExists = yield* fs.exists(ymlPath)
 
-        if (!exists) {
-          return []
-        }
+        if (ymlExists) {
+          const content = yield* fs.readFileString(ymlPath)
 
-        const content = yield* fs.readFileString(filePath)
-
-        const yaml = yield* Effect.tryPromise({
-          try: async () => {
-            const YAML = await import('yaml')
-            return YAML.parse(content)
-          },
-          catch: error =>
-            new ExecuteError({
-              message: 'Failed to parse execute.yml',
-              cause: error,
-            }),
-        })
-
-        if (!Array.isArray(yaml)) {
-          return yield* new ExecuteError({
-            message: 'execute.yml must be an array of operations',
+          const yaml = yield* Effect.tryPromise({
+            try: async () => {
+              const YAML = await import('yaml')
+              return YAML.parse(content)
+            },
+            catch: error =>
+              new ExecuteError({
+                message: 'Failed to parse execute.yml',
+                cause: error,
+              }),
           })
+
+          if (!Array.isArray(yaml)) {
+            return yield* new ExecuteError({
+              message: 'execute.yml must be an array of operations',
+            })
+          }
+
+          for (const item of yaml) {
+            yamlOps.push(item as ExecuteOp)
+          }
         }
 
-        const ops: Array<ExecuteOp> = []
-
-        for (const item of yaml) {
-          ops.push(item as ExecuteOp)
+        const mdPath = `${config.directory}/execute.md`
+        const mdExists = yield* fs.exists(mdPath)
+        if (!mdExists) {
+          return yamlOps
         }
 
-        return ops
+        const mdContent = yield* fs.readFileString(mdPath)
+        const md = yield* parseExecuteMdEffect(mdContent)
+        for (const warning of md.warnings) {
+          yield* Effect.log(warning)
+        }
+
+        return [...yamlOps, ...md.ops]
       })
 
       const executeOp = Effect.fn('ExecutionEngine.executeOp')(
