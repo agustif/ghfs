@@ -60,18 +60,19 @@
     "observe:all": "pnpm run observe:packages && pnpm run observe:releases && pnpm run observe:containers && pnpm run observe:deployments && pnpm run observe:attestations"
   },
   "dependencies": {
-    "effect": "catalog:",
+    "@effect/cli": "catalog:",
     "@effect/platform": "catalog:",
     "@effect/platform-node": "catalog:",
-    "@effect/cli": "catalog:",
     "devframe": "catalog:",
+    "effect": "catalog:",
     "open": "catalog:",
+    "pathe": "catalog:",
     "portless": "catalog:",
     "yaml": "catalog:"
   },
   "devDependencies": {
-    "@effect/vitest": "catalog:",
     "@antfu/eslint-config": "catalog:",
+    "@effect/vitest": "catalog:",
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",

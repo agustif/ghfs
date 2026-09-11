@@ -1,19 +1,19 @@
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
-export class SyncItemState extends Schema.Class<SyncItemState>("SyncItemState")({
+export class SyncItemState extends Schema.Class<SyncItemState>('SyncItemState')({
   number: Schema.Int,
-  kind: Schema.Literal("issue", "pull"),
-  state: Schema.Literal("open", "closed"),
+  kind: Schema.Literals(['issue', 'pull']),
+  state: Schema.Literals(['open', 'closed']),
   lastUpdatedAt: Schema.DateTimeUtc,
   lastSyncedAt: Schema.DateTimeUtc,
   filePath: Schema.String,
-  patchPath: Schema.optional(Schema.String)
+  patchPath: Schema.optional(Schema.String),
 }) {}
 
-export class SyncState extends Schema.Class<SyncState>("SyncState")({
+export class SyncState extends Schema.Class<SyncState>('SyncState')({
   version: Schema.Literal(1),
   repo: Schema.optional(Schema.String),
   lastSyncedAt: Schema.optional(Schema.DateTimeUtc),
   lastSince: Schema.optional(Schema.DateTimeUtc),
-  items: Schema.Record({ key: Schema.String, value: SyncItemState })
+  items: Schema.Record(Schema.String, SyncItemState),
 }) {}

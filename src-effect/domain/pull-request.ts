@@ -1,9 +1,9 @@
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
-export class PullRequest extends Schema.Class<PullRequest>("PullRequest")({
+export class PullRequest extends Schema.Class<PullRequest>('PullRequest')({
   number: Schema.Int,
   title: Schema.String,
-  state: Schema.Literal("open", "closed"),
+  state: Schema.Literals(['open', 'closed']),
   body: Schema.NullOr(Schema.String),
   labels: Schema.Array(Schema.String),
   assignees: Schema.Array(Schema.String),
@@ -24,7 +24,7 @@ export class PullRequest extends Schema.Class<PullRequest>("PullRequest")({
       author: Schema.String,
       body: Schema.String,
       createdAt: Schema.DateTimeUtc,
-      updatedAt: Schema.DateTimeUtc
-    })
-  )
+      updatedAt: Schema.DateTimeUtc,
+    }),
+  ),
 }) {}
