@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -152,6 +152,7 @@ export class GitHubClient extends Context.Service<
     fetchForkStatus: () => Effect.Effect<ForkStatus, GitHubError>
     fetchNetworkSummary: () => Effect.Effect<NetworkSummary, GitHubError>
     fetchFeeds: () => Effect.Effect<Feeds, GitHubError>
+    fetchBranchProtection: (branch: string) => Effect.Effect<BranchProtection | null, GitHubError>
     fetchRepository: () => Effect.Effect<RepoMetadata, GitHubError>
     fetchRepositoryTopics: () => Effect.Effect<Array<string>, GitHubError>
     fetchPinnedIssues: () => Effect.Effect<Array<number>, GitHubError>
@@ -2703,6 +2704,90 @@ export class GitHubClient extends Context.Service<
         }
       )
 
+
+      type GitHubBranchProtectionWire = {
+        required_status_checks?: {
+          strict?: boolean
+          contexts?: Array<string>
+          checks?: Array<{ context?: string }>
+        } | null
+        required_pull_request_reviews?: {
+          dismiss_stale_reviews?: boolean
+          require_code_owner_reviews?: boolean
+          required_approving_review_count?: number
+        } | null
+        enforce_admins?: { enabled?: boolean } | boolean | null
+        required_linear_history?: { enabled?: boolean } | boolean | null
+        allow_force_pushes?: { enabled?: boolean } | boolean | null
+        allow_deletions?: { enabled?: boolean } | boolean | null
+      }
+
+      function enabledFlag(
+        value: { enabled?: boolean } | boolean | null | undefined
+      ): boolean {
+        if (typeof value === "boolean") return value
+        return Boolean(value?.enabled)
+      }
+
+      function mapBranchProtection(
+        branch: string,
+        row: GitHubBranchProtectionWire
+      ): BranchProtection {
+        const checks = row.required_status_checks
+        const reviews = row.required_pull_request_reviews
+
+        const contexts =
+          checks?.contexts ??
+          checks?.checks?.map((c) => c.context).filter((c): c is string => !!c) ??
+          []
+
+        return new BranchProtection({
+          pattern: branch,
+          requiredStatusChecks: checks
+            ? {
+                strict: Boolean(checks.strict),
+                contexts,
+              }
+            : null,
+          requiredPullRequestReviews: reviews
+            ? {
+                dismissStaleReviews: Boolean(reviews.dismiss_stale_reviews),
+                requireCodeOwnerReviews: Boolean(reviews.require_code_owner_reviews),
+                requiredApprovingReviewCount:
+                  reviews.required_approving_review_count ?? 0,
+              }
+            : null,
+          enforceAdmins: enabledFlag(row.enforce_admins),
+          requiredLinearHistory: enabledFlag(row.required_linear_history),
+          allowForcePushes: enabledFlag(row.allow_force_pushes),
+          allowDeletions: enabledFlag(row.allow_deletions),
+        })
+      }
+
+      const fetchBranchProtection = Effect.fn("GitHubClient.fetchBranchProtection")(
+        function* (branch: string): Effect.fn.Return<
+          BranchProtection | null,
+          GitHubError
+        > {
+          return yield* Effect.gen(function* () {
+            const response = yield* client
+              .get(`/repos/${owner}/${name}/branches/${encodeURIComponent(branch)}/protection`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = (yield* response.json.pipe(
+              Effect.mapError(toGitHubError)
+            )) as GitHubBranchProtectionWire
+            return mapBranchProtection(branch, json)
+          }).pipe(
+            Effect.catchIf(
+              (error): error is GitHubError =>
+                error instanceof GitHubError &&
+                (error.status === 404 || error.status === 403),
+              () => Effect.succeed(null as BranchProtection | null)
+            )
+          )
+        }
+      )
+
       type GitHubRepositoryWire = {
         name?: string
         full_name?: string
@@ -3634,6 +3719,7 @@ export class GitHubClient extends Context.Service<
         fetchForkStatus,
         fetchNetworkSummary,
         fetchFeeds,
+        fetchBranchProtection,
         fetchRepository,
         fetchRepositoryTopics,
         fetchPinnedIssues,
