@@ -143,3 +143,4 @@ export const ExecuteOpSchema = Schema.Union([
 ])
 
 export type ExecuteOp = typeof ExecuteOpSchema.Type
+export type ExecuteOp = Schema.Schema.Type<typeof ExecuteOpSchema>

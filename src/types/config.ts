@@ -350,6 +350,7 @@ export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended' | 'sy
   auth: Required<GhfsUserConfig['auth']>
   sync: NonNullable<GhfsUserConfig['sync']>
   search?: NonNullable<GhfsUserConfig['search']> & {
+  search: NonNullable<GhfsUserConfig['search']> & {
     issueQueries: Record<string, string>
   }
   extended: NonNullable<GhfsUserConfig['extended']>
