@@ -1,6 +1,6 @@
 import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/unstable/cli'
-import { ExecutionEngine, SyncEngineStreaming, SyncSatellites } from '../services'
+import { ExecutionEngine, SyncEngineStreaming, SyncSatellites, SyncItemAttachments } from '../services'
 import { applyCommand, planCommand } from './apply-commands'
 
 export const syncCommand = Command.make(
@@ -25,6 +25,11 @@ export const syncCommand = Command.make(
     const satellites = yield* SyncSatellites
     const satelliteSummary = yield* satellites.sync()
     yield* Effect.log('Satellite sync complete!', satelliteSummary)
+
+    // Item-scoped comments + timeline (subjects from MirrorFs SyncState)
+    const itemAttachments = yield* SyncItemAttachments
+    const itemAttachmentSummary = yield* itemAttachments.sync()
+    yield* Effect.log('Item attachment sync complete!', itemAttachmentSummary)
   }),
 )
 
