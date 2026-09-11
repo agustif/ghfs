@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, Person, PullRequest, Release, Repo, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, Person, PullRequest, Release, Repo, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, Person, ReactionSummary, Release, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, Person, ReactionSummary, Release, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -111,6 +111,7 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<Collaborator>, GitHubError>
+    fetchCodeowners: () => Effect.Effect<CodeownersFile | null, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -1555,6 +1556,92 @@ export class GitHubClient extends Context.Service<
         })
       })
 
+      const CODEOWNERS_CANDIDATE_PATHS = [
+        "CODEOWNERS",
+        ".github/CODEOWNERS",
+        "docs/CODEOWNERS",
+      ] as const
+
+      type GitHubContentsFileWire = {
+        type?: string
+        path?: string
+        name?: string
+        encoding?: string
+        content?: string
+        html_url?: string | null
+      }
+
+      function decodeBase64Content(content: string | undefined): string | null {
+        if (!content) return null
+        try {
+          return Buffer.from(content.replace(/\n/g, ""), "base64").toString("utf8")
+        } catch {
+          return null
+        }
+      }
+
+      function parseCodeownersRules(content: string): Array<CodeownersRule> {
+        const rules: Array<CodeownersRule> = []
+        for (const line of content.split("\n")) {
+          const trimmed = line.trim()
+          if (trimmed === "" || trimmed.startsWith("#")) continue
+          const parts = trimmed.split(/\s+/)
+          if (parts.length < 2) continue
+          const pattern = parts[0]!
+          const owners = parts.slice(1).filter((o) => o.startsWith("@"))
+          if (owners.length === 0) continue
+          rules.push(new CodeownersRule({ pattern, owners }))
+        }
+        return rules
+      }
+
+      function tryFetchCodeownersAt(
+        candidatePath: string
+      ): Effect.Effect<CodeownersFile | null, GitHubError> {
+        return Effect.gen(function* () {
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/contents/${candidatePath}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = (yield* response.json.pipe(
+            Effect.mapError(toGitHubError)
+          )) as GitHubContentsFileWire
+
+          // Directory listing (array) or non-file → treat as miss.
+          if (Array.isArray(json) || json.type !== "file") {
+            return null
+          }
+
+          const raw =
+            json.encoding === "base64"
+              ? decodeBase64Content(json.content)
+              : (json.content ?? null)
+          if (raw == null) return null
+
+          const rules = parseCodeownersRules(raw)
+          return new CodeownersFile({
+            path: json.path ?? candidatePath,
+            rules,
+            raw,
+          })
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError && error.status === 404,
+            () => Effect.succeed(null)
+          )
+        )
+      }
+
+      const fetchCodeowners = Effect.fn("GitHubClient.fetchCodeowners")(
+        function* (): Effect.fn.Return<CodeownersFile | null, GitHubError> {
+          for (const candidatePath of CODEOWNERS_CANDIDATE_PATHS) {
+            const found = yield* tryFetchCodeownersAt(candidatePath)
+            if (found) return found
+          }
+          return null
+        }
+      )
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -1744,6 +1831,7 @@ export class GitHubClient extends Context.Service<
         fetchContributors,
         fetchTeams,
         fetchCollaborators,
+        fetchCodeowners,
         fetchPatch,
         closeIssue,
         reopenIssue,
