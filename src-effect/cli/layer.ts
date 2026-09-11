@@ -36,10 +36,11 @@ import {
   SyncSecuritySummary,
   SyncActivitySummary,
   SyncDeploymentsSummary,
+  SyncMeSummary,
 } from '../services'
 
 /** AppLayer @ tip 200cc0f (#198 Schema-first execute.md).
- * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments / SyncSecuritySummary / SyncActivitySummary / SyncDeploymentsSummary — no service body rewrites.
+ * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments / SyncSecuritySummary / SyncActivitySummary / SyncDeploymentsSummary / SyncMeSummary — no service body rewrites.
  */
 export const AppLayer = Layer.mergeAll(
   GhfsConfig.layer,
@@ -77,5 +78,6 @@ export const AppLayer = Layer.mergeAll(
   SyncSecuritySummary.layer,
   SyncActivitySummary.layer,
   SyncDeploymentsSummary.layer,
+  SyncMeSummary.layer,
   NodeContext.layer,
 )
