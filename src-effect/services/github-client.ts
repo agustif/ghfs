@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, PullRequest, Release, Repo, TimelineEvent, WikiPage, Workflow } from '../domain'
+import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, PullRequest, Release, Repo, TimelineEvent, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Comment, Discussion, DiscussionCategory, GitHubError, Label, Milestone, ReactionSummary, Release, TimelineEvent, WikiPage, Workflow } from '../domain'
+import { Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, ReactionSummary, Release, TimelineEvent, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -82,6 +82,13 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<Workflow>, GitHubError>
+    fetchMergeQueueEntries: (params?: {
+      after?: string | null
+      first?: number
+    }) => Effect.Effect<{
+      entries: Array<MergeQueueEntry>
+      pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    }, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -928,6 +935,141 @@ export class GitHubClient extends Context.Service<
         return rows.map(mapWorkflow)
       })
 
+
+      const MERGE_QUEUE_ENTRIES_QUERY = `
+  query MergeQueueEntries($owner: String!, $name: String!, $first: Int!, $after: String) {
+    repository(owner: $owner, name: $name) {
+      mergeQueue {
+        entries(first: $first, after: $after) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            position
+            state
+            enqueuedAt
+            estimatedTimeToMerge
+            baseCommit {
+              oid
+            }
+            headCommit {
+              oid
+            }
+            pullRequest {
+              number
+              title
+              url
+              author { login }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+      type GqlMergeQueueNode = {
+        position: number
+        state: string
+        enqueuedAt: string
+        estimatedTimeToMerge: number | string | null
+        baseCommit?: { oid?: string | null } | null
+        headCommit?: { oid?: string | null } | null
+        pullRequest: {
+          number: number
+          title: string
+          url?: string | null
+          author?: { login?: string | null } | null
+        }
+      }
+
+      type GqlMergeQueueResponse = {
+        data?: {
+          repository?: {
+            mergeQueue?: {
+              entries?: {
+                pageInfo: { hasNextPage: boolean; endCursor: string | null }
+                nodes: Array<GqlMergeQueueNode | null>
+              } | null
+            } | null
+          } | null
+        }
+        errors?: Array<{ message: string }>
+      }
+
+      function mapEstimatedTimeToMerge(
+        value: number | string | null | undefined,
+      ): string | null | undefined {
+        if (value === undefined) return undefined
+        if (value === null) return null
+        return String(value)
+      }
+
+      function mapMergeQueueEntry(node: GqlMergeQueueNode): MergeQueueEntry {
+        const estimatedTimeToMerge = mapEstimatedTimeToMerge(node.estimatedTimeToMerge)
+        const baseSha = node.baseCommit?.oid ?? null
+        const headSha = node.headCommit?.oid ?? null
+
+        return new MergeQueueEntry({
+          position: node.position,
+          state: node.state,
+          enqueuedAt: DateTime.fromDateUnsafe(new Date(node.enqueuedAt)),
+          ...(estimatedTimeToMerge !== undefined ? { estimatedTimeToMerge } : {}),
+          pullRequestNumber: node.pullRequest.number,
+          pullRequestTitle: node.pullRequest.title,
+          pullRequestAuthor: node.pullRequest.author?.login ?? null,
+          pullRequestUrl: node.pullRequest.url ?? null,
+          ...(baseSha !== undefined ? { baseSha } : {}),
+          ...(headSha !== undefined ? { headSha } : {}),
+        })
+      }
+
+      const fetchMergeQueueEntries = Effect.fn('GitHubClient.fetchMergeQueueEntries')(function* (params: {
+        after?: string | null
+        first?: number
+      } = {}): Effect.fn.Return<{
+        entries: Array<MergeQueueEntry>
+        pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      }, GitHubError> {
+        const json = (yield* graphql(MERGE_QUEUE_ENTRIES_QUERY, {
+          owner,
+          name,
+          first: params.first ?? 100,
+          after: params.after ?? null,
+        })) as GqlMergeQueueResponse
+
+        if (json.errors?.length) {
+          return yield* Effect.fail(
+            new GitHubError({
+              status: 200,
+              message: json.errors.map((e) => e.message).join('; '),
+              details: 'GraphQL errors on repository.mergeQueue.entries',
+            }),
+          )
+        }
+
+        // No merge queue configured → empty page (not an error).
+        const connection = json.data?.repository?.mergeQueue?.entries
+        if (!json.data?.repository?.mergeQueue) {
+          return {
+            entries: [],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          }
+        }
+
+        const nodes = (connection?.nodes ?? []).filter(
+          (n): n is GqlMergeQueueNode => n != null,
+        )
+        return {
+          entries: nodes.map(mapMergeQueueEntry),
+          pageInfo: {
+            hasNextPage: connection?.pageInfo.hasNextPage ?? false,
+            endCursor: connection?.pageInfo.endCursor ?? null,
+          },
+        }
+      })
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -1112,6 +1254,7 @@ export class GitHubClient extends Context.Service<
         fetchDiscussionCategories,
         fetchWikiPages,
         fetchWorkflows,
+        fetchMergeQueueEntries,
         fetchPatch,
         closeIssue,
         reopenIssue,
