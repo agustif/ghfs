@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, Person, PullRequest, Release, Repo, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import type { Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, Person, PullRequest, Release, Repo, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, Person, ReactionSummary, Release, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import { Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, Person, ReactionSummary, Release, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -107,6 +107,10 @@ export class GitHubClient extends Context.Service<
       teams: Array<Team>
       pageInfo: { hasNextPage: boolean; endCursor: string | null }
     }, GitHubError>
+    fetchCollaborators: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<Collaborator>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -1465,6 +1469,92 @@ export class GitHubClient extends Context.Service<
         })
       })
 
+
+      type GitHubCollaboratorWire = {
+        login?: string | null
+        id?: number
+        avatar_url?: string | null
+        name?: string | null
+        permission?: string | null
+        role_name?: string | null
+        permissions?: {
+          admin?: boolean
+          maintain?: boolean
+          push?: boolean
+          triage?: boolean
+          pull?: boolean
+        } | null
+      }
+
+      function deriveCollaboratorPermission(
+        wirePermission: string | null | undefined,
+        flags: GitHubCollaboratorWire["permissions"]
+      ): string | null {
+        if (wirePermission != null && wirePermission !== "") return wirePermission
+        if (!flags) return null
+        if (flags.admin) return "admin"
+        if (flags.maintain) return "maintain"
+        if (flags.push) return "push"
+        if (flags.triage) return "triage"
+        if (flags.pull) return "pull"
+        return null
+      }
+
+      function mapCollaborator(row: GitHubCollaboratorWire): Collaborator | null {
+        const login = row.login?.trim()
+        if (!login) return null
+
+        const avatarUrl = row.avatar_url ?? null
+        const name = row.name ?? null
+        const permission = deriveCollaboratorPermission(row.permission, row.permissions)
+        const roleName = row.role_name ?? null
+
+        const flags = row.permissions
+        const permissions =
+          flags &&
+          typeof flags.admin === "boolean" &&
+          typeof flags.maintain === "boolean" &&
+          typeof flags.push === "boolean" &&
+          typeof flags.triage === "boolean" &&
+          typeof flags.pull === "boolean"
+            ? {
+                admin: flags.admin,
+                maintain: flags.maintain,
+                push: flags.push,
+                triage: flags.triage,
+                pull: flags.pull,
+              }
+            : undefined
+
+        return new Collaborator({
+          login,
+          name,
+          avatarUrl,
+          permission,
+          ...(roleName !== undefined ? { roleName } : {}),
+          ...(permissions ? { permissions } : {}),
+        })
+      }
+
+      const fetchCollaborators = Effect.fn("GitHubClient.fetchCollaborators")(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<Collaborator>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        if (params.page) searchParams.set("page", String(params.page))
+        searchParams.set("per_page", String(params.perPage ?? 100))
+
+        const response = yield* client
+          .get(`/repos/${owner}/${name}/collaborators?${searchParams.toString()}`)
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        const rows = (Array.isArray(json) ? json : []) as Array<GitHubCollaboratorWire>
+        return rows.flatMap((row) => {
+          const collaborator = mapCollaborator(row)
+          return collaborator ? [collaborator] : []
+        })
+      })
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -1653,6 +1743,7 @@ export class GitHubClient extends Context.Service<
         fetchPackages,
         fetchContributors,
         fetchTeams,
+        fetchCollaborators,
         fetchPatch,
         closeIssue,
         reopenIssue,
