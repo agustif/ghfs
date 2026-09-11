@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoPackage, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoPackage, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -135,6 +135,8 @@ export class GitHubClient extends Context.Service<
       perPage?: number
     }) => Effect.Effect<Array<Webhook>, GitHubError>
     fetchInteractionLimits: () => Effect.Effect<InteractionLimits, GitHubError>
+    fetchRepository: () => Effect.Effect<RepoMetadata, GitHubError>
+    fetchSecurityAdvisories: () => Effect.Effect<Array<RepoSecurityAdvisory>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -2321,6 +2323,149 @@ export class GitHubClient extends Context.Service<
         }
       )
 
+
+      type GitHubRepositoryWire = {
+        name?: string
+        full_name?: string
+        description?: string | null
+        private?: boolean
+        archived?: boolean
+        default_branch?: string
+        html_url?: string
+        fork?: boolean
+        has_issues?: boolean
+        has_projects?: boolean
+        has_wiki?: boolean
+        created_at?: string
+        updated_at?: string
+        pushed_at?: string | null
+        owner?: { login?: string }
+        stargazers_count?: number
+        watchers_count?: number
+        forks_count?: number
+        open_issues_count?: number
+        language?: string | null
+        topics?: Array<string>
+        visibility?: string | null
+        allow_merge_commit?: boolean
+        allow_squash_merge?: boolean
+        allow_rebase_merge?: boolean
+        merge_queue_enabled?: boolean | null
+      }
+
+      type GitHubSecurityAdvisoryWire = {
+        ghsa_id?: string
+        severity?: string
+        summary?: string
+        published_at?: string
+        vulnerabilities?: Array<{
+          package?: { ecosystem?: string; name?: string }
+          severity?: string
+          vulnerable_version_range?: string
+          first_patched_version?: { identifier?: string } | null
+        }>
+      }
+
+      function mapRepository(row: GitHubRepositoryWire): RepoMetadata {
+        return new RepoMetadata({
+          name: row.name ?? name,
+          fullName: row.full_name ?? `${owner}/${name}`,
+          description: row.description ?? null,
+          private: row.private ?? false,
+          archived: row.archived ?? false,
+          defaultBranch: row.default_branch ?? "main",
+          htmlUrl: row.html_url ?? `https://github.com/${owner}/${name}`,
+          fork: row.fork ?? false,
+          hasIssues: row.has_issues ?? true,
+          hasProjects: row.has_projects ?? false,
+          hasWiki: row.has_wiki ?? false,
+          createdAt: row.created_at ?? new Date(0).toISOString(),
+          updatedAt: row.updated_at ?? new Date(0).toISOString(),
+          pushedAt: row.pushed_at ?? null,
+          owner: row.owner?.login ?? owner,
+          stargazersCount: row.stargazers_count ?? 0,
+          watchersCount: row.watchers_count ?? 0,
+          forksCount: row.forks_count ?? 0,
+          openIssuesCount: row.open_issues_count ?? 0,
+          language: row.language ?? null,
+          topics: row.topics ?? [],
+          visibility: row.visibility ?? null,
+          allowMergeCommit: row.allow_merge_commit,
+          allowSquashMerge: row.allow_squash_merge,
+          allowRebaseMerge: row.allow_rebase_merge,
+          // REST repos.get does not expose merge queue; legacy used GraphQL — OOS lean.
+          mergeQueueEnabled: row.merge_queue_enabled ?? null,
+        })
+      }
+
+      function mapSecurityAdvisory(row: GitHubSecurityAdvisoryWire): RepoSecurityAdvisory {
+        return new RepoSecurityAdvisory({
+          id: row.ghsa_id ?? "",
+          severity: row.severity ?? "unknown",
+          summary: row.summary ?? "",
+          publishedAt: row.published_at ?? new Date(0).toISOString(),
+          vulnerabilities: (row.vulnerabilities ?? []).map((vuln) => ({
+            package: {
+              ecosystem: vuln.package?.ecosystem ?? "unknown",
+              name: vuln.package?.name ?? "unknown",
+            },
+            severity: vuln.severity ?? "unknown",
+            vulnerableVersionRange: vuln.vulnerable_version_range ?? "",
+            firstPatchedVersion: vuln.first_patched_version?.identifier
+              ? { identifier: vuln.first_patched_version.identifier }
+              : null,
+          })),
+        })
+      }
+
+      const fetchRepository = Effect.fn("GitHubClient.fetchRepository")(
+        function* (): Effect.fn.Return<RepoMetadata, GitHubError> {
+          const response = yield* client
+            .get(`/repos/${owner}/${name}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = (yield* response.json.pipe(
+            Effect.mapError(toGitHubError)
+          )) as GitHubRepositoryWire
+          return mapRepository(json)
+        }
+      )
+
+      const fetchSecurityAdvisories = Effect.fn("GitHubClient.fetchSecurityAdvisories")(
+        function* (): Effect.fn.Return<Array<RepoSecurityAdvisory>, GitHubError> {
+          return yield* Effect.gen(function* () {
+            const all: Array<RepoSecurityAdvisory> = []
+            let page = 1
+            for (;;) {
+              const searchParams = new URLSearchParams()
+              searchParams.set("per_page", "100")
+              searchParams.set("page", String(page))
+              const response = yield* client
+                .get(
+                  `/repos/${owner}/${name}/security-advisories?${searchParams.toString()}`
+                )
+                .pipe(Effect.mapError(toGitHubError))
+              const json = (yield* response.json.pipe(
+                Effect.mapError(toGitHubError)
+              )) as Array<GitHubSecurityAdvisoryWire>
+              if (!Array.isArray(json) || json.length === 0) break
+              for (const row of json) {
+                all.push(mapSecurityAdvisory(row))
+              }
+              if (json.length < 100) break
+              page += 1
+            }
+            return all
+          }).pipe(
+            Effect.catchIf(
+              (error): error is GitHubError =>
+                error instanceof GitHubError &&
+                (error.status === 404 || error.status === 403),
+              () => Effect.succeed([] as Array<RepoSecurityAdvisory>)
+            )
+          )
+        }
+      )
+
       return GitHubClient.of({
         fetchRepo,
         fetchIssues,
@@ -2348,6 +2493,8 @@ export class GitHubClient extends Context.Service<
         fetchSponsorships,
         fetchActionsWebhooks,
         fetchInteractionLimits,
+        fetchRepository,
+        fetchSecurityAdvisories,
         fetchPatch,
         closeIssue,
         reopenIssue,
