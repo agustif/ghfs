@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Issue, Label, Milestone, PullRequest, Repo } from '../domain'
+import type { Comment, Issue, Label, Milestone, PullRequest, Repo } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
-import { Context, Effect, Layer, Redacted, Schedule } from 'effect'
-import { GitHubError, Label, Milestone } from '../domain'
+import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
+import { Comment, GitHubError, Label, Milestone, ReactionSummary } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -50,6 +50,14 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<Milestone>, GitHubError>
+    fetchIssueComments: (
+      number: number,
+      params?: { page?: number; perPage?: number },
+    ) => Effect.Effect<Array<Comment>, GitHubError>
+    fetchPullComments: (
+      number: number,
+      params?: { page?: number; perPage?: number },
+    ) => Effect.Effect<Array<Comment>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -231,6 +239,96 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+      type GitHubCommentWire = {
+        id: number
+        body: string | null
+        created_at: string
+        updated_at: string
+        user: { login: string } | null
+        reactions?: {
+          total_count?: number
+          '+1'?: number
+          '-1'?: number
+          laugh?: number
+          hooray?: number
+          confused?: number
+          heart?: number
+          rocket?: number
+          eyes?: number
+        } | null
+      }
+
+      function mapReactionSummary(
+        reactions: GitHubCommentWire['reactions'],
+      ): ReactionSummary | undefined {
+        if (!reactions) return undefined
+        return new ReactionSummary({
+          totalCount: reactions.total_count ?? 0,
+          plusOne: reactions['+1'] ?? 0,
+          minusOne: reactions['-1'] ?? 0,
+          laugh: reactions.laugh ?? 0,
+          hooray: reactions.hooray ?? 0,
+          confused: reactions.confused ?? 0,
+          heart: reactions.heart ?? 0,
+          rocket: reactions.rocket ?? 0,
+          eyes: reactions.eyes ?? 0,
+        })
+      }
+
+      function mapComment(
+        row: GitHubCommentWire,
+        subjectKind: 'issue' | 'pull',
+        subjectNumber: number,
+      ): Comment {
+        const reactions = mapReactionSummary(row.reactions)
+        return new Comment({
+          id: row.id,
+          author: row.user?.login ?? '',
+          body: row.body ?? '',
+          createdAt: DateTime.fromDateUnsafe(new Date(row.created_at)),
+          updatedAt: DateTime.fromDateUnsafe(new Date(row.updated_at)),
+          ...(reactions ? { reactions } : {}),
+          subjectKind,
+          subjectNumber,
+        })
+      }
+
+      const fetchIssueComments = Effect.fn('GitHubClient.fetchIssueComments')(function* (
+        number: number,
+        params: { page?: number; perPage?: number } = {},
+      ): Effect.fn.Return<Array<Comment>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        if (params.page)
+          searchParams.set('page', String(params.page))
+        searchParams.set('per_page', String(params.perPage ?? 100))
+
+        const response = yield* client
+          .get(`/repos/${owner}/${name}/issues/${number}/comments?${searchParams.toString()}`)
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        const rows = json as Array<GitHubCommentWire>
+        return rows.map(row => mapComment(row, 'issue', number))
+      })
+
+      // Same issues-comments endpoint for PR conversation comments (markdown.ts parity).
+      // Review comments via /pulls/{n}/comments are out of scope / optional later.
+      const fetchPullComments = Effect.fn('GitHubClient.fetchPullComments')(function* (
+        number: number,
+        params: { page?: number; perPage?: number } = {},
+      ): Effect.fn.Return<Array<Comment>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        if (params.page)
+          searchParams.set('page', String(params.page))
+        searchParams.set('per_page', String(params.perPage ?? 100))
+
+        const response = yield* client
+          .get(`/repos/${owner}/${name}/issues/${number}/comments?${searchParams.toString()}`)
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        const rows = json as Array<GitHubCommentWire>
+        return rows.map(row => mapComment(row, 'pull', number))
+      })
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -407,6 +505,8 @@ export class GitHubClient extends Context.Service<
         fetchPullRequest,
         fetchLabels,
         fetchMilestones,
+        fetchIssueComments,
+        fetchPullComments,
         fetchPatch,
         closeIssue,
         reopenIssue,
