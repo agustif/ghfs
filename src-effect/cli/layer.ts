@@ -43,10 +43,11 @@ import {
   SyncSearchCommitRefs,
   SyncSearchMentions,
   SyncSearchIssueQueries,
+  SyncLatestPagesBuild,
 } from '../services'
 
 /** AppLayer @ tip 200cc0f (#198 Schema-first execute.md).
- * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments / SyncSecuritySummary / SyncActivitySummary / SyncDeploymentsSummary / SyncMeSummary / SyncAutolinks / SyncRuleSuites / SyncSearchCodeTodos / SyncSearchCommitRefs / SyncSearchMentions / SyncSearchIssueQueries — no service body rewrites.
+ * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments / SyncSecuritySummary / SyncActivitySummary / SyncDeploymentsSummary / SyncMeSummary / SyncAutolinks / SyncRuleSuites / SyncSearchCodeTodos / SyncSearchCommitRefs / SyncSearchMentions / SyncSearchIssueQueries / SyncLatestPagesBuild — no service body rewrites.
  */
 export const AppLayer = Layer.mergeAll(
   GhfsConfig.layer,
@@ -91,5 +92,6 @@ export const AppLayer = Layer.mergeAll(
   SyncSearchCommitRefs.layer,
   SyncSearchMentions.layer,
   SyncSearchIssueQueries.layer,
+  SyncLatestPagesBuild.layer,
   NodeContext.layer,
 )
