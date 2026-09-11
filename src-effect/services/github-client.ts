@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import type { CodeownersFile, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import { CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -137,6 +137,15 @@ export class GitHubClient extends Context.Service<
     fetchInteractionLimits: () => Effect.Effect<InteractionLimits, GitHubError>
     fetchRepository: () => Effect.Effect<RepoMetadata, GitHubError>
     fetchSecurityAdvisories: () => Effect.Effect<Array<RepoSecurityAdvisory>, GitHubError>
+    fetchDependabotAlerts: (params?: {
+      limit?: number
+    }) => Effect.Effect<Array<DependabotAlertLean>, GitHubError>
+    fetchCodeScanningAlerts: (params?: {
+      limit?: number
+    }) => Effect.Effect<Array<CodeScanningAlertLean>, GitHubError>
+    fetchSecretScanningAlerts: (params?: {
+      limit?: number
+    }) => Effect.Effect<Array<SecretScanningAlertLean>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -2466,6 +2475,163 @@ export class GitHubClient extends Context.Service<
         }
       )
 
+
+      type GitHubDependabotAlertWire = {
+        number?: number
+        state?: "open" | "dismissed" | "fixed"
+        html_url?: string
+        security_vulnerability?: {
+          package?: { name?: string }
+          severity?: "low" | "medium" | "high" | "critical"
+        }
+        security_advisory?: {
+          severity?: "low" | "medium" | "high" | "critical"
+        }
+      }
+
+      type GitHubCodeScanningAlertWire = {
+        number?: number
+        state?: "open" | "dismissed" | "fixed"
+        html_url?: string
+        rule?: {
+          id?: string
+          name?: string
+          severity?: string
+          security_severity_level?: "low" | "medium" | "high" | "critical" | null
+        }
+      }
+
+      type GitHubSecretScanningAlertWire = {
+        number?: number
+        state?: "open" | "resolved"
+        html_url?: string
+        secret_type?: string
+        secret_type_display_name?: string
+        // secret?: string  — NEVER read / NEVER map
+      }
+
+      function mapSecuritySeverity(
+        value: string | null | undefined,
+      ): "low" | "medium" | "high" | "critical" {
+        if (value === "critical" || value === "high" || value === "medium" || value === "low") {
+          return value
+        }
+        // code-scanning rule.severity may be error/warning/note/none — coerce
+        if (value === "error") return "high"
+        if (value === "warning") return "medium"
+        if (value === "note") return "low"
+        return "low"
+      }
+
+      function mapDependabotAlertLean(row: GitHubDependabotAlertWire): DependabotAlertLean {
+        const severity = mapSecuritySeverity(
+          row.security_vulnerability?.severity ?? row.security_advisory?.severity,
+        )
+        return new DependabotAlertLean({
+          number: row.number ?? 0,
+          state: row.state ?? "open",
+          severity,
+          package: row.security_vulnerability?.package?.name ?? "unknown",
+          url: row.html_url ?? "",
+        })
+      }
+
+      function mapCodeScanningAlertLean(row: GitHubCodeScanningAlertWire): CodeScanningAlertLean {
+        const severity = mapSecuritySeverity(
+          row.rule?.security_severity_level ?? row.rule?.severity,
+        )
+        return new CodeScanningAlertLean({
+          number: row.number ?? 0,
+          state: row.state ?? "open",
+          severity,
+          rule: row.rule?.id ?? row.rule?.name ?? "unknown",
+          url: row.html_url ?? "",
+        })
+      }
+
+      function mapSecretScanningAlertLean(row: GitHubSecretScanningAlertWire): SecretScanningAlertLean {
+        // Map resolved → dismissed so lean state stays open|dismissed|fixed (no secret field).
+        const state =
+          row.state === "resolved" ? ("dismissed" as const) : (row.state ?? "open")
+        return new SecretScanningAlertLean({
+          number: row.number ?? 0,
+          state,
+          secretType: row.secret_type ?? row.secret_type_display_name ?? "unknown",
+          url: row.html_url ?? "",
+        })
+      }
+
+      function emptyAlertsOnDisabled<A>(
+        effect: Effect.Effect<Array<A>, GitHubError>,
+      ): Effect.Effect<Array<A>, GitHubError> {
+        return effect.pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed([] as Array<A>),
+          ),
+        )
+      }
+
+      const fetchDependabotAlerts = Effect.fn("GitHubClient.fetchDependabotAlerts")(
+        function* (params: { limit?: number } = {}): Effect.fn.Return<
+          Array<DependabotAlertLean>,
+          GitHubError
+        > {
+          return yield* Effect.gen(function* () {
+            const limit = Math.min(Math.max(params.limit ?? 100, 1), 100)
+            const searchParams = new URLSearchParams()
+            searchParams.set("per_page", String(limit))
+            const response = yield* client
+              .get(`/repos/${owner}/${name}/dependabot/alerts?${searchParams.toString()}`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+            const rows = (Array.isArray(json) ? json : []) as Array<GitHubDependabotAlertWire>
+            return rows.slice(0, limit).map(mapDependabotAlertLean)
+          }).pipe(emptyAlertsOnDisabled)
+        },
+      )
+
+      const fetchCodeScanningAlerts = Effect.fn("GitHubClient.fetchCodeScanningAlerts")(
+        function* (params: { limit?: number } = {}): Effect.fn.Return<
+          Array<CodeScanningAlertLean>,
+          GitHubError
+        > {
+          return yield* Effect.gen(function* () {
+            const limit = Math.min(Math.max(params.limit ?? 100, 1), 100)
+            const searchParams = new URLSearchParams()
+            searchParams.set("per_page", String(limit))
+            const response = yield* client
+              .get(`/repos/${owner}/${name}/code-scanning/alerts?${searchParams.toString()}`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+            const rows = (Array.isArray(json) ? json : []) as Array<GitHubCodeScanningAlertWire>
+            return rows.slice(0, limit).map(mapCodeScanningAlertLean)
+          }).pipe(emptyAlertsOnDisabled)
+        },
+      )
+
+      const fetchSecretScanningAlerts = Effect.fn("GitHubClient.fetchSecretScanningAlerts")(
+        function* (params: { limit?: number } = {}): Effect.fn.Return<
+          Array<SecretScanningAlertLean>,
+          GitHubError
+        > {
+          return yield* Effect.gen(function* () {
+            const limit = Math.min(Math.max(params.limit ?? 100, 1), 100)
+            const searchParams = new URLSearchParams()
+            searchParams.set("per_page", String(limit))
+            const response = yield* client
+              .get(`/repos/${owner}/${name}/secret-scanning/alerts?${searchParams.toString()}`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+            const rows = (Array.isArray(json) ? json : []) as Array<GitHubSecretScanningAlertWire>
+            // Intentionally ignore any wire `secret` field — redact by omission.
+            return rows.slice(0, limit).map(mapSecretScanningAlertLean)
+          }).pipe(emptyAlertsOnDisabled)
+        },
+      )
+
       return GitHubClient.of({
         fetchRepo,
         fetchIssues,
@@ -2495,6 +2661,9 @@ export class GitHubClient extends Context.Service<
         fetchInteractionLimits,
         fetchRepository,
         fetchSecurityAdvisories,
+        fetchDependabotAlerts,
+        fetchCodeScanningAlerts,
+        fetchSecretScanningAlerts,
         fetchPatch,
         closeIssue,
         reopenIssue,
