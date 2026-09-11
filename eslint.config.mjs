@@ -5,6 +5,9 @@ export default antfu({
     'playgrounds/**',
     '.context/**',
     'ui/**',
+    'src-effect/**',
+    'skills/**',
+    '**/*.md',
   ],
 })
   .removeRules(

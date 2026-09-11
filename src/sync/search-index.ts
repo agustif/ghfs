@@ -31,5 +31,5 @@ export function buildSearchIndex(items: Record<string, SyncItemState>): SearchIn
 }
 
 export function renderSearchIndex(entries: SearchIndexEntry[]): string {
-  return entries.map(entry => JSON.stringify(entry)).join('\n') + '\n'
+  return `${entries.map(entry => JSON.stringify(entry)).join('\n')}\n`
 }

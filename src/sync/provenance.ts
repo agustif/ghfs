@@ -1,3 +1,7 @@
+import { createHash } from 'node:crypto'
+import { appendFileSync } from 'node:fs'
+import { resolve } from 'pathe'
+
 export interface ProvenanceEntry {
   path: string
   fetched_at: string
@@ -20,13 +24,10 @@ export function createProvenanceEntry(
 }
 
 export function appendProvenance(storageDirAbsolute: string, entry: ProvenanceEntry): void {
-  const { resolve } = require('pathe')
-  const { appendFileSync } = require('node:fs')
   const provenancePath = resolve(storageDirAbsolute, 'provenance.jsonl')
-  appendFileSync(provenancePath, JSON.stringify(entry) + '\n', 'utf-8')
+  appendFileSync(provenancePath, `${JSON.stringify(entry)}\n`, 'utf-8')
 }
 
 function createContentHash(content: string): string {
-  const { createHash } = require('node:crypto')
   return `sha256:${createHash('sha256').update(content).digest('hex')}`
 }

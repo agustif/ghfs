@@ -63,7 +63,8 @@ export function evaluateGate(policy: Policy, context: GateContext): GateEvaluati
     })
     if (dangerFiles.length > 0) {
       warnings.push(`Danger files modified: ${dangerFiles.join(', ')}`)
-      if (risk_level === 'low') risk_level = 'medium'
+      if (risk_level === 'low')
+        risk_level = 'medium'
     }
   }
 
@@ -83,7 +84,8 @@ export function evaluateGate(policy: Policy, context: GateContext): GateEvaluati
     })
     if (missingLabels.length > 0) {
       warnings.push(`Missing required labels: ${missingLabels.join(', ')}`)
-      if (risk_level === 'low') risk_level = 'medium'
+      if (risk_level === 'low')
+        risk_level = 'medium'
     }
   }
 
