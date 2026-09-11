@@ -39,3 +39,5 @@ export * from "./sync-me-summary"
 export * from "./sync-autolinks"
 
 export * from "./sync-rule-suites"
+
+export * from "./sync-search-code-todos"
