@@ -43,3 +43,4 @@ export * from "./sync-rule-suites"
 export * from "./sync-search-code-todos"
 
 export * from "./sync-search-commit-refs"
+export * from "./sync-search-mentions"
