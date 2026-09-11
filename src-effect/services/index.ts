@@ -51,3 +51,5 @@ export * from "./sync-latest-pages-build"
 export * from "./sync-status"
 
 export * from "./sync-agent-hints"
+
+export * from "./sync-gate"
