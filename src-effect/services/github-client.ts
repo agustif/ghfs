@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -183,6 +183,7 @@ export class GitHubClient extends Context.Service<
     fetchAutolinks: () => Effect.Effect<Array<Autolink>, GitHubError>
     fetchCustomProperties: () => Effect.Effect<Array<CustomPropertyValue>, GitHubError>
     fetchCommitActivity: () => Effect.Effect<Array<CommitActivity>, GitHubError>
+    fetchParticipation: () => Effect.Effect<Participation, GitHubError>
     fetchRuleSuites: (params?: {
       limit?: number
     }) => Effect.Effect<Array<RuleSuite>, GitHubError>
@@ -3658,6 +3659,47 @@ export class GitHubClient extends Context.Service<
       })
 
 
+
+      type GitHubParticipationWire = {
+        all?: Array<number> | null
+        owner?: Array<number> | null
+      }
+
+      function mapParticipation(row: GitHubParticipationWire): Participation {
+        const all = Array.isArray(row.all)
+          ? row.all.filter((n) => typeof n === "number")
+          : []
+        const owner = Array.isArray(row.owner)
+          ? row.owner.filter((n) => typeof n === "number")
+          : []
+        return new Participation({ all, owner })
+      }
+
+      const emptyParticipation = (): Participation =>
+        new Participation({ all: [], owner: [] })
+
+      const fetchParticipation = Effect.fn(
+        "GitHubClient.fetchParticipation"
+      )(function* (): Effect.fn.Return<Participation, GitHubError> {
+        return yield* Effect.gen(function* () {
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/stats/participation`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const row = (json && typeof json === "object" ? json : {}) as GitHubParticipationWire
+          return mapParticipation(row)
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 ||
+                error.status === 403 ||
+                error.status === 202),
+            () => Effect.succeed(emptyParticipation())
+          )
+        )
+      })
+
       type GitHubRuleSuiteWire = {
         id?: number | null
         actor_id?: number | null
@@ -4026,6 +4068,7 @@ export class GitHubClient extends Context.Service<
         fetchAutolinks,
         fetchCustomProperties,
         fetchCommitActivity,
+        fetchParticipation,
         fetchRuleSuites,
         searchCode,
         searchCommits,

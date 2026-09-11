@@ -68,3 +68,4 @@ export * from "./issue-field"
 
 export * from "./custom-property-value"
 export * from "./commit-activity"
+export * from "./participation"

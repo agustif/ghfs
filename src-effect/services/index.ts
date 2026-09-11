@@ -77,3 +77,4 @@ export * from "./sync-issue-fields"
 
 export * from "./sync-custom-properties"
 export * from "./sync-commit-activity"
+export * from "./sync-participation"
