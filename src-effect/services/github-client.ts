@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -184,6 +184,10 @@ export class GitHubClient extends Context.Service<
     fetchCustomProperties: () => Effect.Effect<Array<CustomPropertyValue>, GitHubError>
     fetchCommitActivity: () => Effect.Effect<Array<CommitActivity>, GitHubError>
     fetchParticipation: () => Effect.Effect<Participation, GitHubError>
+    fetchTags: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<RepoTag>, GitHubError>
     fetchRuleSuites: (params?: {
       limit?: number
     }) => Effect.Effect<Array<RuleSuite>, GitHubError>
@@ -3700,6 +3704,62 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+      type GitHubTagWire = {
+        name?: string | null
+        commit?: { sha?: string | null; url?: string | null } | null
+        zipball_url?: string | null
+        tarball_url?: string | null
+        node_id?: string | null
+      }
+
+      function mapRepoTag(row: GitHubTagWire): RepoTag | null {
+        const name = row.name?.trim()
+        const sha = row.commit?.sha?.trim()
+        const commitUrl = row.commit?.url?.trim()
+        const zipballUrl = row.zipball_url?.trim()
+        const tarballUrl = row.tarball_url?.trim()
+        const nodeId = row.node_id?.trim()
+        if (!name || !sha || !commitUrl || !zipballUrl || !tarballUrl || !nodeId) {
+          return null
+        }
+
+        return new RepoTag({
+          name,
+          commit: { sha, url: commitUrl },
+          zipballUrl,
+          tarballUrl,
+          nodeId
+        })
+      }
+
+      const fetchTags = Effect.fn("GitHubClient.fetchTags")(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<RepoTag>, GitHubError> {
+        return yield* Effect.gen(function* () {
+          const searchParams = new URLSearchParams()
+          if (params.page) searchParams.set("page", String(params.page))
+          searchParams.set("per_page", String(params.perPage ?? 100))
+
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/tags?${searchParams.toString()}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const rows = (Array.isArray(json) ? json : []) as Array<GitHubTagWire>
+          return rows.flatMap((row) => {
+            const mapped = mapRepoTag(row)
+            return mapped ? [mapped] : []
+          })
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed([] as Array<RepoTag>)
+          )
+        )
+      })
+
       type GitHubRuleSuiteWire = {
         id?: number | null
         actor_id?: number | null
@@ -4069,6 +4129,7 @@ export class GitHubClient extends Context.Service<
         fetchCustomProperties,
         fetchCommitActivity,
         fetchParticipation,
+        fetchTags,
         fetchRuleSuites,
         searchCode,
         searchCommits,
