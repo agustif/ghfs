@@ -47,7 +47,7 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
     "coverage": "vitest run --coverage",
-    "lint": "eslint",
+    "lint": "eslint src eslint.config.mjs",
     "release": "bumpp",
     "prepublishOnly": "pnpm run build",
     "play": "cd playgrounds/ni && tsx ../../src/cli.ts",
