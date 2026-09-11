@@ -1,6 +1,6 @@
 import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/unstable/cli'
-import { ExecutionEngine, SyncEngineStreaming, SyncSatellites, SyncItemAttachments } from '../services'
+import { ExecutionEngine, SyncEngineStreaming, SyncSatellites, SyncItemAttachments, SyncStatus } from '../services'
 import { applyCommand, planCommand } from './apply-commands'
 
 export const syncCommand = Command.make(
@@ -53,8 +53,14 @@ export const statusCommand = Command.make(
   'status',
   {},
   Effect.fn('statusCommand')(function* () {
-    yield* Effect.log('Status command not yet implemented')
-    yield* Effect.log('TODO: Show sync state, last sync time, etc.')
+    const status = yield* SyncStatus
+    const result = yield* status.sync()
+    // sync() builds StatusSummary from MirrorFs.readSyncState() and writes
+    // status/status.json under config.directory for observe consistency.
+    yield* Effect.log('Status', {
+      path: result.path,
+      synced: result.synced,
+    })
   }),
 )
 
