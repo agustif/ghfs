@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Comment, Issue, Label, Milestone, PullRequest, Repo } from '../domain'
+import type { Comment, Issue, Label, Milestone, PullRequest, Repo, TimelineEvent } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Comment, GitHubError, Label, Milestone, ReactionSummary } from '../domain'
+import { Comment, GitHubError, Label, Milestone, ReactionSummary, TimelineEvent } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -58,6 +58,10 @@ export class GitHubClient extends Context.Service<
       number: number,
       params?: { page?: number; perPage?: number },
     ) => Effect.Effect<Array<Comment>, GitHubError>
+    fetchTimeline: (
+      number: number,
+      params?: { page?: number; perPage?: number; subjectKind?: 'issue' | 'pull' },
+    ) => Effect.Effect<Array<TimelineEvent>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -329,6 +333,169 @@ export class GitHubClient extends Context.Service<
         return rows.map(row => mapComment(row, 'pull', number))
       })
 
+      type GitHubTimelineWire = {
+        id?: number | string
+        event?: string | null
+        created_at?: string | null
+        submitted_at?: string | null
+        actor?: { login?: string | null } | null
+        user?: { login?: string | null } | null
+        sha?: string | null
+        message?: string | null
+        commit_url?: string | null
+        author?: { name?: string | null; date?: string | null } | null
+        committer?: { name?: string | null; date?: string | null } | null
+        label?: { name?: string; color?: string | null } | null
+        assignee?: { login?: string | null } | null
+        rename?: { from?: string; to?: string } | null
+        commit_id?: string | null
+        state_reason?: string | null
+        lock_reason?: string | null
+        milestone?: { title?: string } | string | null
+        requested_reviewer?: { login?: string | null } | null
+        requested_team?: { name?: string | null } | null
+        [key: string]: unknown
+      }
+
+      const KNOWN_TIMELINE_KINDS = new Set([
+        'committed',
+        'closed',
+        'reopened',
+        'merged',
+        'labeled',
+        'unlabeled',
+        'assigned',
+        'unassigned',
+        'review_requested',
+        'review_request_removed',
+        'reviewed',
+        'review_dismissed',
+        'commented',
+        'renamed',
+        'milestoned',
+        'demilestoned',
+        'transferred',
+        'base_ref_changed',
+        'head_ref_force_pushed',
+        'head_ref_deleted',
+        'head_ref_restored',
+        'locked',
+        'unlocked',
+        'ready_for_review',
+        'convert_to_draft',
+        'pinned',
+        'unpinned',
+        'mentioned',
+        'subscribed',
+        'unsubscribed',
+        'cross-referenced',
+        'connected',
+        'disconnected',
+      ] as const)
+
+      function mapTimelineEvent(
+        row: GitHubTimelineWire,
+        subjectKind: 'issue' | 'pull',
+        subjectNumber: number,
+      ): TimelineEvent | null {
+        const eventName = row.event
+        if (!eventName) return null
+
+        // committed events use commit shape (no id/created_at/actor).
+        if (eventName === 'committed' && row.sha) {
+          const createdAt = row.committer?.date ?? row.author?.date
+          if (!createdAt) return null
+          const fullMessage = row.message ?? ''
+          const firstLine = fullMessage.split('\n', 1)[0] ?? ''
+          return new TimelineEvent({
+            id: `commit:${row.sha}`,
+            kind: 'committed',
+            createdAt: DateTime.fromDateUnsafe(new Date(createdAt)),
+            ...(row.author?.name || row.committer?.name
+              ? { actor: row.author?.name ?? row.committer?.name ?? undefined }
+              : {}),
+            subjectKind,
+            subjectNumber,
+            payload: {
+              sha: row.sha,
+              commitMessage: firstLine,
+              body: fullMessage,
+              ...(row.commit_url ? { commitUrl: row.commit_url } : {}),
+            },
+          })
+        }
+
+        const createdAt = row.created_at ?? row.submitted_at
+        if (!createdAt) return null
+
+        const id = row.id != null ? String(row.id) : `${eventName}:${createdAt}`
+        const actor = row.actor?.login ?? row.user?.login ?? undefined
+        const kind = KNOWN_TIMELINE_KINDS.has(eventName as never)
+          ? (eventName as TimelineEvent['kind'])
+          : 'unknown'
+
+        const payload: Record<string, unknown> = {}
+        if (kind === 'unknown') payload.rawKind = eventName
+        if (row.label) payload.label = { name: row.label.name, color: row.label.color ?? '' }
+        if (row.assignee?.login) payload.assignee = row.assignee.login
+        if (row.rename?.from != null && row.rename?.to != null) {
+          payload.rename = { from: row.rename.from, to: row.rename.to }
+        }
+        if (row.commit_id) payload.sha = row.commit_id
+        if (row.commit_url) payload.commitUrl = row.commit_url
+        if (row.state_reason) payload.stateReason = row.state_reason
+        if (row.lock_reason) payload.lockReason = row.lock_reason
+        if (row.milestone) {
+          payload.milestone =
+            typeof row.milestone === 'string' ? row.milestone : row.milestone.title
+        }
+        if (row.requested_reviewer?.login) payload.requestedReviewer = row.requested_reviewer.login
+        else if (row.requested_team?.name) {
+          payload.requestedReviewer = row.requested_team.name
+          payload.isTeam = true
+        }
+
+        return new TimelineEvent({
+          id,
+          kind,
+          createdAt: DateTime.fromDateUnsafe(new Date(createdAt)),
+          ...(actor ? { actor } : {}),
+          subjectKind,
+          subjectNumber,
+          ...(Object.keys(payload).length > 0 ? { payload } : {}),
+        })
+      }
+
+      const fetchTimeline = Effect.fn('GitHubClient.fetchTimeline')(function* (
+        number: number,
+        params: {
+          page?: number
+          perPage?: number
+          subjectKind?: 'issue' | 'pull'
+        } = {},
+      ): Effect.fn.Return<Array<TimelineEvent>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        if (params.page) searchParams.set('page', String(params.page))
+        searchParams.set('per_page', String(params.perPage ?? 100))
+
+        const subjectKind = params.subjectKind ?? 'issue'
+
+        // Timeline API preview Accept (mockingbird); mirrors fetchPatch per-request override.
+        const response = yield* client
+          .get(`/repos/${owner}/${name}/issues/${number}/timeline?${searchParams.toString()}`, {
+            headers: {
+              Accept: 'application/vnd.github.mockingbird-preview+json',
+            },
+          })
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        const rows = json as Array<GitHubTimelineWire>
+        return rows.flatMap((row) => {
+          const mapped = mapTimelineEvent(row, subjectKind, number)
+          return mapped ? [mapped] : []
+        })
+      })
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -507,6 +674,7 @@ export class GitHubClient extends Context.Service<
         fetchMilestones,
         fetchIssueComments,
         fetchPullComments,
+        fetchTimeline,
         fetchPatch,
         closeIssue,
         reopenIssue,
