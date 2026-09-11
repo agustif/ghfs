@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, PullRequest, Release, Repo, TimelineEvent } from '../domain'
+import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, PullRequest, Release, Repo, TimelineEvent, WikiPage } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Comment, Discussion, DiscussionCategory, GitHubError, Label, Milestone, ReactionSummary, Release, TimelineEvent } from '../domain'
+import { Comment, Discussion, DiscussionCategory, GitHubError, Label, Milestone, ReactionSummary, Release, TimelineEvent, WikiPage } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -74,6 +74,10 @@ export class GitHubClient extends Context.Service<
       pageInfo: { hasNextPage: boolean; endCursor: string | null }
     }, GitHubError>
     fetchDiscussionCategories: () => Effect.Effect<Array<DiscussionCategory>, GitHubError>
+    fetchWikiPages: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<WikiPage>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -770,6 +774,102 @@ export class GitHubClient extends Context.Service<
       })
 
 
+
+      type GitHubContentsEntry = {
+        name: string
+        path: string
+        type: "file" | "dir" | string
+        sha?: string
+        size?: number
+        html_url?: string | null
+        download_url?: string | null
+        encoding?: string
+        content?: string
+      }
+
+      function pageNameFromFile(fileName: string): string {
+        return fileName.replace(/\.md$/i, "")
+      }
+
+      function titleFromName(name: string): string {
+        return name.replace(/-/g, " ")
+      }
+
+      function decodeBase64Content(content: string | undefined): string | null {
+        if (!content) return null
+        try {
+          return Buffer.from(content.replace(/\n/g, ""), "base64").toString("utf8")
+        } catch {
+          return null
+        }
+      }
+
+      function mapWikiPage(
+        entry: GitHubContentsEntry,
+        body: string | null,
+      ): WikiPage {
+        const name = pageNameFromFile(entry.name)
+        const htmlUrl = entry.html_url ?? undefined
+        return new WikiPage({
+          name,
+          title: titleFromName(name),
+          content: body,
+          author: null, // Contents API has no author; git-clone fallback can fill
+          updatedAt: null, // likewise — history follow-up
+          ...(htmlUrl ? { htmlUrl } : {}),
+        })
+      }
+
+      function slicePage<A>(
+        all: Array<A>,
+        page: number,
+        perPage: number,
+      ): Array<A> {
+        const p = Math.max(1, page)
+        const start = (p - 1) * perPage
+        return all.slice(start, start + perPage)
+      }
+
+      const fetchWikiPages = Effect.fn("GitHubClient.fetchWikiPages")(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<WikiPage>, GitHubError> {
+        const page = params.page ?? 1
+        const perPage = params.perPage ?? 100
+        const wikiRepo = `${name}.wiki`
+
+        // List root of the wiki sibling repo (list-all; not server-paginated).
+        const listResponse = yield* client
+          .get(`/repos/${owner}/${wikiRepo}/contents/`)
+          .pipe(Effect.mapError(toGitHubError))
+        const listJson = yield* listResponse.json.pipe(Effect.mapError(toGitHubError))
+        const entries = (Array.isArray(listJson) ? listJson : []) as Array<GitHubContentsEntry>
+
+        const mdFiles = entries.filter(
+          (e) =>
+            e.type === "file" &&
+            (e.name.toLowerCase().endsWith(".md") || e.name === "Home"),
+        )
+
+        const all: Array<WikiPage> = []
+        for (const entry of mdFiles) {
+          const fileResponse = yield* client
+            .get(`/repos/${owner}/${wikiRepo}/contents/${encodeURIComponent(entry.path)}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const fileJson = (yield* fileResponse.json.pipe(
+            Effect.mapError(toGitHubError),
+          )) as GitHubContentsEntry
+          const body =
+            fileJson.encoding === "base64"
+              ? decodeBase64Content(fileJson.content)
+              : (fileJson.content ?? null)
+          all.push(mapWikiPage({ ...entry, html_url: fileJson.html_url ?? entry.html_url }, body))
+        }
+
+        // Client-side page slice so SyncWiki Stream.paginate stays uniform.
+        return slicePage(all, page, perPage)
+      })
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -952,6 +1052,7 @@ export class GitHubClient extends Context.Service<
         fetchReleases,
         fetchDiscussions,
         fetchDiscussionCategories,
+        fetchWikiPages,
         fetchPatch,
         closeIssue,
         reopenIssue,
