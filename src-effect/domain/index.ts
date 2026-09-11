@@ -42,3 +42,5 @@ export * from "./search-mention"
 export * from "./search-issue-query"
 
 export * from "./status-summary"
+
+export * from "./agent-hints"

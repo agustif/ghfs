@@ -137,6 +137,8 @@ export class GitHubClient extends Context.Service<
     }) => Effect.Effect<Array<Webhook>, GitHubError>
     fetchInteractionLimits: () => Effect.Effect<InteractionLimits, GitHubError>
     fetchRepository: () => Effect.Effect<RepoMetadata, GitHubError>
+    fetchRepositoryTopics: () => Effect.Effect<Array<string>, GitHubError>
+    fetchPinnedIssues: () => Effect.Effect<Array<number>, GitHubError>
     fetchSecurityAdvisories: () => Effect.Effect<Array<RepoSecurityAdvisory>, GitHubError>
     fetchDependabotAlerts: (params?: {
       limit?: number
@@ -2472,6 +2474,64 @@ export class GitHubClient extends Context.Service<
         }
       )
 
+      type GitHubTopicsWire = {
+        names?: Array<string>
+      }
+
+      const fetchRepositoryTopics = Effect.fn("GitHubClient.fetchRepositoryTopics")(
+        function* (): Effect.fn.Return<Array<string>, GitHubError> {
+          return yield* Effect.gen(function* () {
+            const response = yield* client
+              .get(`/repos/${owner}/${name}/topics`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = (yield* response.json.pipe(
+              Effect.mapError(toGitHubError)
+            )) as GitHubTopicsWire
+            return json.names ?? []
+          }).pipe(
+            // Cue fetchRepositoryTopics catch → { names: [] }
+            Effect.catchAll(() => Effect.succeed([] as Array<string>))
+          )
+        }
+      )
+
+      const PINNED_ISSUES_QUERY = `
+  query PinnedIssues($owner: String!, $repo: String!) {
+    repository(owner: $owner, name: $repo) {
+      pinnedIssues(first: 6) {
+        nodes { issue { number } }
+      }
+    }
+  }
+`
+
+      type GqlPinnedIssuesWire = {
+        repository?: {
+          pinnedIssues?: {
+            nodes?: Array<{ issue?: { number?: number } | null } | null>
+          }
+        } | null
+      }
+
+      const fetchPinnedIssues = Effect.fn("GitHubClient.fetchPinnedIssues")(
+        function* (): Effect.fn.Return<Array<number>, GitHubError> {
+          return yield* Effect.gen(function* () {
+            // Reuse tip layer `graphql(query, variables)` helper (same as discussions / projects-v2).
+            const json = (yield* graphql(PINNED_ISSUES_QUERY, {
+              owner,
+              repo: name,
+            })) as GqlPinnedIssuesWire
+
+            return (json.repository?.pinnedIssues?.nodes ?? [])
+              .map((node) => node?.issue?.number)
+              .filter((n): n is number => typeof n === "number")
+          }).pipe(
+            // Cue fetchPinnedIssues catch → []
+            Effect.catchAll(() => Effect.succeed([] as Array<number>))
+          )
+        }
+      )
+
       const fetchSecurityAdvisories = Effect.fn("GitHubClient.fetchSecurityAdvisories")(
         function* (): Effect.fn.Return<Array<RepoSecurityAdvisory>, GitHubError> {
           return yield* Effect.gen(function* () {
@@ -3232,6 +3292,8 @@ export class GitHubClient extends Context.Service<
         fetchActionsWebhooks,
         fetchInteractionLimits,
         fetchRepository,
+        fetchRepositoryTopics,
+        fetchPinnedIssues,
         fetchSecurityAdvisories,
         fetchDependabotAlerts,
         fetchCodeScanningAlerts,
