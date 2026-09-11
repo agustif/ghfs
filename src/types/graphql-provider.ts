@@ -158,7 +158,7 @@ export interface ProviderCodeOwner {
   lineNumber: number
 }
 
-export interface ProviderTeam {
+export interface ProviderGraphQLTeam {
   id: string
   slug: string
   name: string

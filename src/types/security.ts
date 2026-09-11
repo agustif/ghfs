@@ -99,7 +99,7 @@ export interface SecretScanningAlert extends SecurityAlert {
 }
 
 export interface SecuritySummary {
-  dependabot: {
+  dependabot?: {
     total: number
     open: number
     critical: number
@@ -108,12 +108,12 @@ export interface SecuritySummary {
     low: number
     topAlerts: DependabotAlert[]
   }
-  dependabotAlerts: {
+  dependabotAlerts?: {
     total: number
     open: number
     fixed: number
     dismissed: number
-    byState: {
+    byState?: {
       open: number
       dismissed: number
       fixed: number
@@ -125,12 +125,12 @@ export interface SecuritySummary {
       low: number
     }
   }
-  codeScanningAlerts: {
+  codeScanningAlerts?: {
     total: number
     open: number
     fixed: number
     dismissed: number
-    byState: {
+    byState?: {
       open: number
       dismissed: number
       fixed: number
@@ -143,15 +143,15 @@ export interface SecuritySummary {
       none: number
     }
   }
-  secretScanningAlerts: {
+  secretScanningAlerts?: {
     total: number
     open: number
     resolved: number
-    byState: {
+    byState?: {
       open: number
       resolved: number
     }
-    byValidity: {
+    byValidity?: {
       active: number
       inactive: number
       unknown: number
@@ -163,7 +163,7 @@ export interface SecuritySummary {
       low: number
     }
   }
-  codeScanning: {
+  codeScanning?: {
     total: number
     open: number
     critical: number
@@ -172,15 +172,16 @@ export interface SecuritySummary {
     low: number
     topAlerts: CodeScanningAlert[]
   }
-  secretScanning: {
+  secretScanning?: {
     total: number
     open: number
     topAlerts: SecretScanningAlert[]
   }
-  securityAdvisories: {
+  securityAdvisories?: {
     total: number
   }
-  syncedAt: string
+  syncedAt?: string
+  lastSyncedAt?: string
 }
 
 export interface DeploymentStatus {
@@ -229,4 +230,69 @@ export interface CrossReference {
 export interface CrossRefsGraph {
   refs: CrossReference[]
   syncedAt: string
+}
+
+export interface SecurityAdvisory {
+  ghsaId: string
+  cveId: string | null
+  severity: string
+  summary: string
+  description: string
+  publishedAt: string
+  updatedAt: string
+  withdrawnAt: string | null
+  identifiers: Array<{ type: string, value: string }>
+  references: Array<{ url: string }>
+  cvss: { score: number, vectorString: string | null } | null
+  cwes: Array<{ cweId: string, name: string }>
+  vulnerabilities: Array<{
+    package: { ecosystem: string, name: string }
+    severity: string
+    vulnerableVersionRange: string
+    firstPatchedVersion: { identifier: string } | null
+  }>
+}
+
+export interface SecurityPolicy {
+  url: string | null
+  content: string | null
+}
+
+export interface CodeQLConfig {
+  path: string
+  content: string
+}
+
+export interface SecurityData {
+  codeScanningAlerts: CodeScanningAlert[]
+  secretScanningAlerts: SecretScanningAlert[]
+  dependabotAlerts: DependabotAlert[]
+  securityAdvisories: SecurityAdvisory[]
+  securityPolicy: SecurityPolicy | null
+  codeqlConfigs: CodeQLConfig[]
+  summary: SecuritySummary
+}
+
+export interface SbomData {
+  spdxId?: string
+  name?: string
+  packages?: unknown[]
+  [key: string]: unknown
+}
+
+export interface DependencyReview {
+  changeType?: string
+  manifest?: string
+  package?: { name: string, ecosystem: string }
+  [key: string]: unknown
+}
+
+export interface AttestationsSummary {
+  total: number
+  [key: string]: unknown
+}
+
+export interface DependencyGraphSummary {
+  totalDependencies?: number
+  [key: string]: unknown
 }

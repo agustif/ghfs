@@ -68,7 +68,19 @@
     "open": "catalog:",
     "pathe": "catalog:",
     "portless": "catalog:",
-    "yaml": "catalog:"
+    "yaml": "catalog:",
+    "@clack/prompts": "catalog:",
+    "@octokit/plugin-retry": "catalog:",
+    "@octokit/plugin-throttling": "catalog:",
+    "ansis": "catalog:",
+    "cac": "catalog:",
+    "dotenv": "catalog:",
+    "jiti": "catalog:",
+    "nostics": "catalog:",
+    "octokit": "catalog:",
+    "ohash": "catalog:",
+    "valibot": "catalog:",
+    "pathe": "catalog:"
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",

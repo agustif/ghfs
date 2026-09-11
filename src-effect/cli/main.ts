@@ -17,7 +17,7 @@ const AppLayer = Layer.mergeAll(
 const main = Command.run(app, {
   name: 'ghfs',
   version: '0.3.0-effect',
-})(process.argv).pipe(
+})(process.argv.slice(2)).pipe(
   Effect.provide(AppLayer),
 ) as Effect.Effect<void, unknown, never>
 

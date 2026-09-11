@@ -112,7 +112,6 @@ export async function resolveConfig(options: ResolveConfigOptions = {}): Promise
       patches: patchesMode,
       meta: merged.sync?.meta ?? true,
       labelsAndMilestones: merged.sync?.labelsAndMilestones ?? true,
-      releases: merged.sync?.releases ?? true,
       rulesets: merged.sync?.rulesets ?? true,
       constitution: merged.sync?.constitution ?? true,
       actions: merged.sync?.actions ?? true,

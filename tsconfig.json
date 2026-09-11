@@ -16,6 +16,8 @@
     "playgrounds/**",
     "ui/**",
     "dist/**",
-    "tests/e2e/**"
+    "tests/e2e/**",
+    "src-effect/**",
+    "skills/**"
   ]
 }

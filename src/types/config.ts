@@ -100,8 +100,6 @@ export interface GhfsUserConfig {
      */
     patches?: 'open' | 'all' | false
     /**
-     * Whether to search code for TODO/FIXME comments and save to .ghfs/search/code-todos.jsonl
-    /**
      * Whether to sync GitHub Actions workflows, runs, and artifacts.
      *
      * @default false
@@ -126,12 +124,6 @@ export interface GhfsUserConfig {
      */
     labelsAndMilestones?: boolean
     /**
-     * Whether to sync releases to releases/ directory.
-     *
-     * @default true
-     */
-    releases?: boolean
-    /**
      * Whether to sync branch protection rules to rulesets/ directory.
      *
      * @default true
@@ -144,16 +136,26 @@ export interface GhfsUserConfig {
      */
     constitution?: boolean
     /**
-     * Whether to sync recent workflow runs to actions/ directory.
-     *
-     * @default true
-     */
-    actions?: boolean
-    /**
      * Whether to sync GitHub Pages build history.
      *
      * @default false
      */
+    /**
+     * Security alert sync controls.
+     */
+    security?: {
+      codeScanning?: boolean
+      secretScanning?: boolean
+      dependabot?: boolean
+      advisories?: boolean
+      policy?: boolean
+      codeqlConfigs?: boolean
+    } | false
+    /** @default 30 */
+    actionsRunsPerWorkflow?: number
+    timeline?: boolean
+    commits?: boolean
+    reviewComments?: boolean
     pagesBuilds?: boolean
     /**
      * Whether to sync interaction limits (temporary user restrictions).
@@ -290,30 +292,13 @@ export interface GhfsUserConfig {
      * @default false
      */
     packages?: boolean
-  }
-  /**
-   * Extended metadata generation for agent ergonomics.
-   */
-  extended?: {
-    /**
-     * Generate activity.md with last N repository events.
-     *
-     * @default true
-     */
-    activity?: boolean
-    /**
-     * Generate agent-hints.md with detected test/lint/build commands.
-     *
-     * @default true
-     */
-    agentHints?: boolean
-    /**
-     * Generate deployments/ with environment and deployment status.
-     * Gracefully skips if deployments unavailable.
-     *
-     * @default true
-     */
-    deployments?: boolean
+    assigneeSuggestions?: boolean
+    docsTree?: boolean
+    gitRefs?: boolean
+    participationStats?: boolean
+    tags?: boolean
+    traffic?: boolean
+    vulnerabilityReporting?: boolean
   }
   /**
    * Search coverage configuration for agent ergonomics.
@@ -357,99 +342,14 @@ export interface GhfsUserConfig {
     maxResults?: number
     syncState?: boolean
   }
-  /**
-   * Extended metadata generation for agent ergonomics.
-   */
-  extended?: {
-    /**
-     * Generate activity.md with last N repository events.
-     *
-     * @default true
-     */
-    activity?: boolean
-    /**
-     * Generate agent-hints.md with detected test/lint/build commands.
-     *
-     * @default true
-     */
-    agentHints?: boolean
-    /**
-     * Generate deployments/ with environment and deployment status.
-     * Gracefully skips if deployments unavailable.
-     *
-     * @default true
-     */
-    deployments?: boolean
-    /**
-     * Whether to sync custom repository properties.
-     *
-     * @default false
-     */
-    customProperties?: boolean
-    /**
-     * Whether to sync autolink references.
-     *
-     * @default false
-     */
-    autolinks?: boolean
-    /**
-     * Whether to sync commit activity stats.
-     *
-     * @default false
-     */
-    commitActivity?: boolean
-    /**
-     * Whether to sync participation stats.
-     *
-     * @default false
-     */
-    participationStats?: boolean
-    /**
-     * Whether to sync repository tags.
-     *
-     * @default false
-     */
-    tags?: boolean
-    /**
-     * Whether to sync git refs.
-     *
-     * @default false
-     */
-    gitRefs?: boolean
-    /**
-     * Whether to sync docs tree (recursive tree of docs/ directory).
-     *
-     * @default false
-     */
-    docsTree?: boolean
-    /**
-     * Whether to sync assignee suggestions.
-     *
-     * @default false
-     */
-    assigneeSuggestions?: boolean
-    /**
-     * Whether to sync traffic data (referrers, paths, views, clones).
-     *
-     * @default false
-     */
-    traffic?: boolean
-    /**
-     * Whether to sync private vulnerability reporting status.
-     *
-     * @default false
-     */
-    vulnerabilityReporting?: boolean
-  }
 }
 
-export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended'> & {
+export type GhfsResolvedConfig = Omit<Required<GhfsUserConfig>, 'extended' | 'sync' | 'search'> & {
   cwd: string
   auth: Required<GhfsUserConfig['auth']>
-  sync: Required<GhfsUserConfig['sync']>
-  search: Required<Omit<NonNullable<GhfsUserConfig['search']>, 'issueQueries'>> & {
+  sync: NonNullable<GhfsUserConfig['sync']>
+  search: NonNullable<GhfsUserConfig['search']> & {
     issueQueries: Record<string, string>
   }
-  extended: Required<NonNullable<GhfsUserConfig['extended']>>
-  extended?: GhfsUserConfig['extended']
+  extended: NonNullable<GhfsUserConfig['extended']>
 }

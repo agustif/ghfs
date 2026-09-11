@@ -107,7 +107,6 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchPullReviews: number => fetchPullReviews(octokit, owner, repo, number, bumpRequestCount),
     fetchPullReviewThreads: number => fetchPullReviewThreads(octokit, owner, repo, number, bumpRequestCount),
     fetchPullChecks: number => fetchPullChecks(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullFiles: number => fetchPullFiles(octokit, owner, repo, number, bumpRequestCount),
     fetchPullGate: number => fetchPullGate(octokit, owner, repo, number, bumpRequestCount),
 
     fetchEvents: limit => fetchEvents(octokit, owner, repo, limit, bumpRequestCount),
@@ -175,7 +174,6 @@ export function createGitHubProvider(options: CreateGitHubProviderOptions): Repo
     fetchFundingLinks: () => fetchFundingLinks(octokit, owner, repo, bumpRequestCount),
     fetchItemProjectConnections: number => fetchItemProjectConnections(octokit, owner, repo, number, bumpRequestCount),
     fetchPullStatusCheckRollup: number => fetchPullStatusCheckRollup(octokit, owner, repo, number, bumpRequestCount),
-    fetchPullReviewThreads: number => fetchPullReviewThreads(octokit, owner, repo, number, bumpRequestCount),
     fetchCodeOwners: () => fetchCodeOwners(octokit, owner, repo, bumpRequestCount),
     fetchOrganizationTeams: () => fetchOrganizationTeams(octokit, owner, bumpRequestCount),
   }
