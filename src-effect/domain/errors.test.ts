@@ -1,4 +1,4 @@
-import { expect, it } from '@effect/vitest'
+import { expect, it } from 'vitest'
 import {
   ConfigError,
   ExecuteError,
@@ -8,7 +8,7 @@ import {
   ValidationError,
 } from '../domain'
 
-it.effect('GitHubError is a tagged error', () => {
+it('GitHubError is a tagged error', () => {
   const error = new GitHubError({
     status: 404,
     message: 'Not found',
@@ -20,7 +20,7 @@ it.effect('GitHubError is a tagged error', () => {
   expect(error.message).toBe('Not found')
 })
 
-it.effect('SyncError includes number and cause', () => {
+it('SyncError includes number and cause', () => {
   const error = new SyncError({
     message: 'Failed to sync',
     number: 123,
@@ -33,7 +33,7 @@ it.effect('SyncError includes number and cause', () => {
   expect(error.cause).toBeInstanceOf(Error)
 })
 
-it.effect('ConfigError includes field', () => {
+it('ConfigError includes field', () => {
   const error = new ConfigError({
     message: 'Invalid config',
     field: 'GHFS_REPO',
@@ -43,7 +43,7 @@ it.effect('ConfigError includes field', () => {
   expect(error.field).toBe('GHFS_REPO')
 })
 
-it.effect('FileSystemError includes path', () => {
+it('FileSystemError includes path', () => {
   const error = new FileSystemError({
     message: 'Cannot read file',
     path: '/tmp/test.md',
@@ -53,7 +53,7 @@ it.effect('FileSystemError includes path', () => {
   expect(error.path).toBe('/tmp/test.md')
 })
 
-it.effect('ExecuteError includes operation and number', () => {
+it('ExecuteError includes operation and number', () => {
   const error = new ExecuteError({
     message: 'Execution failed',
     operation: 'close',
@@ -65,7 +65,7 @@ it.effect('ExecuteError includes operation and number', () => {
   expect(error.number).toBe(42)
 })
 
-it.effect('ValidationError includes field and value', () => {
+it('ValidationError includes field and value', () => {
   const error = new ValidationError({
     message: 'Invalid value',
     field: 'state',

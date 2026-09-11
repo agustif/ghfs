@@ -1,7 +1,10 @@
-import { expect, it } from '@effect/vitest'
+import { expect, it } from 'vitest'
+import { DateTime } from 'effect'
 import { Issue, PullRequest } from '../domain'
 
-it.effect('Issue schema encodes and decodes', () => {
+const d = (iso: string) => DateTime.fromDateUnsafe(new Date(iso))
+
+it('Issue schema encodes and decodes', () => {
   const issue = new Issue({
     number: 1,
     title: 'Test Issue',
@@ -11,16 +14,16 @@ it.effect('Issue schema encodes and decodes', () => {
     labels: ['bug', 'enhancement'],
     assignees: ['dev1'],
     milestone: 'v1.0',
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-02'),
+    createdAt: d('2024-01-01'),
+    updatedAt: d('2024-01-02'),
     closedAt: null,
     comments: [
       {
         id: 1,
         author: 'commenter',
         body: 'Great issue!',
-        createdAt: new Date('2024-01-03'),
-        updatedAt: new Date('2024-01-03'),
+        createdAt: d('2024-01-03'),
+        updatedAt: d('2024-01-03'),
       },
     ],
   })
@@ -33,7 +36,7 @@ it.effect('Issue schema encodes and decodes', () => {
   expect(issue.comments[0].author).toBe('commenter')
 })
 
-it.effect('Issue validates required fields', () => {
+it('Issue validates required fields', () => {
   expect(() =>
     new Issue({
       number: 1,
@@ -44,15 +47,15 @@ it.effect('Issue validates required fields', () => {
       labels: [],
       assignees: [],
       milestone: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: d('2024-01-01'),
+      updatedAt: d('2024-01-02'),
       closedAt: null,
       comments: [],
     }),
   ).not.toThrow()
 })
 
-it.effect('PullRequest schema encodes and decodes', () => {
+it('PullRequest schema encodes and decodes', () => {
   const pr = new PullRequest({
     number: 2,
     title: 'Test PR',
@@ -62,8 +65,8 @@ it.effect('PullRequest schema encodes and decodes', () => {
     labels: ['feature'],
     assignees: [],
     milestone: null,
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-02'),
+    createdAt: d('2024-01-01'),
+    updatedAt: d('2024-01-02'),
     closedAt: null,
     mergedAt: null,
     merged: false,
@@ -83,7 +86,7 @@ it.effect('PullRequest schema encodes and decodes', () => {
   expect(pr.reviewersRequested).toEqual(['reviewer1'])
 })
 
-it.effect('PullRequest handles merged state', () => {
+it('PullRequest handles merged state', () => {
   const pr = new PullRequest({
     number: 3,
     title: 'Merged PR',
@@ -93,10 +96,10 @@ it.effect('PullRequest handles merged state', () => {
     labels: [],
     assignees: [],
     milestone: null,
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-02'),
-    closedAt: new Date('2024-01-02'),
-    mergedAt: new Date('2024-01-02'),
+    createdAt: d('2024-01-01'),
+    updatedAt: d('2024-01-02'),
+    closedAt: d('2024-01-02'),
+    mergedAt: d('2024-01-02'),
     merged: true,
     isDraft: false,
     baseRef: 'main',
@@ -107,6 +110,6 @@ it.effect('PullRequest handles merged state', () => {
 
   expect(pr.merged).toBe(true)
   expect(pr.state).toBe('closed')
-  expect(pr.mergedAt).toBeInstanceOf(Date)
-  expect(pr.closedAt).toBeInstanceOf(Date)
+  expect(pr.mergedAt).not.toBeNull()
+  expect(pr.closedAt).not.toBeNull()
 })
