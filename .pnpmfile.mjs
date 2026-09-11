@@ -1,3 +1,18 @@
+function rewriteExports(exportsField) {
+  if (!exportsField || typeof exportsField !== 'object') return exportsField
+  const out = Array.isArray(exportsField) ? [] : {}
+  for (const [key, value] of Object.entries(exportsField)) {
+    if (typeof value === 'string') {
+      out[key] = value.replace(/^\.\/lib\//, './src/').replace(/\.js$/, '.ts').replace(/\.d\.ts$/, '.ts')
+    } else if (value && typeof value === 'object') {
+      out[key] = rewriteExports(value)
+    } else {
+      out[key] = value
+    }
+  }
+  return out
+}
+
 function rewriteAlchemy(pkg, context) {
   if (pkg.name !== "alchemy" && pkg.name !== "@alchemy.run/monorepo") {
     return pkg
@@ -17,6 +32,13 @@ function rewriteAlchemy(pkg, context) {
     delete pkg.scripts.prepare
     delete pkg.scripts.preinstall
     delete pkg.scripts.postinstall
+  }
+  if (pkg.name === "alchemy") {
+    pkg.exports = rewriteExports(pkg.exports)
+    if (typeof pkg.types === "string") {
+      pkg.types = pkg.types.replace(/^\.\/lib\//, "./src/").replace(/\.d\.ts$/, ".ts")
+    }
+    pkg.typesVersions = undefined
   }
   return pkg
 }
