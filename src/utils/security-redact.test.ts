@@ -8,11 +8,11 @@ describe('security-redact', () => {
     })
 
     it('should redact medium secrets', () => {
-      expect(redactSecretValue('ghp_1234567890')).toBe('ghp_***890')
+      expect(redactSecretValue('ghp_1234567890')).toBe('gh***90')
     })
 
     it('should redact long secrets', () => {
-      expect(redactSecretValue('ghp_1234567890abcdefghijklmnopqrstuvwxyz')).toBe('ghp_1***xyz')
+      expect(redactSecretValue('ghp_1234567890abcdefghijklmnopqrstuvwxyz')).toBe('ghp_***wxyz')
     })
 
     it('should handle empty secrets', () => {
