@@ -123,6 +123,7 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<PagesBuild>, GitHubError>
+    fetchLatestPagesBuild: () => Effect.Effect<PagesBuild | null, GitHubError>
     fetchSponsorships: (params?: {
       after?: string | null
       first?: number
@@ -2059,6 +2060,15 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+      const fetchLatestPagesBuild = Effect.fn("GitHubClient.fetchLatestPagesBuild")(
+        function* (): Effect.fn.Return<PagesBuild | null, GitHubError> {
+          // Legacy provider: fetchPagesBuilds → builds[0] ?? null
+          // Tip already maps wire → PagesBuild and treats 404 as [].
+          const builds = yield* fetchPagesBuilds({ page: 1, perPage: 1 })
+          return builds[0] ?? null
+        }
+      )
+
 
       const SPONSORSHIPS_QUERY = `
   query SponsorshipsAsMaintainer($owner: String!, $first: Int!, $after: String) {
@@ -3217,6 +3227,7 @@ export class GitHubClient extends Context.Service<
         fetchCodeowners,
         fetchProjectsV2,
         fetchPagesBuilds,
+        fetchLatestPagesBuild,
         fetchSponsorships,
         fetchActionsWebhooks,
         fetchInteractionLimits,
