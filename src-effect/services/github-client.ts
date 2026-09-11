@@ -1,7 +1,7 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
@@ -152,6 +152,7 @@ export class GitHubClient extends Context.Service<
     fetchDeployments: (params?: {
       perPage?: number
     }) => Effect.Effect<Array<DeploymentInput>, GitHubError>
+    fetchAuthenticatedUser: () => Effect.Effect<AuthenticatedUserInput | null, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -2765,6 +2766,49 @@ export class GitHubClient extends Context.Service<
         },
       )
 
+
+      type GitHubAuthenticatedUserWire = {
+        login?: string | null
+        name?: string | null
+        avatar_url?: string | null
+      }
+
+      function mapAuthenticatedUserInput(
+        row: GitHubAuthenticatedUserWire,
+      ): AuthenticatedUserInput | null {
+        const login = row.login?.trim()
+        if (!login) return null
+        return { login }
+      }
+
+      function nullUserOnUnauthorized(
+        effect: Effect.Effect<AuthenticatedUserInput | null, GitHubError>,
+      ): Effect.Effect<AuthenticatedUserInput | null, GitHubError> {
+        return effect.pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 401 || error.status === 403),
+            () => Effect.succeed(null as AuthenticatedUserInput | null),
+          ),
+        )
+      }
+
+      const fetchAuthenticatedUser = Effect.fn("GitHubClient.fetchAuthenticatedUser")(
+        function* (): Effect.fn.Return<AuthenticatedUserInput | null, GitHubError> {
+          return yield* Effect.gen(function* () {
+            // Provider: octokit.rest.users.getAuthenticated() → GET /user
+            const response = yield* client
+              .get("/user")
+              .pipe(Effect.mapError(toGitHubError))
+            const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+            return mapAuthenticatedUserInput(
+              (json ?? {}) as GitHubAuthenticatedUserWire,
+            )
+          }).pipe(nullUserOnUnauthorized)
+        },
+      )
+
       return GitHubClient.of({
         fetchRepo,
         fetchIssues,
@@ -2799,6 +2843,7 @@ export class GitHubClient extends Context.Service<
         fetchSecretScanningAlerts,
         fetchActivityEvents,
         fetchDeployments,
+        fetchAuthenticatedUser,
         fetchPatch,
         closeIssue,
         reopenIssue,
