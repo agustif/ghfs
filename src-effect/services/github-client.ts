@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -144,6 +144,10 @@ export class GitHubClient extends Context.Service<
     fetchCommitComments: (params?: {
       limit?: number
     }) => Effect.Effect<Array<CommitComment>, GitHubError>
+    fetchRepoInvitations: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<RepoInvitation>, GitHubError>
     fetchRepository: () => Effect.Effect<RepoMetadata, GitHubError>
     fetchRepositoryTopics: () => Effect.Effect<Array<string>, GitHubError>
     fetchPinnedIssues: () => Effect.Effect<Array<number>, GitHubError>
@@ -2483,6 +2487,54 @@ export class GitHubClient extends Context.Service<
         }
       )
 
+      type GitHubRepoInvitationWire = {
+        id: number
+        permissions: string
+        created_at: string
+        inviter?: { login?: string | null } | null
+        invitee?: { login?: string | null } | null
+        html_url?: string | null
+      }
+
+      function mapRepoInvitation(row: GitHubRepoInvitationWire): RepoInvitation {
+        const htmlUrl = row.html_url ?? undefined
+        return new RepoInvitation({
+          id: row.id,
+          permissions: row.permissions,
+          createdAt: DateTime.fromDateUnsafe(new Date(row.created_at)),
+          inviter: row.inviter?.login ?? null,
+          invitee: row.invitee?.login ?? null,
+          ...(htmlUrl ? { htmlUrl } : {}),
+        })
+      }
+
+      const fetchRepoInvitations = Effect.fn("GitHubClient.fetchRepoInvitations")(
+        function* (params: {
+          page?: number
+          perPage?: number
+        } = {}): Effect.fn.Return<Array<RepoInvitation>, GitHubError> {
+          const searchParams = new URLSearchParams()
+          if (params.page) searchParams.set("page", String(params.page))
+          searchParams.set("per_page", String(params.perPage ?? 100))
+
+          return yield* Effect.gen(function* () {
+            const response = yield* client
+              .get(`/repos/${owner}/${name}/invitations?${searchParams.toString()}`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+            const rows = (Array.isArray(json) ? json : []) as Array<GitHubRepoInvitationWire>
+            return rows.map(mapRepoInvitation)
+          }).pipe(
+            Effect.catchIf(
+              (error): error is GitHubError =>
+                error instanceof GitHubError &&
+                (error.status === 404 || error.status === 403),
+              () => Effect.succeed([] as Array<RepoInvitation>)
+            )
+          )
+        }
+      )
+
       type GitHubRepositoryWire = {
         name?: string
         full_name?: string
@@ -3409,6 +3461,7 @@ export class GitHubClient extends Context.Service<
         fetchInteractionLimits,
         fetchViewerStatus,
         fetchCommitComments,
+        fetchRepoInvitations,
         fetchRepository,
         fetchRepositoryTopics,
         fetchPinnedIssues,
