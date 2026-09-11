@@ -49,3 +49,4 @@ export * from "./agent-hints"
 export * from "./gate"
 
 export * from "./viewer-status"
+export * from "./commit-comment"

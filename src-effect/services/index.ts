@@ -57,3 +57,4 @@ export * from "./sync-gate"
 export * from "./sync-workflow-permissions"
 
 export * from "./sync-viewer-status"
+export * from "./sync-commit-comments"

@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -141,6 +141,9 @@ export class GitHubClient extends Context.Service<
     }) => Effect.Effect<Array<Webhook>, GitHubError>
     fetchInteractionLimits: () => Effect.Effect<InteractionLimits, GitHubError>
     fetchViewerStatus: () => Effect.Effect<ViewerStatus, GitHubError>
+    fetchCommitComments: (params?: {
+      limit?: number
+    }) => Effect.Effect<Array<CommitComment>, GitHubError>
     fetchRepository: () => Effect.Effect<RepoMetadata, GitHubError>
     fetchRepositoryTopics: () => Effect.Effect<Array<string>, GitHubError>
     fetchPinnedIssues: () => Effect.Effect<Array<number>, GitHubError>
@@ -2429,6 +2432,56 @@ export class GitHubClient extends Context.Service<
         }
       )
 
+      type GitHubCommitCommentWire = {
+        id: number
+        body?: string | null
+        created_at: string
+        updated_at: string
+        user?: { login?: string | null; avatar_url?: string | null } | null
+        commit_id: string
+        path?: string | null
+        line?: number | null
+        position?: number | null
+        html_url?: string | null
+      }
+
+      function mapCommitComment(row: GitHubCommitCommentWire): CommitComment {
+        const author = row.user?.login ?? null
+        const authorAvatarUrl = row.user?.avatar_url ?? undefined
+        const htmlUrl = row.html_url ?? undefined
+
+        return new CommitComment({
+          id: row.id,
+          body: row.body ?? null,
+          createdAt: DateTime.fromDateUnsafe(new Date(row.created_at)),
+          updatedAt: DateTime.fromDateUnsafe(new Date(row.updated_at)),
+          author,
+          ...(authorAvatarUrl ? { authorAvatarUrl } : {}),
+          commitId: row.commit_id,
+          path: row.path ?? null,
+          line: row.line ?? null,
+          position: row.position ?? null,
+          ...(htmlUrl ? { htmlUrl } : {}),
+        })
+      }
+
+      const fetchCommitComments = Effect.fn("GitHubClient.fetchCommitComments")(
+        function* (params: { limit?: number } = {}): Effect.fn.Return<
+          Array<CommitComment>,
+          GitHubError
+        > {
+          const limit = params.limit ?? 30
+          const searchParams = new URLSearchParams()
+          searchParams.set("per_page", String(Math.min(Math.max(limit, 1), 100)))
+
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/comments?${searchParams.toString()}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const rows = (Array.isArray(json) ? json : []) as Array<GitHubCommitCommentWire>
+          return rows.slice(0, limit).map(mapCommitComment)
+        }
+      )
 
       type GitHubRepositoryWire = {
         name?: string
@@ -3355,6 +3408,7 @@ export class GitHubClient extends Context.Service<
         fetchActionsWebhooks,
         fetchInteractionLimits,
         fetchViewerStatus,
+        fetchCommitComments,
         fetchRepository,
         fetchRepositoryTopics,
         fetchPinnedIssues,

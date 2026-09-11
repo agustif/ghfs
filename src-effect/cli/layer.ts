@@ -49,10 +49,11 @@ import {
   SyncGate,
   SyncWorkflowPermissions,
   SyncViewerStatus,
+  SyncCommitComments,
 } from '../services'
 
 /** AppLayer @ tip 200cc0f (#198 Schema-first execute.md).
- * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments / SyncSecuritySummary / SyncActivitySummary / SyncDeploymentsSummary / SyncMeSummary / SyncAutolinks / SyncRuleSuites / SyncSearchCodeTodos / SyncSearchCommitRefs / SyncSearchMentions / SyncSearchIssueQueries / SyncLatestPagesBuild / SyncStatus / SyncAgentHints / SyncGate / SyncWorkflowPermissions / SyncViewerStatus — no service body rewrites.
+ * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments / SyncSecuritySummary / SyncActivitySummary / SyncDeploymentsSummary / SyncMeSummary / SyncAutolinks / SyncRuleSuites / SyncSearchCodeTodos / SyncSearchCommitRefs / SyncSearchMentions / SyncSearchIssueQueries / SyncLatestPagesBuild / SyncStatus / SyncAgentHints / SyncGate / SyncWorkflowPermissions / SyncViewerStatus / SyncCommitComments — no service body rewrites.
  */
 export const AppLayer = Layer.mergeAll(
   GhfsConfig.layer,
@@ -103,5 +104,6 @@ export const AppLayer = Layer.mergeAll(
   SyncGate.layer,
   SyncWorkflowPermissions.layer,
   SyncViewerStatus.layer,
+  SyncCommitComments.layer,
   NodeContext.layer,
 )
