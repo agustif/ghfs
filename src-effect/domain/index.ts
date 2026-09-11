@@ -53,3 +53,5 @@ export * from "./commit-comment"
 export * from "./repo-invitation"
 export * from "./template-info"
 export * from "./fork-status"
+
+export * from "./network-summary"

@@ -61,3 +61,5 @@ export * from "./sync-commit-comments"
 export * from "./sync-invitations"
 export * from "./sync-template"
 export * from "./sync-fork-status"
+
+export * from "./sync-network-summary"
