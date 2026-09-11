@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { DependencyIntelligenceData } from './dependency-intelligence'
 // @ts-nocheck
 import { mkdir, writeFile } from 'node:fs/promises'

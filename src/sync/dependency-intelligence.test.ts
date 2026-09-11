@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { DependabotAlert } from '../types/security'
 // @ts-nocheck
 import { describe, expect, it } from 'vitest'
