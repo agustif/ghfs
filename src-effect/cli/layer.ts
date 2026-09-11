@@ -16,10 +16,11 @@ import {
   SyncComments,
   SyncTimeline,
   SyncReleases,
+  SyncDiscussions,
 } from '../services'
 
 /** AppLayer @ tip 200cc0f (#198 Schema-first execute.md).
- * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases — no service body rewrites.
+ * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions — no service body rewrites.
  */
 export const AppLayer = Layer.mergeAll(
   GhfsConfig.layer,
@@ -37,5 +38,6 @@ export const AppLayer = Layer.mergeAll(
   SyncComments.layer,
   SyncTimeline.layer,
   SyncReleases.layer,
+  SyncDiscussions.layer,
   NodeContext.layer,
 )
