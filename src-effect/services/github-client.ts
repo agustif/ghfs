@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -151,6 +151,7 @@ export class GitHubClient extends Context.Service<
     fetchTemplateInfo: () => Effect.Effect<TemplateInfo, GitHubError>
     fetchForkStatus: () => Effect.Effect<ForkStatus, GitHubError>
     fetchNetworkSummary: () => Effect.Effect<NetworkSummary, GitHubError>
+    fetchFeeds: () => Effect.Effect<Feeds, GitHubError>
     fetchRepository: () => Effect.Effect<RepoMetadata, GitHubError>
     fetchRepositoryTopics: () => Effect.Effect<Array<string>, GitHubError>
     fetchPinnedIssues: () => Effect.Effect<Array<number>, GitHubError>
@@ -2669,6 +2670,39 @@ export class GitHubClient extends Context.Service<
         }
       )
 
+      type GitHubFeedsWire = {
+        timeline_url?: string | null
+        user_url?: string | null
+      }
+
+      const EMPTY_FEEDS = new Feeds({
+        timelineUrl: null,
+        userUrl: null,
+      })
+
+      function mapFeeds(row: GitHubFeedsWire): Feeds {
+        return new Feeds({
+          timelineUrl: row.timeline_url ?? null,
+          userUrl: row.user_url ?? null,
+        })
+      }
+
+      const fetchFeeds = Effect.fn("GitHubClient.fetchFeeds")(
+        function* (): Effect.fn.Return<Feeds, GitHubError> {
+          return yield* Effect.gen(function* () {
+            const response = yield* client
+              .get(`/feeds`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = (yield* response.json.pipe(
+              Effect.mapError(toGitHubError)
+            )) as GitHubFeedsWire
+            return mapFeeds(json)
+          }).pipe(
+            Effect.catchAll(() => Effect.succeed(EMPTY_FEEDS))
+          )
+        }
+      )
+
       type GitHubRepositoryWire = {
         name?: string
         full_name?: string
@@ -3599,6 +3633,7 @@ export class GitHubClient extends Context.Service<
         fetchTemplateInfo,
         fetchForkStatus,
         fetchNetworkSummary,
+        fetchFeeds,
         fetchRepository,
         fetchRepositoryTopics,
         fetchPinnedIssues,
