@@ -31,3 +31,4 @@ export * from "./sync-interaction-limits"
 export * from "./sync-metadata"
 
 export * from "./sync-satellites"
+export * from "./sync-item-attachments"
