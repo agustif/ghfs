@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, Person, PullRequest, Release, Repo, RepoPackage, TimelineEvent, WikiPage, Workflow } from '../domain'
+import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, Person, PullRequest, Release, Repo, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, Person, ReactionSummary, Release, RepoPackage, TimelineEvent, WikiPage, Workflow } from '../domain'
+import { Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, Person, ReactionSummary, Release, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -98,6 +98,15 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<Person>, GitHubError>
+    fetchTeams: (params?: {
+      page?: number
+      after?: string | null
+      perPage?: number
+      first?: number
+    }) => Effect.Effect<{
+      teams: Array<Team>
+      pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    }, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -1230,6 +1239,232 @@ export class GitHubClient extends Context.Service<
         })
       })
 
+
+      const ORG_TEAMS_QUERY = `
+  query OrgTeams($owner: String!, $first: Int!, $after: String) {
+    organization(login: $owner) {
+      teams(first: $first, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          slug
+          name
+          description
+          privacy
+          url
+          members {
+            totalCount
+          }
+          repositories {
+            totalCount
+          }
+          createdAt
+          updatedAt
+        }
+      }
+    }
+  }
+`
+
+      type GqlTeamNode = {
+        id: string
+        slug: string
+        name: string
+        description: string | null
+        privacy: string
+        url: string
+        members?: { totalCount?: number | null } | null
+        repositories?: { totalCount?: number | null } | null
+        createdAt: string
+        updatedAt: string
+      }
+
+      type GqlOrgTeamsResponse = {
+        data?: {
+          organization?: {
+            teams?: {
+              pageInfo: { hasNextPage: boolean; endCursor: string | null }
+              nodes: Array<GqlTeamNode | null>
+            } | null
+          } | null
+        }
+        errors?: Array<{ message: string }>
+      }
+
+      type GitHubRestTeamWire = {
+        id?: number
+        node_id?: string | null
+        slug?: string | null
+        name?: string | null
+        description?: string | null
+        privacy?: string | null
+        html_url?: string | null
+        url?: string | null
+        members_count?: number | null
+        repositories_count?: number | null
+        created_at?: string | null
+        updated_at?: string | null
+      }
+
+      function normalizeTeamPrivacy(raw: string | null | undefined): string {
+        if (raw == null || raw === "") return "closed"
+        const lower = raw.toLowerCase()
+        if (lower === "secret" || lower === "closed" || lower === "visible") return lower
+        return raw
+      }
+
+      function mapGqlTeam(node: GqlTeamNode): Team {
+        return new Team({
+          id: node.id,
+          slug: node.slug,
+          name: node.name,
+          privacy: normalizeTeamPrivacy(node.privacy),
+          membersCount: node.members?.totalCount ?? 0,
+          repositoriesCount: node.repositories?.totalCount ?? 0,
+          createdAt: DateTime.fromDateUnsafe(new Date(node.createdAt)),
+          updatedAt: DateTime.fromDateUnsafe(new Date(node.updatedAt)),
+          url: node.url,
+          description: node.description ?? null,
+        })
+      }
+
+      const TEAM_EPOCH = DateTime.fromDateUnsafe(new Date(0))
+
+      function mapRestTeam(row: GitHubRestTeamWire): Team | null {
+        const slug = row.slug?.trim()
+        const name = row.name?.trim()
+        if (!slug || !name) return null
+
+        const id =
+          row.node_id?.trim() ||
+          (typeof row.id === "number" ? String(row.id) : null)
+        if (!id) return null
+
+        const url = row.html_url ?? row.url ?? `https://github.com/orgs/${owner}/teams/${slug}`
+        const createdAt = row.created_at
+          ? DateTime.fromDateUnsafe(new Date(row.created_at))
+          : TEAM_EPOCH
+        const updatedAt = row.updated_at
+          ? DateTime.fromDateUnsafe(new Date(row.updated_at))
+          : TEAM_EPOCH
+
+        return new Team({
+          id,
+          slug,
+          name,
+          privacy: normalizeTeamPrivacy(row.privacy),
+          membersCount: typeof row.members_count === "number" ? row.members_count : 0,
+          repositoriesCount:
+            typeof row.repositories_count === "number" ? row.repositories_count : 0,
+          createdAt,
+          updatedAt,
+          url,
+          description: row.description ?? null,
+        })
+      }
+
+      const fetchTeamsGraphql = Effect.fn("GitHubClient.fetchTeamsGraphql")(function* (params: {
+        after?: string | null
+        first?: number
+      }): Effect.fn.Return<{
+        teams: Array<Team>
+        pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      }, GitHubError> {
+        const first = params.first ?? 100
+        const json = (yield* graphql(ORG_TEAMS_QUERY, {
+          owner,
+          first,
+          after: params.after ?? null,
+        })) as GqlOrgTeamsResponse
+
+        if (json.errors?.length) {
+          return yield* Effect.fail(
+            new GitHubError({
+              status: 200,
+              message: json.errors.map((e) => e.message).join("; "),
+              details: "GraphQL errors on organization.teams",
+            }),
+          )
+        }
+
+        // User/personal owners have no organization → empty page (keep SyncTeams resilient).
+        const connection = json.data?.organization?.teams
+        if (!connection) {
+          return {
+            teams: [],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          }
+        }
+
+        const teams = (connection.nodes ?? []).flatMap((node) =>
+          node ? [mapGqlTeam(node)] : [],
+        )
+        return {
+          teams,
+          pageInfo: {
+            hasNextPage: connection.pageInfo.hasNextPage,
+            endCursor: connection.pageInfo.endCursor,
+          },
+        }
+      })
+
+      const fetchTeamsRest = Effect.fn("GitHubClient.fetchTeamsRest")(function* (params: {
+        page?: number
+        perPage?: number
+      }): Effect.fn.Return<{
+        teams: Array<Team>
+        pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      }, GitHubError> {
+        const perPage = params.perPage ?? 100
+        const searchParams = new URLSearchParams()
+        if (params.page) searchParams.set("page", String(params.page))
+        searchParams.set("per_page", String(perPage))
+
+        const response = yield* client
+          .get(`/orgs/${owner}/teams?${searchParams.toString()}`)
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        const rows = (Array.isArray(json) ? json : []) as Array<GitHubRestTeamWire>
+        const teams = rows.flatMap((row) => {
+          const team = mapRestTeam(row)
+          return team ? [team] : []
+        })
+
+        // REST has no endCursor — synthesize hasNextPage from page fullness.
+        return {
+          teams,
+          pageInfo: {
+            hasNextPage: teams.length >= perPage,
+            endCursor: null,
+          },
+        }
+      })
+
+      const fetchTeams = Effect.fn("GitHubClient.fetchTeams")(function* (params: {
+        page?: number
+        after?: string | null
+        perPage?: number
+        first?: number
+      } = {}): Effect.fn.Return<{
+        teams: Array<Team>
+        pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      }, GitHubError> {
+        // Prefer GraphQL cursor unless caller explicitly asks for REST `page`.
+        if (params.page != null && params.after == null) {
+          return yield* fetchTeamsRest({
+            page: params.page,
+            perPage: params.perPage ?? params.first,
+          })
+        }
+        return yield* fetchTeamsGraphql({
+          after: params.after ?? null,
+          first: params.first ?? params.perPage,
+        })
+      })
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -1417,6 +1652,7 @@ export class GitHubClient extends Context.Service<
         fetchMergeQueueEntries,
         fetchPackages,
         fetchContributors,
+        fetchTeams,
         fetchPatch,
         closeIssue,
         reopenIssue,
