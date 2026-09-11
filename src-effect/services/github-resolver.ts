@@ -1,18 +1,18 @@
 import { Context, Effect, Layer, Request, RequestResolver } from "effect"
-import type { Issue, PullRequest, GitHubError } from "../domain"
+import type { GitHubError, Issue, PullRequest } from "../domain"
 import { GitHubClient } from "./github-client"
 
-export class FetchIssue extends Request.TaggedClass("FetchIssue")<
-  Issue,
-  GitHubError,
-  { readonly number: number }
->() {}
+export interface FetchIssue extends Request.Request<Issue, GitHubError> {
+  readonly _tag: "FetchIssue"
+  readonly number: number
+}
+export const FetchIssue = Request.tagged<FetchIssue>("FetchIssue")
 
-export class FetchPullRequest extends Request.TaggedClass("FetchPullRequest")<
-  PullRequest,
-  GitHubError,
-  { readonly number: number }
->() {}
+export interface FetchPullRequest extends Request.Request<PullRequest, GitHubError> {
+  readonly _tag: "FetchPullRequest"
+  readonly number: number
+}
+export const FetchPullRequest = Request.tagged<FetchPullRequest>("FetchPullRequest")
 
 export class GitHubResolver extends Context.Service<
   GitHubResolver,
@@ -20,50 +20,31 @@ export class GitHubResolver extends Context.Service<
     readonly issueResolver: RequestResolver.RequestResolver<FetchIssue>
     readonly prResolver: RequestResolver.RequestResolver<FetchPullRequest>
   }
->()(
-  "ghfs/services/GitHubResolver"
-) {
+>()("ghfs/services/GitHubResolver") {
   static readonly layer = Layer.effect(
     GitHubResolver,
     Effect.gen(function* () {
       const github = yield* GitHubClient
 
-      const issueResolver = RequestResolver.makeBatched(
-        (requests: Array<FetchIssue>) =>
-          Effect.gen(function* () {
-            yield* Effect.logDebug("Batching", requests.length, "issue fetches")
-
-            yield* Effect.forEach(
-              requests,
-              (req) =>
-                Effect.gen(function* () {
-                  const issue = yield* github.fetchIssue(req.number)
-                  return Request.succeed(req, issue)
-                }).pipe(
-                  Effect.catchAll((error) => Request.fail(req, error))
-                ),
-              { concurrency: 3 }
-            )
-          })
+      const issueResolver = RequestResolver.make<FetchIssue>((entries) =>
+        Effect.forEach(
+          entries,
+          (entry) =>
+            Request.completeEffect(entry, github.fetchIssue(entry.request.number)),
+          { concurrency: 3 }
+        ).pipe(Effect.asVoid)
       )
 
-      const prResolver = RequestResolver.makeBatched(
-        (requests: Array<FetchPullRequest>) =>
-          Effect.gen(function* () {
-            yield* Effect.logDebug("Batching", requests.length, "PR fetches")
-
-            yield* Effect.forEach(
-              requests,
-              (req) =>
-                Effect.gen(function* () {
-                  const pr = yield* github.fetchPullRequest(req.number)
-                  return Request.succeed(req, pr)
-                }).pipe(
-                  Effect.catchAll((error) => Request.fail(req, error))
-                ),
-              { concurrency: 3 }
-            )
-          })
+      const prResolver = RequestResolver.make<FetchPullRequest>((entries) =>
+        Effect.forEach(
+          entries,
+          (entry) =>
+            Request.completeEffect(
+              entry,
+              github.fetchPullRequest(entry.request.number)
+            ),
+          { concurrency: 3 }
+        ).pipe(Effect.asVoid)
       )
 
       return GitHubResolver.of({ issueResolver, prResolver })
