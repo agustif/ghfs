@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Issue, PullRequest, Repo } from '../domain'
+import type { Issue, Label, Milestone, PullRequest, Repo } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, Effect, Layer, Redacted, Schedule } from 'effect'
-import { GitHubError } from '../domain'
+import { GitHubError, Label, Milestone } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -41,6 +41,15 @@ export class GitHubClient extends Context.Service<
       page?: number
     }) => Effect.Effect<Array<PullRequest>, GitHubError>
     fetchPullRequest: (number: number) => Effect.Effect<PullRequest, GitHubError>
+    fetchLabels: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<Label>, GitHubError>
+    fetchMilestones: (params?: {
+      state?: 'open' | 'closed' | 'all'
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<Milestone>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -152,6 +161,75 @@ export class GitHubClient extends Context.Service<
           return json as PullRequest
         },
       )
+
+
+      const fetchLabels = Effect.fn('GitHubClient.fetchLabels')(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<Label>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        if (params.page)
+          searchParams.set('page', String(params.page))
+        searchParams.set('per_page', String(params.perPage ?? 100))
+
+        const response = yield* client
+          .get(`/repos/${owner}/${name}/labels?${searchParams.toString()}`)
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        const rows = json as Array<{
+          name: string
+          color: string
+          description: string | null
+          default: boolean
+        }>
+        return rows.map(
+          row =>
+            new Label({
+              name: row.name,
+              color: row.color,
+              description: row.description ?? null,
+              default: row.default,
+            }),
+        )
+      })
+
+      const fetchMilestones = Effect.fn('GitHubClient.fetchMilestones')(function* (params: {
+        state?: 'open' | 'closed' | 'all'
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<Milestone>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        searchParams.set('state', params.state ?? 'all')
+        if (params.page)
+          searchParams.set('page', String(params.page))
+        searchParams.set('per_page', String(params.perPage ?? 100))
+
+        const response = yield* client
+          .get(`/repos/${owner}/${name}/milestones?${searchParams.toString()}`)
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        const rows = json as Array<{
+          number: number
+          title: string
+          state: 'open' | 'closed'
+          description: string | null
+          due_on: string | null
+          open_issues: number
+          closed_issues: number
+        }>
+        return rows.map(
+          row =>
+            new Milestone({
+              number: row.number,
+              title: row.title,
+              state: row.state,
+              description: row.description ?? null,
+              dueOn: row.due_on ?? null,
+              openIssues: row.open_issues,
+              closedIssues: row.closed_issues,
+            }),
+        )
+      })
 
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
@@ -327,6 +405,8 @@ export class GitHubClient extends Context.Service<
         fetchIssue,
         fetchPullRequests,
         fetchPullRequest,
+        fetchLabels,
+        fetchMilestones,
         fetchPatch,
         closeIssue,
         reopenIssue,

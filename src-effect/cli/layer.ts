@@ -11,10 +11,12 @@ import {
   SyncConcurrency,
   SyncEngine,
   SyncEngineStreaming,
+  SyncLabels,
+  SyncMilestones,
 } from '../services'
 
-/** AppLayer @ tip cbc71c8 (#195 ApplyEngine on tip).
- * Adds orphan sync helpers only — no service body rewrites.
+/** AppLayer @ tip 200cc0f (#198 Schema-first execute.md).
+ * Adds SyncLabels / SyncMilestones — no service body rewrites.
  */
 export const AppLayer = Layer.mergeAll(
   GhfsConfig.layer,
@@ -27,5 +29,7 @@ export const AppLayer = Layer.mergeAll(
   SyncCache.layer,
   SyncConcurrency.layer,
   SyncEngineStreaming.layer,
+  SyncLabels.layer,
+  SyncMilestones.layer,
   NodeContext.layer,
 )
