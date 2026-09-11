@@ -90,3 +90,5 @@ allowBuilds:
   msgpackr-extract: true
   simple-git-hooks: true
   vue-demi: true
+  'alchemy': true
+  'alchemy@https://codeload.github.com/agustif/alchemy/tar.gz/3445a0219c237d34e06d84bba51a7df090bd23c2#path:/packages/alchemy': true

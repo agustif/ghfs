@@ -14,7 +14,7 @@ The `agustif/alchemy` fork extends alchemy-run/alchemy with a comprehensive GitH
 ```json
 {
   "dependencies": {
-    "alchemy": "github:agustif/alchemy#main"
+    "alchemy": "github:agustif/alchemy#main&path:/packages/alchemy"
   }
 }
 ```
@@ -201,7 +201,7 @@ export default Alchemy.Stack(
 ```json
 {
   "dependencies": {
-    "alchemy": "github:agustif/alchemy#main"
+    "alchemy": "github:agustif/alchemy#main&path:/packages/alchemy"
   }
 }
 ```
