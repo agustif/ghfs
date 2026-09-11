@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Comment, Issue, Label, Milestone, PullRequest, Release, Repo, TimelineEvent } from '../domain'
+import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, PullRequest, Release, Repo, TimelineEvent } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Comment, GitHubError, Label, Milestone, ReactionSummary, Release, TimelineEvent } from '../domain'
+import { Comment, Discussion, DiscussionCategory, GitHubError, Label, Milestone, ReactionSummary, Release, TimelineEvent } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -66,6 +66,14 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<Release>, GitHubError>
+    fetchDiscussions: (params?: {
+      after?: string | null
+      first?: number
+    }) => Effect.Effect<{
+      discussions: Array<Discussion>
+      pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    }, GitHubError>
+    fetchDiscussionCategories: () => Effect.Effect<Array<DiscussionCategory>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -558,6 +566,210 @@ export class GitHubClient extends Context.Service<
         return rows.map(mapRelease)
       }
 
+      const DISCUSSIONS_QUERY = `
+  query RepoDiscussions($owner: String!, $name: String!, $first: Int!, $after: String) {
+    repository(owner: $owner, name: $name) {
+      discussions(first: $first, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          number
+          title
+          body
+          url
+          locked
+          upvoteCount
+          createdAt
+          updatedAt
+          closedAt
+          answerChosenAt
+          author { login }
+          answerChosenBy { login }
+          category { id name }
+          labels(first: 20) {
+            nodes { name color }
+          }
+        }
+      }
+    }
+  }
+`
+
+      const DISCUSSION_CATEGORIES_QUERY = `
+  query DiscussionCategories($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+      discussionCategories(first: 100) {
+        nodes {
+          id
+          name
+          slug
+          description
+          isAnswerable
+        }
+      }
+    }
+  }
+`
+
+      type GqlDiscussionNode = {
+        id: string
+        number: number
+        title: string
+        body: string | null
+        url: string | null
+        locked: boolean
+        upvoteCount: number
+        createdAt: string
+        updatedAt: string
+        closedAt: string | null
+        answerChosenAt: string | null
+        author?: { login?: string | null } | null
+        answerChosenBy?: { login?: string | null } | null
+        category?: { id?: string | null; name?: string | null } | null
+        labels?: { nodes?: Array<{ name: string; color: string }> | null } | null
+      }
+
+      type GqlDiscussionsResponse = {
+        data?: {
+          repository?: {
+            discussions?: {
+              pageInfo: { hasNextPage: boolean; endCursor: string | null }
+              nodes: Array<GqlDiscussionNode | null>
+            } | null
+          } | null
+        }
+        errors?: Array<{ message: string }>
+      }
+
+      function mapDiscussion(node: GqlDiscussionNode): Discussion {
+        const categoryId = node.category?.id ?? undefined
+        const categoryName = node.category?.name ?? undefined
+        return new Discussion({
+          id: node.id,
+          number: node.number,
+          title: node.title,
+          author: node.author?.login ?? null,
+          body: node.body ?? null,
+          url: node.url ?? null,
+          ...(categoryId ? { categoryId } : {}),
+          ...(categoryName ? { categoryName } : {}),
+          locked: node.locked ?? false,
+          upvoteCount: node.upvoteCount ?? 0,
+          createdAt: DateTime.fromDateUnsafe(new Date(node.createdAt)),
+          updatedAt: DateTime.fromDateUnsafe(new Date(node.updatedAt)),
+          closedAt: node.closedAt
+            ? DateTime.fromDateUnsafe(new Date(node.closedAt))
+            : null,
+          answerChosenAt: node.answerChosenAt
+            ? DateTime.fromDateUnsafe(new Date(node.answerChosenAt))
+            : null,
+          answerChosenBy: node.answerChosenBy?.login ?? null,
+          labels: (node.labels?.nodes ?? []).map((l) => ({
+            name: l.name,
+            color: l.color,
+          })),
+        })
+      }
+
+      const graphql = Effect.fn('GitHubClient.graphql')(function* (
+        query: string,
+        variables: Record<string, unknown>,
+      ): Effect.fn.Return<unknown, GitHubError> {
+        const response = yield* client
+          .post('/graphql', {
+            body: HttpBody.unsafeJson({ query, variables }),
+          })
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        return json
+      })
+
+      const fetchDiscussions = Effect.fn('GitHubClient.fetchDiscussions')(function* (params: {
+        after?: string | null
+        first?: number
+      } = {}): Effect.fn.Return<{
+        discussions: Array<Discussion>
+        pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      }, GitHubError> {
+        const json = (yield* graphql(DISCUSSIONS_QUERY, {
+          owner,
+          name,
+          first: params.first ?? 100,
+          after: params.after ?? null,
+        })) as GqlDiscussionsResponse
+
+        if (json.errors?.length) {
+          return yield* Effect.fail(
+            new GitHubError({
+              status: 200,
+              message: json.errors.map((e) => e.message).join('; '),
+              details: 'GraphQL errors on repository.discussions',
+            }),
+          )
+        }
+
+        const connection = json.data?.repository?.discussions
+        const nodes = (connection?.nodes ?? []).filter(
+          (n): n is GqlDiscussionNode => n != null,
+        )
+        return {
+          discussions: nodes.map(mapDiscussion),
+          pageInfo: {
+            hasNextPage: connection?.pageInfo.hasNextPage ?? false,
+            endCursor: connection?.pageInfo.endCursor ?? null,
+          },
+        }
+      })
+
+      const fetchDiscussionCategories = Effect.fn('GitHubClient.fetchDiscussionCategories')(function* (): Effect.fn.Return<Array<DiscussionCategory>, GitHubError> {
+        const json = (yield* graphql(DISCUSSION_CATEGORIES_QUERY, {
+          owner,
+          name,
+        })) as {
+          data?: {
+            repository?: {
+              discussionCategories?: {
+                nodes: Array<{
+                  id: string
+                  name: string
+                  slug: string
+                  description: string | null
+                  isAnswerable: boolean
+                } | null>
+              } | null
+            } | null
+          }
+          errors?: Array<{ message: string }>
+        }
+
+        if (json.errors?.length) {
+          return yield* Effect.fail(
+            new GitHubError({
+              status: 200,
+              message: json.errors.map((e) => e.message).join('; '),
+              details: 'GraphQL errors on repository.discussionCategories',
+            }),
+          )
+        }
+
+        return (json.data?.repository?.discussionCategories?.nodes ?? [])
+          .filter((n): n is NonNullable<typeof n> => n != null)
+          .map(
+            (n) =>
+              new DiscussionCategory({
+                id: n.id,
+                name: n.name,
+                slug: n.slug,
+                description: n.description ?? null,
+                isAnswerable: n.isAnswerable,
+              }),
+          )
+      })
+
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -738,6 +950,8 @@ export class GitHubClient extends Context.Service<
         fetchPullComments,
         fetchTimeline,
         fetchReleases,
+        fetchDiscussions,
+        fetchDiscussionCategories,
         fetchPatch,
         closeIssue,
         reopenIssue,
