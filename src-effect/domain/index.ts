@@ -50,3 +50,4 @@ export * from "./gate"
 
 export * from "./viewer-status"
 export * from "./commit-comment"
+export * from "./repo-invitation"
