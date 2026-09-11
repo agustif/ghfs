@@ -1,9 +1,18 @@
-import { Context, Effect, Layer, Schedule, Stream } from "effect"
-import type { SyncError } from "../domain"
-import { SyncState, SyncItemState } from "../domain"
+import {
+  Context,
+  DateTime,
+  Duration,
+  Effect,
+  Layer,
+  Option,
+  Schedule,
+  Stream
+} from "effect"
+import type { FileSystemError, GitHubError, Issue, PullRequest } from "../domain"
+import { SyncError, SyncItemState, SyncState } from "../domain"
+import { GhfsConfig } from "./config"
 import { GitHubClient } from "./github-client"
 import { MirrorFs } from "./mirror-fs"
-import { GhfsConfig } from "./config"
 
 export interface SyncOptions {
   readonly full?: boolean
@@ -19,15 +28,60 @@ export interface SyncSummary {
   readonly errors: number
 }
 
+type PageState = { readonly page: number }
+
+function mapFs<A, R>(
+  effect: Effect.Effect<A, FileSystemError, R>
+): Effect.Effect<A, SyncError, R> {
+  return Effect.mapError(
+    effect,
+    (error) =>
+      new SyncError({
+        message: error.message,
+        cause: error
+      })
+  )
+}
+
+function mapGitHub<A, R>(
+  effect: Effect.Effect<A, GitHubError, R>
+): Effect.Effect<A, SyncError, R> {
+  return Effect.mapError(
+    effect,
+    (error) =>
+      new SyncError({
+        message: error.message,
+        cause: error
+      })
+  )
+}
+
+/** options.since is ISO string; SyncState.lastSince is DateTime.Utc */
+function resolveSince(
+  options: SyncOptions,
+  lastSince: DateTime.Utc | undefined
+): string | undefined {
+  if (options.since !== undefined) {
+    return options.since
+  }
+  if (options.full || lastSince === undefined) {
+    return undefined
+  }
+  return DateTime.formatIso(lastSince)
+}
+
+/** watchInterval is a plain string; Schedule.spaced needs Duration.Input */
+function watchDuration(interval: string | undefined): Duration.Duration {
+  return Duration.fromInputUnsafe((interval ?? "5 minutes") as Duration.Input)
+}
+
 export class SyncEngineStreaming extends Context.Service<
   SyncEngineStreaming,
   {
-    sync(options?: SyncOptions): Effect.Effect<SyncSummary, SyncError>
-    syncStream(options?: SyncOptions): Stream.Stream<SyncSummary, SyncError>
+    sync: (options?: SyncOptions) => Effect.Effect<SyncSummary, SyncError>
+    syncStream: (options?: SyncOptions) => Stream.Stream<SyncSummary, SyncError>
   }
->()(
-  "ghfs/services/SyncEngineStreaming"
-) {
+>()("ghfs/services/SyncEngineStreaming") {
   static readonly layer = Layer.effect(
     SyncEngineStreaming,
     Effect.gen(function* () {
@@ -35,47 +89,56 @@ export class SyncEngineStreaming extends Context.Service<
       const mirror = yield* MirrorFs
       const config = yield* GhfsConfig
 
-      const syncOnce = Effect.fn("SyncEngineStreaming.syncOnce")(
-        function* (options: SyncOptions = {}): Effect.fn.Return<SyncSummary, SyncError> {
+      const syncOnce = Effect.fn("SyncEngineStreaming.syncOnce")(function* (
+        options: SyncOptions = {}
+      ): Effect.fn.Return<SyncSummary, SyncError> {
+        return yield* Effect.gen(function* () {
           yield* Effect.logInfo("Starting sync", { options })
-          yield* Effect.withSpan("sync.run")
 
-          yield* mirror.ensureDirectory()
+          yield* mapFs(mirror.ensureDirectory())
 
-          const existingState = yield* mirror.readSyncState()
-          const repo = yield* github.fetchRepo()
-          yield* mirror.writeRepo(repo)
+          const existingState = yield* mapFs(mirror.readSyncState())
+          const repo = yield* mapGitHub(github.fetchRepo())
+          yield* mapFs(mirror.writeRepo(repo))
 
           let synced = 0
           let skipped = 0
           let errors = 0
 
-          const items: Record<string, SyncItemState> = existingState?.items ?? {}
+          const items: Record<string, SyncItemState> = {
+            ...(existingState?.items ?? {})
+          }
 
           if (config.syncIssues) {
             yield* Effect.logInfo("Syncing issues via Stream.paginate")
 
             const issueStream = Stream.paginate(
-              { page: 1, done: false },
-              (state) =>
+              { page: 1 } as PageState,
+              (state): Effect.Effect<
+                readonly [ReadonlyArray<Issue>, Option.Option<PageState>],
+                SyncError
+              > =>
                 Effect.gen(function* () {
-                  if (state.done) {
-                    return [[], undefined] as const
-                  }
+                  const since = resolveSince(options, existingState?.lastSince)
 
-                  const since = options.since ?? (options.full ? undefined : existingState?.lastSince)
-
-                  const issues = yield* github.fetchIssues({
-                    state: config.syncClosed === false ? "open" : "all",
-                    since,
-                    page: state.page
-                  })
+                  const issues = yield* mapGitHub(
+                    github.fetchIssues({
+                      state: config.syncClosed === false ? "open" : "all",
+                      since,
+                      page: state.page
+                    })
+                  )
 
                   if (issues.length === 0) {
-                    return [issues, undefined] as const
+                    return [issues, Option.none()] as const
                   }
 
-                  return [issues, { page: state.page + 1, done: issues.length < 100 }] as const
+                  const next =
+                    issues.length < 100
+                      ? Option.none<PageState>()
+                      : Option.some({ page: state.page + 1 })
+
+                  return [issues, next] as const
                 })
             )
 
@@ -86,33 +149,42 @@ export class SyncEngineStreaming extends Context.Service<
 
                   if (
                     existingItem &&
-                    existingItem.lastUpdatedAt.getTime() === issue.updatedAt.getTime()
+                    existingItem.lastUpdatedAt.epochMilliseconds ===
+                      issue.updatedAt.epochMilliseconds
                   ) {
                     skipped++
                     return
                   }
 
-                  const filePath = yield* mirror.writeIssue(issue, issue.state)
+                  const filePath = yield* mapFs(
+                    mirror.writeIssue(issue, issue.state)
+                  )
 
                   if (existingItem && existingItem.filePath !== filePath) {
-                    yield* mirror.deletePath(existingItem.filePath)
+                    yield* mapFs(mirror.deletePath(existingItem.filePath))
                   }
+
+                  const now = yield* DateTime.now
 
                   items[`issue-${issue.number}`] = new SyncItemState({
                     number: issue.number,
                     kind: "issue",
                     state: issue.state,
                     lastUpdatedAt: issue.updatedAt,
-                    lastSyncedAt: new Date(),
+                    lastSyncedAt: now,
                     filePath
                   })
 
                   synced++
                   yield* Effect.logDebug("Synced issue", issue.number)
                 }).pipe(
-                  Effect.catchAll((error) =>
+                  Effect.catch((error) =>
                     Effect.gen(function* () {
-                      yield* Effect.logError("Failed to sync issue", issue.number, error)
+                      yield* Effect.logError(
+                        "Failed to sync issue",
+                        issue.number,
+                        error
+                      )
                       errors++
                     })
                   )
@@ -130,30 +202,36 @@ export class SyncEngineStreaming extends Context.Service<
                 updatedAt: item.lastUpdatedAt
               }))
 
-            yield* mirror.writeIssuesIndex(allIssues as any)
+            yield* mapFs(mirror.writeIssuesIndex(allIssues as any))
           }
 
           if (config.syncPulls) {
             yield* Effect.logInfo("Syncing pull requests via Stream.paginate")
 
             const prStream = Stream.paginate(
-              { page: 1, done: false },
-              (state) =>
+              { page: 1 } as PageState,
+              (state): Effect.Effect<
+                readonly [ReadonlyArray<PullRequest>, Option.Option<PageState>],
+                SyncError
+              > =>
                 Effect.gen(function* () {
-                  if (state.done) {
-                    return [[], undefined] as const
-                  }
-
-                  const prs = yield* github.fetchPullRequests({
-                    state: config.syncClosed === false ? "open" : "all",
-                    page: state.page
-                  })
+                  const prs = yield* mapGitHub(
+                    github.fetchPullRequests({
+                      state: config.syncClosed === false ? "open" : "all",
+                      page: state.page
+                    })
+                  )
 
                   if (prs.length === 0) {
-                    return [prs, undefined] as const
+                    return [prs, Option.none()] as const
                   }
 
-                  return [prs, { page: state.page + 1, done: prs.length < 100 }] as const
+                  const next =
+                    prs.length < 100
+                      ? Option.none<PageState>()
+                      : Option.some({ page: state.page + 1 })
+
+                  return [prs, next] as const
                 })
             )
 
@@ -164,16 +242,19 @@ export class SyncEngineStreaming extends Context.Service<
 
                   if (
                     existingItem &&
-                    existingItem.lastUpdatedAt.getTime() === pr.updatedAt.getTime()
+                    existingItem.lastUpdatedAt.epochMilliseconds ===
+                      pr.updatedAt.epochMilliseconds
                   ) {
                     skipped++
                     return
                   }
 
-                  const filePath = yield* mirror.writePullRequest(pr, pr.state)
+                  const filePath = yield* mapFs(
+                    mirror.writePullRequest(pr, pr.state)
+                  )
 
                   if (existingItem && existingItem.filePath !== filePath) {
-                    yield* mirror.deletePath(existingItem.filePath)
+                    yield* mapFs(mirror.deletePath(existingItem.filePath))
                   }
 
                   let patchPath: string | undefined
@@ -182,18 +263,20 @@ export class SyncEngineStreaming extends Context.Service<
                     config.syncPatches === "all" ||
                     (config.syncPatches === "open" && pr.state === "open")
                   ) {
-                    const patch = yield* github.fetchPatch(pr.number)
-                    patchPath = yield* mirror.writePatch(pr.number, patch)
+                    const patch = yield* mapGitHub(github.fetchPatch(pr.number))
+                    patchPath = yield* mapFs(mirror.writePatch(pr.number, patch))
                   } else if (existingItem?.patchPath) {
-                    yield* mirror.deletePath(existingItem.patchPath)
+                    yield* mapFs(mirror.deletePath(existingItem.patchPath))
                   }
+
+                  const now = yield* DateTime.now
 
                   items[`pull-${pr.number}`] = new SyncItemState({
                     number: pr.number,
                     kind: "pull",
                     state: pr.state,
                     lastUpdatedAt: pr.updatedAt,
-                    lastSyncedAt: new Date(),
+                    lastSyncedAt: now,
                     filePath,
                     patchPath
                   })
@@ -201,7 +284,7 @@ export class SyncEngineStreaming extends Context.Service<
                   synced++
                   yield* Effect.logDebug("Synced PR", pr.number)
                 }).pipe(
-                  Effect.catchAll((error) =>
+                  Effect.catch((error) =>
                     Effect.gen(function* () {
                       yield* Effect.logError("Failed to sync PR", pr.number, error)
                       errors++
@@ -221,65 +304,67 @@ export class SyncEngineStreaming extends Context.Service<
                 updatedAt: item.lastUpdatedAt
               }))
 
-            yield* mirror.writePullsIndex(allPulls as any)
+            yield* mapFs(mirror.writePullsIndex(allPulls as any))
           }
+
+          const now = yield* DateTime.now
 
           const newState = new SyncState({
             version: 1,
             repo: config.repo,
-            lastSyncedAt: new Date(),
-            lastSince: new Date(),
+            lastSyncedAt: now,
+            lastSince: now,
             items
           })
 
-          yield* mirror.writeSyncState(newState)
+          yield* mapFs(mirror.writeSyncState(newState))
 
           yield* Effect.logInfo("Sync complete", { synced, skipped, errors })
 
           return { synced, skipped, errors }
-        }
-      )
+        }).pipe(Effect.withSpan("sync.run"))
+      })
 
-      const sync = Effect.fn("SyncEngineStreaming.sync")(
-        function* (options: SyncOptions = {}): Effect.fn.Return<SyncSummary, SyncError> {
-          if (options.watch) {
-            const interval = options.watchInterval ?? "5 minutes"
-            const schedule = Schedule.spaced(interval)
+      const sync = Effect.fn("SyncEngineStreaming.sync")(function* (
+        options: SyncOptions = {}
+      ): Effect.fn.Return<SyncSummary, SyncError> {
+        if (options.watch) {
+          const interval = watchDuration(options.watchInterval)
+          const schedule = Schedule.spaced(interval)
 
-            yield* Effect.logInfo("Starting watch mode", { interval })
+          yield* Effect.logInfo("Starting watch mode", {
+            interval: options.watchInterval ?? "5 minutes"
+          })
 
-            yield* syncOnce(options).pipe(
-              Effect.repeat(schedule),
-              Effect.catchAll((error) =>
-                Effect.gen(function* () {
-                  yield* Effect.logError("Sync failed, will retry", error)
-                  return { synced: 0, skipped: 0, errors: 1 }
-                })
-              )
+          yield* syncOnce(options).pipe(
+            Effect.repeat(schedule),
+            Effect.catch((error) =>
+              Effect.gen(function* () {
+                yield* Effect.logError("Sync failed, will retry", error)
+                return { synced: 0, skipped: 0, errors: 1 } as SyncSummary
+              })
             )
+          )
 
-            return { synced: 0, skipped: 0, errors: 0 }
-          }
-
-          return yield* syncOnce(options)
+          return { synced: 0, skipped: 0, errors: 0 }
         }
-      )
 
-      const syncStream = Effect.fn("SyncEngineStreaming.syncStream")(
-        function* (options: SyncOptions = {}): Effect.fn.Return<
-          Stream.Stream<SyncSummary, SyncError>
-        > {
-          if (options.watch) {
-            const interval = options.watchInterval ?? "5 minutes"
+        return yield* syncOnce(options)
+      })
 
-            return Stream.fromSchedule(Schedule.spaced(interval)).pipe(
-              Stream.mapEffect(() => syncOnce(options))
-            )
-          }
-
-          return Stream.fromEffect(syncOnce(options))
+      // Service contract returns Stream directly (not Effect<Stream>).
+      const syncStream = (
+        options: SyncOptions = {}
+      ): Stream.Stream<SyncSummary, SyncError> => {
+        if (options.watch) {
+          const interval = watchDuration(options.watchInterval)
+          return Stream.fromSchedule(Schedule.spaced(interval)).pipe(
+            Stream.mapEffect(() => syncOnce(options))
+          )
         }
-      )
+
+        return Stream.fromEffect(syncOnce(options))
+      }
 
       return SyncEngineStreaming.of({ sync, syncStream })
     })
