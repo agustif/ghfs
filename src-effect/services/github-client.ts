@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, PullRequest, Release, Repo, RepoPackage, TimelineEvent, WikiPage, Workflow } from '../domain'
+import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, Person, PullRequest, Release, Repo, RepoPackage, TimelineEvent, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, ReactionSummary, Release, RepoPackage, TimelineEvent, WikiPage, Workflow } from '../domain'
+import { Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, Person, ReactionSummary, Release, RepoPackage, TimelineEvent, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -94,6 +94,10 @@ export class GitHubClient extends Context.Service<
       perPage?: number
       packageType?: string
     }) => Effect.Effect<Array<RepoPackage>, GitHubError>
+    fetchContributors: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<Person>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -1167,6 +1171,65 @@ export class GitHubClient extends Context.Service<
         return pages.flat()
       })
 
+
+      type GitHubContributorWire = {
+        login?: string | null
+        id?: number
+        avatar_url?: string | null
+        html_url?: string | null
+        url?: string | null
+        type?: string | null
+        contributions?: number | null
+        name?: string | null
+      }
+
+      function normalizePersonType(raw: string | null | undefined): string | undefined {
+        if (raw == null || raw === "") return undefined
+        const lower = raw.toLowerCase()
+        if (lower === "user" || lower === "bot") return lower
+        return raw
+      }
+
+      function mapContributor(row: GitHubContributorWire): Person | null {
+        const login = row.login?.trim()
+        if (!login) return null
+
+        const avatarUrl = row.avatar_url ?? null
+        const htmlUrl = row.html_url ?? undefined
+        const contributions =
+          typeof row.contributions === "number" ? row.contributions : undefined
+        const type = normalizePersonType(row.type ?? undefined)
+        const name = row.name ?? null
+
+        return new Person({
+          login,
+          name,
+          avatarUrl,
+          ...(htmlUrl ? { htmlUrl } : {}),
+          ...(contributions !== undefined ? { contributions } : {}),
+          ...(type ? { type } : {}),
+        })
+      }
+
+      const fetchContributors = Effect.fn("GitHubClient.fetchContributors")(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<Person>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        if (params.page) searchParams.set("page", String(params.page))
+        searchParams.set("per_page", String(params.perPage ?? 100))
+
+        const response = yield* client
+          .get(`/repos/${owner}/${name}/contributors?${searchParams.toString()}`)
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        const rows = (Array.isArray(json) ? json : []) as Array<GitHubContributorWire>
+        return rows.flatMap((row) => {
+          const person = mapContributor(row)
+          return person ? [person] : []
+        })
+      })
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -1353,6 +1416,7 @@ export class GitHubClient extends Context.Service<
         fetchWorkflows,
         fetchMergeQueueEntries,
         fetchPackages,
+        fetchContributors,
         fetchPatch,
         closeIssue,
         reopenIssue,
