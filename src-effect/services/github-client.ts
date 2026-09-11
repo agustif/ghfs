@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Comment, Issue, Label, Milestone, PullRequest, Repo, TimelineEvent } from '../domain'
+import type { Comment, Issue, Label, Milestone, PullRequest, Release, Repo, TimelineEvent } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Comment, GitHubError, Label, Milestone, ReactionSummary, TimelineEvent } from '../domain'
+import { Comment, GitHubError, Label, Milestone, ReactionSummary, Release, TimelineEvent } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -62,6 +62,10 @@ export class GitHubClient extends Context.Service<
       number: number,
       params?: { page?: number; perPage?: number; subjectKind?: 'issue' | 'pull' },
     ) => Effect.Effect<Array<TimelineEvent>, GitHubError>
+    fetchReleases: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<Release>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -496,6 +500,64 @@ export class GitHubClient extends Context.Service<
         })
       })
 
+
+      type GitHubReleaseWire = {
+        id: number
+        tag_name: string
+        name: string | null
+        body: string | null
+        draft?: boolean
+        prerelease?: boolean
+        // Legacy provider aliases — prefer draft/prerelease when present.
+        isDraft?: boolean
+        isPrerelease?: boolean
+        created_at: string
+        published_at: string | null
+        author?: { login?: string | null } | null
+        url?: string
+        html_url?: string
+      }
+
+      function mapRelease(row: GitHubReleaseWire): Release {
+        const htmlUrl = row.html_url ?? undefined
+        // Prefer html_url for the required `url` (legacy sync-releases prints the clickable URL).
+        const url = htmlUrl ?? row.url ?? ''
+        const draft = row.draft ?? row.isDraft ?? false
+        const prerelease = row.prerelease ?? row.isPrerelease ?? false
+
+        return new Release({
+          id: row.id,
+          tagName: row.tag_name,
+          name: row.name ?? null,
+          author: row.author?.login ?? null,
+          body: row.body ?? null,
+          url,
+          ...(htmlUrl ? { htmlUrl } : {}),
+          draft,
+          prerelease,
+          createdAt: DateTime.fromDateUnsafe(new Date(row.created_at)),
+          publishedAt: row.published_at
+            ? DateTime.fromDateUnsafe(new Date(row.published_at))
+            : null,
+        })
+      }
+
+      const fetchReleases = Effect.fn('GitHubClient.fetchReleases')(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<Release>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        if (params.page) searchParams.set('page', String(params.page))
+        searchParams.set('per_page', String(params.perPage ?? 100))
+
+        const response = yield* client
+          .get(`/repos/${owner}/${name}/releases?${searchParams.toString()}`)
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        const rows = json as Array<GitHubReleaseWire>
+        return rows.map(mapRelease)
+      }
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -675,6 +737,7 @@ export class GitHubClient extends Context.Service<
         fetchIssueComments,
         fetchPullComments,
         fetchTimeline,
+        fetchReleases,
         fetchPatch,
         closeIssue,
         reopenIssue,
