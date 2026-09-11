@@ -346,6 +346,8 @@ export class SyncSatellites extends Context.Service<
             enabled: isSatelliteEnabled(config, "syncWorkflows"),
             run: () => workflows.sync()
           },
+          // Observe follow-up (not staged): workflow-permissions → actions/workflows.json
+          // via SyncWorkflowPermissions; flag syncWorkflowPermissions default false.
           {
             name: "SyncMergeQueue",
             enabled: isSatelliteEnabled(config, "syncMergeQueue"),

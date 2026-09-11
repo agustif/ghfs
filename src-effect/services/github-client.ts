@@ -82,6 +82,10 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<Workflow>, GitHubError>
+    fetchWorkflowPermissions: (workflowId: number) => Effect.Effect<
+      unknown | null,
+      GitHubError
+    >
     fetchMergeQueueEntries: (params?: {
       after?: string | null
       first?: number
@@ -1017,6 +1021,20 @@ export class GitHubClient extends Context.Service<
         const rows = Array.isArray(body.workflows) ? body.workflows : []
         return rows.map(mapWorkflow)
       })
+
+      const fetchWorkflowPermissions = Effect.fn("GitHubClient.fetchWorkflowPermissions")(
+        function* (workflowId: number): Effect.fn.Return<unknown | null, GitHubError> {
+          return yield* Effect.gen(function* () {
+            const response = yield* client
+              .get(`/repos/${owner}/${name}/actions/workflows/${workflowId}`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+            return json as unknown
+          }).pipe(
+            Effect.catchAll(() => Effect.succeed(null as unknown | null))
+          )
+        }
+      )
 
 
       const MERGE_QUEUE_ENTRIES_QUERY = `
@@ -3279,6 +3297,7 @@ export class GitHubClient extends Context.Service<
         fetchDiscussionCategories,
         fetchWikiPages,
         fetchWorkflows,
+        fetchWorkflowPermissions,
         fetchMergeQueueEntries,
         fetchPackages,
         fetchContributors,
