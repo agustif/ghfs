@@ -21,3 +21,5 @@ export * from "./team"
 export * from "./collaborator"
 export * from "./codeowners"
 export * from "./project-v2"
+
+export * from "./pages-build"

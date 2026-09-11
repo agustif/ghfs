@@ -23,3 +23,5 @@ export * from "./sync-teams"
 export * from "./sync-collaborators"
 export * from "./sync-codeowners"
 export * from "./sync-projects-v2"
+
+export * from "./sync-pages-builds"
