@@ -73,3 +73,4 @@ export * from "./sync-rulesets"
 export * from "./sync-recent-workflow-runs"
 
 export * from "./sync-issue-types"
+export * from "./sync-issue-fields"
