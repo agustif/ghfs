@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -149,6 +149,7 @@ export class GitHubClient extends Context.Service<
       perPage?: number
     }) => Effect.Effect<Array<RepoInvitation>, GitHubError>
     fetchTemplateInfo: () => Effect.Effect<TemplateInfo, GitHubError>
+    fetchForkStatus: () => Effect.Effect<ForkStatus, GitHubError>
     fetchRepository: () => Effect.Effect<RepoMetadata, GitHubError>
     fetchRepositoryTopics: () => Effect.Effect<Array<string>, GitHubError>
     fetchPinnedIssues: () => Effect.Effect<Array<number>, GitHubError>
@@ -2569,6 +2570,65 @@ export class GitHubClient extends Context.Service<
         }
       )
 
+      type GitHubForkRepoWire = {
+        fork?: boolean
+        parent?: {
+          full_name?: string
+          html_url?: string
+          default_branch?: string
+        } | null
+        source?: {
+          full_name?: string
+          html_url?: string
+        } | null
+      }
+
+      const EMPTY_FORK_STATUS = new ForkStatus({
+        isFork: false,
+        parent: null,
+        source: null,
+      })
+
+      function mapForkStatus(row: GitHubForkRepoWire): ForkStatus {
+        const parent =
+          row.parent?.full_name && row.parent.html_url && row.parent.default_branch
+            ? {
+                fullName: row.parent.full_name,
+                htmlUrl: row.parent.html_url,
+                defaultBranch: row.parent.default_branch,
+              }
+            : null
+        const source =
+          row.source?.full_name && row.source.html_url
+            ? {
+                fullName: row.source.full_name,
+                htmlUrl: row.source.html_url,
+              }
+            : null
+
+        return new ForkStatus({
+          isFork: Boolean(row.fork),
+          parent,
+          source,
+        })
+      }
+
+      const fetchForkStatus = Effect.fn("GitHubClient.fetchForkStatus")(
+        function* (): Effect.fn.Return<ForkStatus, GitHubError> {
+          return yield* Effect.gen(function* () {
+            const response = yield* client
+              .get(`/repos/${owner}/${name}`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = (yield* response.json.pipe(
+              Effect.mapError(toGitHubError)
+            )) as GitHubForkRepoWire
+            return mapForkStatus(json)
+          }).pipe(
+            Effect.catchAll(() => Effect.succeed(EMPTY_FORK_STATUS))
+          )
+        }
+      )
+
       type GitHubRepositoryWire = {
         name?: string
         full_name?: string
@@ -3497,6 +3557,7 @@ export class GitHubClient extends Context.Service<
         fetchCommitComments,
         fetchRepoInvitations,
         fetchTemplateInfo,
+        fetchForkStatus,
         fetchRepository,
         fetchRepositoryTopics,
         fetchPinnedIssues,
