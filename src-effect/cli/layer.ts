@@ -33,10 +33,11 @@ import {
   SyncMetadata,
   SyncSatellites,
   SyncItemAttachments,
+  SyncSecuritySummary,
 } from '../services'
 
 /** AppLayer @ tip 200cc0f (#198 Schema-first execute.md).
- * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments — no service body rewrites.
+ * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments / SyncSecuritySummary — no service body rewrites.
  */
 export const AppLayer = Layer.mergeAll(
   GhfsConfig.layer,
@@ -71,5 +72,6 @@ export const AppLayer = Layer.mergeAll(
   SyncMetadata.layer,
   SyncSatellites.layer,
   SyncItemAttachments.layer,
+  SyncSecuritySummary.layer,
   NodeContext.layer,
 )

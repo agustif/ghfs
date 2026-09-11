@@ -32,3 +32,4 @@ export * from "./sync-metadata"
 
 export * from "./sync-satellites"
 export * from "./sync-item-attachments"
+export * from "./sync-security-summary"
