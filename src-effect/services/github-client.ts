@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, PullRequest, Release, Repo, TimelineEvent, WikiPage } from '../domain'
+import type { Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, PullRequest, Release, Repo, TimelineEvent, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Comment, Discussion, DiscussionCategory, GitHubError, Label, Milestone, ReactionSummary, Release, TimelineEvent, WikiPage } from '../domain'
+import { Comment, Discussion, DiscussionCategory, GitHubError, Label, Milestone, ReactionSummary, Release, TimelineEvent, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -78,6 +78,10 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<WikiPage>, GitHubError>
+    fetchWorkflows: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<Workflow>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -870,6 +874,60 @@ export class GitHubClient extends Context.Service<
         return slicePage(all, page, perPage)
       })
 
+
+      type GitHubWorkflowWire = {
+        id: number
+        node_id?: string
+        name: string
+        path: string
+        state: string
+        created_at: string
+        updated_at: string
+        html_url?: string
+        badge_url?: string
+        url?: string
+      }
+
+      type GitHubWorkflowsListResponse = {
+        total_count?: number
+        workflows: Array<GitHubWorkflowWire>
+      }
+
+      function mapWorkflow(row: GitHubWorkflowWire): Workflow {
+        const nodeId = row.node_id ?? undefined
+        const htmlUrl = row.html_url ?? undefined
+        const badgeUrl = row.badge_url ?? undefined
+
+        return new Workflow({
+          id: row.id,
+          ...(nodeId ? { nodeId } : {}),
+          name: row.name,
+          path: row.path,
+          state: row.state,
+          createdAt: DateTime.fromDateUnsafe(new Date(row.created_at)),
+          updatedAt: DateTime.fromDateUnsafe(new Date(row.updated_at)),
+          ...(htmlUrl ? { htmlUrl } : {}),
+          ...(badgeUrl ? { badgeUrl } : {}),
+        })
+      }
+
+      const fetchWorkflows = Effect.fn("GitHubClient.fetchWorkflows")(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<Workflow>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        if (params.page) searchParams.set("page", String(params.page))
+        searchParams.set("per_page", String(params.perPage ?? 100))
+
+        const response = yield* client
+          .get(`/repos/${owner}/${name}/actions/workflows?${searchParams.toString()}`)
+          .pipe(Effect.mapError(toGitHubError))
+        const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+        const body = json as GitHubWorkflowsListResponse
+        const rows = Array.isArray(body.workflows) ? body.workflows : []
+        return rows.map(mapWorkflow)
+      })
+
       const fetchPatch = Effect.fn('GitHubClient.fetchPatch')(function* (number: number): Effect.fn.Return<string, GitHubError> {
         const response = yield* client
           .get(`/repos/${owner}/${name}/pulls/${number}`, {
@@ -1053,6 +1111,7 @@ export class GitHubClient extends Context.Service<
         fetchDiscussions,
         fetchDiscussionCategories,
         fetchWikiPages,
+        fetchWorkflows,
         fetchPatch,
         closeIssue,
         reopenIssue,
