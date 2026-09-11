@@ -26,10 +26,11 @@ import {
   SyncCollaborators,
   SyncCodeowners,
   SyncProjectsV2,
+  SyncPagesBuilds,
 } from '../services'
 
 /** AppLayer @ tip 200cc0f (#198 Schema-first execute.md).
- * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 — no service body rewrites.
+ * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds — no service body rewrites.
  */
 export const AppLayer = Layer.mergeAll(
   GhfsConfig.layer,
@@ -57,5 +58,6 @@ export const AppLayer = Layer.mergeAll(
   SyncCollaborators.layer,
   SyncCodeowners.layer,
   SyncProjectsV2.layer,
+  SyncPagesBuilds.layer,
   NodeContext.layer,
 )

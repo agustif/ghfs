@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, Person, ProjectV2, PullRequest, Release, Repo, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, Person, ProjectV2, ReactionSummary, Release, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -119,6 +119,10 @@ export class GitHubClient extends Context.Service<
       projects: Array<ProjectV2>
       pageInfo: { hasNextPage: boolean; endCursor: string | null }
     }, GitHubError>
+    fetchPagesBuilds: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<PagesBuild>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -1932,6 +1936,83 @@ export class GitHubClient extends Context.Service<
           .pipe(Effect.mapError(toGitHubError), Effect.asVoid)
       })
 
+
+      type GitHubPagesBuildWire = {
+        url?: string | null
+        status?: string | null
+        error?: { message?: string | null } | null
+        commit?: string | null
+        duration?: number | null
+        created_at?: string | null
+        updated_at?: string | null
+        pusher?: {
+          login?: string | null
+          avatar_url?: string | null
+        } | null
+      }
+
+      function mapPagesBuild(row: GitHubPagesBuildWire): PagesBuild | null {
+        const url = row.url?.trim()
+        const commit = row.commit?.trim()
+        const createdAt = row.created_at
+        const updatedAt = row.updated_at
+        if (!url || !commit || !createdAt || !updatedAt) return null
+
+        const error =
+          row.error && typeof row.error === "object"
+            ? { message: row.error.message ?? null }
+            : undefined
+
+        const pusherLogin = row.pusher?.login?.trim()
+        const pusher =
+          pusherLogin
+            ? {
+                login: pusherLogin,
+                ...(row.pusher?.avatar_url
+                  ? { avatarUrl: row.pusher.avatar_url }
+                  : {}),
+              }
+            : null
+
+        return new PagesBuild({
+          url,
+          status: row.status ?? null,
+          ...(error ? { error } : {}),
+          commit,
+          duration: row.duration ?? null,
+          createdAt: DateTime.fromDateUnsafe(new Date(createdAt)),
+          updatedAt: DateTime.fromDateUnsafe(new Date(updatedAt)),
+          pusher,
+        })
+      }
+
+      const fetchPagesBuilds = Effect.fn("GitHubClient.fetchPagesBuilds")(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<PagesBuild>, GitHubError> {
+        const searchParams = new URLSearchParams()
+        if (params.page) searchParams.set("page", String(params.page))
+        searchParams.set("per_page", String(params.perPage ?? 100))
+
+        return yield* Effect.gen(function* () {
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/pages/builds?${searchParams.toString()}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const rows = (Array.isArray(json) ? json : []) as Array<GitHubPagesBuildWire>
+          return rows.flatMap((row) => {
+            const build = mapPagesBuild(row)
+            return build ? [build] : []
+          })
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError && error.status === 404,
+            () => Effect.succeed([] as Array<PagesBuild>)
+          )
+        )
+      })
+
       return GitHubClient.of({
         fetchRepo,
         fetchIssues,
@@ -1955,6 +2036,7 @@ export class GitHubClient extends Context.Service<
         fetchCollaborators,
         fetchCodeowners,
         fetchProjectsV2,
+        fetchPagesBuilds,
         fetchPatch,
         closeIssue,
         reopenIssue,
