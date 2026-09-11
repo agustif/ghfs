@@ -1,5 +1,6 @@
 import { expect, it } from '@effect/vitest'
 import {
+  ApplyError,
   ConfigError,
   ExecuteError,
   FileSystemError,
@@ -75,4 +76,17 @@ it('ValidationError includes field and value', () => {
   expect(error._tag).toBe('ValidationError')
   expect(error.field).toBe('state')
   expect(error.value).toBe('invalid')
+})
+
+it('ApplyError includes planId and uri', () => {
+  const error = new ApplyError({
+    message: 'Failed to decode ApplyPlan',
+    planId: 'plan-1',
+    uri: 'ghfs:label:bug',
+  })
+
+  expect(error._tag).toBe('ApplyError')
+  expect(error.message).toBe('Failed to decode ApplyPlan')
+  expect(error.planId).toBe('plan-1')
+  expect(error.uri).toBe('ghfs:label:bug')
 })

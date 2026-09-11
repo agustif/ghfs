@@ -36,3 +36,10 @@ export class ValidationError extends Schema.TaggedError<ValidationError>()('Vali
   field: Schema.optional(Schema.String),
   value: Schema.optional(Schema.Unknown),
 }) {}
+
+export class ApplyError extends Schema.TaggedError<ApplyError>()('ApplyError', {
+  message: Schema.String,
+  planId: Schema.optional(Schema.String),
+  uri: Schema.optional(Schema.String),
+  cause: Schema.optional(Schema.Unknown),
+}) {}
