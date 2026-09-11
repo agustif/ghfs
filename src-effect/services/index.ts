@@ -25,3 +25,4 @@ export * from "./sync-codeowners"
 export * from "./sync-projects-v2"
 
 export * from "./sync-pages-builds"
+export * from "./sync-sponsorships"

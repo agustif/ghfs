@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import type { CodeownersFile, Collaborator, Comment, Discussion, DiscussionCategory, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoPackage, Sponsorship, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoPackage, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
+import { CodeownersFile, CodeownersRule, Collaborator, Comment, Discussion, DiscussionCategory, GitHubError, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoPackage, Sponsorship, Team, TimelineEvent, WikiPage, Workflow } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -123,6 +123,13 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<PagesBuild>, GitHubError>
+    fetchSponsorships: (params?: {
+      after?: string | null
+      first?: number
+    }) => Effect.Effect<{
+      sponsorships: Array<Sponsorship>
+      pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    }, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -2013,6 +2020,170 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+
+      const SPONSORSHIPS_QUERY = `
+  query SponsorshipsAsMaintainer($owner: String!, $first: Int!, $after: String) {
+    user(login: $owner) {
+      sponsorshipsAsMaintainer(first: $first, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          tier {
+            id
+            name
+            monthlyPriceInDollars
+            description
+          }
+          sponsorEntity {
+            ... on User {
+              login
+              avatarUrl
+              url
+            }
+            ... on Organization {
+              login
+              avatarUrl
+              url
+            }
+          }
+          createdAt
+          isActive
+          isOneTimePayment
+        }
+      }
+    }
+    organization(login: $owner) {
+      sponsorshipsAsMaintainer(first: $first, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          tier {
+            id
+            name
+            monthlyPriceInDollars
+            description
+          }
+          sponsorEntity {
+            ... on User {
+              login
+              avatarUrl
+              url
+            }
+            ... on Organization {
+              login
+              avatarUrl
+              url
+            }
+          }
+          createdAt
+          isActive
+          isOneTimePayment
+        }
+      }
+    }
+  }
+`
+
+      type GqlSponsorshipNode = {
+        tier: {
+          id: string
+          name: string
+          monthlyPriceInDollars: number
+          description: string | null
+        } | null
+        sponsorEntity: {
+          login: string
+          avatarUrl: string
+          url: string
+        } | null
+        createdAt: string
+        isActive: boolean
+        isOneTimePayment: boolean
+      }
+
+      type GqlSponsorshipsConnection = {
+        pageInfo: { hasNextPage: boolean; endCursor: string | null }
+        nodes: Array<GqlSponsorshipNode | null>
+      }
+
+      type GqlSponsorshipsResponse = {
+        data?: {
+          user?: { sponsorshipsAsMaintainer?: GqlSponsorshipsConnection | null } | null
+          organization?: { sponsorshipsAsMaintainer?: GqlSponsorshipsConnection | null } | null
+        }
+        errors?: Array<{ message: string }>
+      }
+
+      function mapSponsorship(node: GqlSponsorshipNode): Sponsorship | null {
+        if (!node.sponsorEntity?.login) return null
+        return new Sponsorship({
+          tier: node.tier
+            ? {
+                id: node.tier.id,
+                name: node.tier.name,
+                monthlyPriceInDollars: node.tier.monthlyPriceInDollars,
+                description: node.tier.description ?? "",
+              }
+            : null,
+          sponsor: {
+            login: node.sponsorEntity.login,
+            avatarUrl: node.sponsorEntity.avatarUrl ?? "",
+            url: node.sponsorEntity.url ?? "",
+          },
+          createdAt: DateTime.fromDateUnsafe(new Date(node.createdAt)),
+          isActive: node.isActive ?? false,
+          isOneTime: node.isOneTimePayment ?? false,
+        })
+      }
+
+      const fetchSponsorships = Effect.fn("GitHubClient.fetchSponsorships")(function* (params: {
+        after?: string | null
+        first?: number
+      } = {}): Effect.fn.Return<{
+        sponsorships: Array<Sponsorship>
+        pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      }, GitHubError> {
+        const json = (yield* graphql(SPONSORSHIPS_QUERY, {
+          owner,
+          first: params.first ?? 100,
+          after: params.after ?? null,
+        })) as GqlSponsorshipsResponse
+
+        if (json.errors?.length) {
+          return yield* Effect.fail(
+            new GitHubError({
+              status: 200,
+              message: json.errors.map((e) => e.message).join("; "),
+              details: "GraphQL errors on sponsorshipsAsMaintainer",
+            }),
+          )
+        }
+
+        const connection =
+          json.data?.user?.sponsorshipsAsMaintainer ??
+          json.data?.organization?.sponsorshipsAsMaintainer ??
+          null
+
+        const nodes = (connection?.nodes ?? []).filter(
+          (n): n is GqlSponsorshipNode => n != null,
+        )
+        const sponsorships = nodes
+          .map(mapSponsorship)
+          .filter((s): s is Sponsorship => s != null)
+
+        return {
+          sponsorships,
+          pageInfo: {
+            hasNextPage: connection?.pageInfo.hasNextPage ?? false,
+            endCursor: connection?.pageInfo.endCursor ?? null,
+          },
+        }
+      })
+
       return GitHubClient.of({
         fetchRepo,
         fetchIssues,
@@ -2037,6 +2208,7 @@ export class GitHubClient extends Context.Service<
         fetchCodeowners,
         fetchProjectsV2,
         fetchPagesBuilds,
+        fetchSponsorships,
         fetchPatch,
         closeIssue,
         reopenIssue,
