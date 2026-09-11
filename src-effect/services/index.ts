@@ -47,3 +47,5 @@ export * from "./sync-search-mentions"
 export * from "./sync-search-issue-queries"
 
 export * from "./sync-latest-pages-build"
+
+export * from "./sync-status"
