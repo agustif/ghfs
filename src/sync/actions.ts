@@ -23,6 +23,15 @@ export async function syncActions(
   const actionsDir = join(context.storageDirAbsolute, ACTIONS_DIR_NAME)
   await mkdir(actionsDir, { recursive: true })
 
+  if (typeof context.provider.fetchWorkflows !== 'function') {
+    return {
+      workflows: [],
+      totalRuns: 0,
+      totalJobs: 0,
+      totalArtifacts: 0,
+    }
+  }
+
   const workflows = await context.provider.fetchWorkflows()
   let totalRuns = 0
   let totalJobs = 0
