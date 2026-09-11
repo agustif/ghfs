@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -140,6 +140,7 @@ export class GitHubClient extends Context.Service<
       perPage?: number
     }) => Effect.Effect<Array<Webhook>, GitHubError>
     fetchInteractionLimits: () => Effect.Effect<InteractionLimits, GitHubError>
+    fetchViewerStatus: () => Effect.Effect<ViewerStatus, GitHubError>
     fetchRepository: () => Effect.Effect<RepoMetadata, GitHubError>
     fetchRepositoryTopics: () => Effect.Effect<Array<string>, GitHubError>
     fetchPinnedIssues: () => Effect.Effect<Array<number>, GitHubError>
@@ -2385,6 +2386,49 @@ export class GitHubClient extends Context.Service<
         }
       )
 
+      type GitHubSubscriptionWire = {
+        subscribed?: boolean
+        ignored?: boolean
+      }
+
+      const fetchViewerStatus = Effect.fn("GitHubClient.fetchViewerStatus")(
+        function* (): Effect.fn.Return<ViewerStatus, GitHubError> {
+          const starred = yield* Effect.gen(function* () {
+            yield* client
+              .get(`/user/starred/${owner}/${name}`)
+              .pipe(Effect.mapError(toGitHubError))
+            return true
+          }).pipe(
+            Effect.catchIf(
+              (error): error is GitHubError =>
+                error instanceof GitHubError && error.status === 404,
+              () => Effect.succeed(false)
+            )
+          )
+
+          const subscription = yield* Effect.gen(function* () {
+            const response = yield* client
+              .get(`/repos/${owner}/${name}/subscription`)
+              .pipe(Effect.mapError(toGitHubError))
+            const json = (yield* response.json.pipe(
+              Effect.mapError(toGitHubError)
+            )) as GitHubSubscriptionWire
+            if (json.subscribed) return "subscribed" as const
+            if (json.ignored) return "ignored" as const
+            return null
+          }).pipe(
+            Effect.catchIf(
+              (error): error is GitHubError =>
+                error instanceof GitHubError &&
+                (error.status === 404 || error.status === 403),
+              () => Effect.succeed(null as "subscribed" | "ignored" | null)
+            )
+          )
+
+          return new ViewerStatus({ starred, subscription })
+        }
+      )
+
 
       type GitHubRepositoryWire = {
         name?: string
@@ -3310,6 +3354,7 @@ export class GitHubClient extends Context.Service<
         fetchSponsorships,
         fetchActionsWebhooks,
         fetchInteractionLimits,
+        fetchViewerStatus,
         fetchRepository,
         fetchRepositoryTopics,
         fetchPinnedIssues,
