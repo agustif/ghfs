@@ -1,7 +1,7 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow } from '../domain'
 import {
   HttpBody,
   HttpClient,
@@ -161,6 +161,10 @@ export class GitHubClient extends Context.Service<
       query: string
       maxResults?: number
     }) => Effect.Effect<Array<SearchCodeHit>, GitHubError>
+    searchCommits: (params: {
+      query: string
+      maxResults?: number
+    }) => Effect.Effect<Array<SearchCommitHit>, GitHubError>
     fetchPatch: (number: number) => Effect.Effect<string, GitHubError>
     closeIssue: (number: number) => Effect.Effect<void, GitHubError>
     reopenIssue: (number: number) => Effect.Effect<void, GitHubError>
@@ -3022,6 +3026,81 @@ export class GitHubClient extends Context.Service<
         }).pipe(emptySearchOnDisabled)
       })
 
+      type GitHubSearchCommitWire = {
+        sha?: string | null
+        html_url?: string | null
+        url?: string | null
+        author?: { login?: string | null } | null
+        commit?: {
+          message?: string | null
+          author?: { name?: string | null; date?: string | null } | null
+        } | null
+      }
+
+      type GitHubSearchCommitsResponse = {
+        items?: Array<GitHubSearchCommitWire> | null
+      }
+
+      function mapSearchCommitHit(row: GitHubSearchCommitWire): SearchCommitHit | null {
+        const sha = row.sha?.trim()
+        const message = row.commit?.message?.trim()
+        const url = (row.html_url ?? row.url)?.trim()
+        if (!sha || !message || !url) return null
+        const author =
+          row.author?.login?.trim() ||
+          row.commit?.author?.name?.trim() ||
+          ""
+        const date = row.commit?.author?.date?.trim() || ""
+        return { sha, message, author, date, url }
+      }
+
+      function emptySearchCommitsOnDisabled(
+        effect: Effect.Effect<Array<SearchCommitHit>, GitHubError>,
+      ): Effect.Effect<Array<SearchCommitHit>, GitHubError> {
+        return effect.pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 ||
+                error.status === 403 ||
+                error.status === 422),
+            () => Effect.succeed([] as Array<SearchCommitHit>),
+          ),
+        )
+      }
+
+      const searchCommits = Effect.fn("GitHubClient.searchCommits")(function* (params: {
+        query: string
+        maxResults?: number
+      }): Effect.fn.Return<Array<SearchCommitHit>, GitHubError> {
+        // Cue default 100; GitHub search per_page max is 100.
+        const limit = Math.min(Math.max(params.maxResults ?? 100, 1), 100)
+        const term = params.query.trim()
+        const q = `${term} repo:${owner}/${name}`
+        const searchParams = new URLSearchParams()
+        searchParams.set("q", q)
+        searchParams.set("per_page", String(limit))
+        // Single-page observe: page 1 only (no Stream.paginate this slice)
+        searchParams.set("page", "1")
+        // Legacy searchCommitRefs passed sort/order (SearchOptions type omitted them; @ts-nocheck)
+        searchParams.set("sort", "committer-date")
+        searchParams.set("order", "desc")
+
+        return yield* Effect.gen(function* () {
+          const response = yield* client
+            .get(`/search/commits?${searchParams.toString()}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = (yield* response.json.pipe(
+            Effect.mapError(toGitHubError),
+          )) as GitHubSearchCommitsResponse
+          const rows = Array.isArray(json.items) ? json.items : []
+          return rows.slice(0, limit).flatMap((row) => {
+            const hit = mapSearchCommitHit(row)
+            return hit ? [hit] : []
+          })
+        }).pipe(emptySearchCommitsOnDisabled)
+      })
+
 
       return GitHubClient.of({
         fetchRepo,
@@ -3061,6 +3140,7 @@ export class GitHubClient extends Context.Service<
         fetchAutolinks,
         fetchRuleSuites,
         searchCode,
+        searchCommits,
         fetchPatch,
         closeIssue,
         reopenIssue,
