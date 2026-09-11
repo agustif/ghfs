@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from '@effect/vitest'
 import { ConfigProvider, Effect, Exit, Redacted } from 'effect'
 import { GhfsConfig } from './config'
 

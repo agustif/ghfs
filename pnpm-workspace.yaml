@@ -12,6 +12,7 @@ minimumReleaseAgeExclude:
   - devframe@0.5.2
   - portless@0.13.1
   - effect@4.0.0-rc.113
+  - '@effect/vitest@4.0.0-rc.113'
 shellEmulator: true
 
 trustPolicy: no-downgrade
@@ -27,7 +28,7 @@ catalog:
   '@effect/cli': ^0.77.1
   '@effect/platform': ^0.97.2
   '@effect/platform-node': ^0.108.2
-  '@effect/vitest': ^0.14.9
+  '@effect/vitest': 4.0.0-rc.113
   'effect': ^4.0.0-rc.113
   '@iconify-json/carbon': ^1.2.23
   '@iconify-json/octicon': ^1.2.28

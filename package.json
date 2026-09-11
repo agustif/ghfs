@@ -84,6 +84,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
+    "@effect/vitest": "catalog:",
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
