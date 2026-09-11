@@ -182,7 +182,7 @@ overrides:
   chokidar: ^5.0.0
   semver: ^7.8.5
 
-pnpmfileChecksum: sha256-+ITdPJGubZbj32uGoLjF0L7at3Ea80sRTcqPWWOYjJE=
+pnpmfileChecksum: sha256-DtiHUPSgA1a3TzJBnsQ8D2tCa3/f+C1WFsxXJds10Fk=
 
 importers:
 
