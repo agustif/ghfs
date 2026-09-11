@@ -285,6 +285,7 @@ export class SyncSatellites extends Context.Service<
       > {
         // SyncError is absorbed per-stage via Effect.result — surface never fails the batch.
         // Typed as SyncError on the service contract for sibling consistency.
+        // Stage note (not wired): rule-suites observe satellite — SyncRuleSuites; gate syncRuleSuites default false; prefer next snapshot surface.
         const stages: Array<SatelliteStageSpec> = [
           {
             name: "SyncMetadata",
