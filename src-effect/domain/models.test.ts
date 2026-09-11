@@ -1,5 +1,5 @@
 import { Array as Arr, DateTime, Option, Schema } from "effect"
-import { expect, it } from "vitest"
+import { expect, it } from "@effect/vitest"
 import { Issue, PullRequest } from "../domain"
 
 const d = (iso: string) => DateTime.fromDateUnsafe(new Date(iso))
