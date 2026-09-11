@@ -123,7 +123,7 @@ export class SyncMilestones extends Context.Service<
           yield* mapFs(mirror.ensureDirectory())
 
           const collected = yield* stream().pipe(
-            Stream.runFold([] as Array<Milestone>, (acc, milestone) => {
+            Stream.runFold(() => [] as Array<Milestone>, (acc, milestone) => {
               acc.push(milestone)
               return acc
             })

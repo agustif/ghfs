@@ -118,7 +118,7 @@ export class SyncLabels extends Context.Service<
           yield* mapFs(mirror.ensureDirectory())
 
           const collected = yield* stream().pipe(
-            Stream.runFold([] as Array<Label>, (acc, label) => {
+            Stream.runFold(() => [] as Array<Label>, (acc, label) => {
               acc.push(label)
               return acc
             })

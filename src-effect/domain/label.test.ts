@@ -92,7 +92,7 @@ describe("Stream.paginate label pages", () => {
 
     const collected = await Effect.runPromise(
       stream.pipe(
-        Stream.runFold([] as Array<Label>, (acc, label) => {
+        Stream.runFold(() => [] as Array<Label>, (acc, label) => {
           acc.push(label)
           return acc
         })
