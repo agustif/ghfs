@@ -39,3 +39,4 @@ export * from "./search-code-todo"
 
 export * from "./search-commit-ref"
 export * from "./search-mention"
+export * from "./search-issue-query"
