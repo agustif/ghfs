@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews, TrafficClones } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews, TrafficClones, SbomSummary } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews, TrafficClones } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews, TrafficClones, SbomSummary } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -201,6 +201,7 @@ export class GitHubClient extends Context.Service<
     fetchTrafficPaths: () => Effect.Effect<Array<TrafficPath>, GitHubError>
     fetchTrafficViews: () => Effect.Effect<TrafficViews, GitHubError>
     fetchTrafficClones: () => Effect.Effect<TrafficClones, GitHubError>
+    fetchSbomSummary: () => Effect.Effect<SbomSummary, GitHubError>
     fetchRuleSuites: (params?: {
       limit?: number
     }) => Effect.Effect<Array<RuleSuite>, GitHubError>
@@ -4174,6 +4175,52 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+
+      type GitHubSbomWire = {
+        name?: string | null
+        spdxVersion?: string | null
+        packages?: Array<unknown> | null
+      }
+
+      type GitHubSbomResponseWire = {
+        sbom?: GitHubSbomWire | null
+      }
+
+      function mapSbomSummary(row: GitHubSbomWire | null | undefined): SbomSummary {
+        const name = row?.name?.trim() ?? null
+        const spdxVersion = row?.spdxVersion?.trim() ?? null
+        const packageCount = Array.isArray(row?.packages) ? row!.packages!.length : 0
+        return new SbomSummary({
+          name: name && name.length > 0 ? name : null,
+          spdxVersion: spdxVersion && spdxVersion.length > 0 ? spdxVersion : null,
+          packageCount
+        })
+      }
+
+      const emptySbomSummary = (): SbomSummary =>
+        new SbomSummary({ name: null, spdxVersion: null, packageCount: 0 })
+
+      const fetchSbomSummary = Effect.fn("GitHubClient.fetchSbomSummary")(function* (): Effect.fn.Return<
+        SbomSummary,
+        GitHubError
+      > {
+        return yield* Effect.gen(function* () {
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/dependency-graph/sbom`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const body = (json && typeof json === "object" ? json : {}) as GitHubSbomResponseWire
+          return mapSbomSummary(body.sbom)
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed(emptySbomSummary())
+          )
+        )
+      })
+
       type GitHubRuleSuiteWire = {
         id?: number | null
         actor_id?: number | null
@@ -4551,6 +4598,7 @@ export class GitHubClient extends Context.Service<
         fetchTrafficPaths,
         fetchTrafficViews,
         fetchTrafficClones,
+        fetchSbomSummary,
         fetchRuleSuites,
         searchCode,
         searchCommits,
