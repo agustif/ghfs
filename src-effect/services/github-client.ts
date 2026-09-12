@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews, TrafficClones, SbomSummary } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews, TrafficClones, SbomSummary, DependencyGraphSummary } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews, TrafficClones, SbomSummary } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews, TrafficClones, SbomSummary, DependencyGraphSummary } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -206,6 +206,7 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<ReadonlyArray<unknown>, GitHubError>
+    fetchDependencyGraphSummary: () => Effect.Effect<DependencyGraphSummary, GitHubError>
     fetchRuleSuites: (params?: {
       limit?: number
     }) => Effect.Effect<Array<RuleSuite>, GitHubError>
@@ -4254,6 +4255,108 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+
+      const DEPENDENCY_GRAPH_MANIFESTS_QUERY = `
+  query DependencyGraphManifests($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+      dependencyGraphManifests(first: 100) {
+        totalCount
+        nodes {
+          dependenciesCount
+        }
+      }
+    }
+  }
+`
+
+      type GqlDependencyGraphManifestsResponse = {
+        data?: {
+          repository?: {
+            dependencyGraphManifests?: {
+              totalCount?: number | null
+              nodes?: Array<{ dependenciesCount?: number | null } | null> | null
+            } | null
+          } | null
+        }
+        errors?: Array<{ message: string; type?: string }>
+      }
+
+      function emptyDependencyGraphSummary(): DependencyGraphSummary {
+        return new DependencyGraphSummary({
+          hasSubmissions: false,
+          submissionCount: 0,
+          manifestCount: 0,
+          dependencyCount: 0,
+          latestSubmissionDate: null
+        })
+      }
+
+      function mapDependencyGraphSummary(
+        connection:
+          | {
+              totalCount?: number | null
+              nodes?: Array<{ dependenciesCount?: number | null } | null> | null
+            }
+          | null
+          | undefined
+      ): DependencyGraphSummary {
+        const manifestCount =
+          typeof connection?.totalCount === "number" ? connection.totalCount : 0
+        const nodes = Array.isArray(connection?.nodes) ? connection!.nodes! : []
+        const dependencyCount = nodes.reduce((sum, node) => {
+          const n = node?.dependenciesCount
+          return sum + (typeof n === "number" ? n : 0)
+        }, 0)
+        return new DependencyGraphSummary({
+          hasSubmissions: manifestCount > 0,
+          submissionCount: manifestCount,
+          manifestCount,
+          dependencyCount,
+          latestSubmissionDate: null
+        })
+      }
+
+      const fetchDependencyGraphSummary = Effect.fn(
+        "GitHubClient.fetchDependencyGraphSummary"
+      )(function* (): Effect.fn.Return<DependencyGraphSummary, GitHubError> {
+        return yield* Effect.gen(function* () {
+          const json = (yield* graphql(DEPENDENCY_GRAPH_MANIFESTS_QUERY, {
+            owner,
+            name
+          })) as GqlDependencyGraphManifestsResponse
+
+          if (json.errors?.length) {
+            const forbidden = json.errors.some(
+              (e) =>
+                e.type === "FORBIDDEN" ||
+                e.type === "NOT_FOUND" ||
+                /forbidden|not found|access/i.test(e.message)
+            )
+            if (forbidden) {
+              return emptyDependencyGraphSummary()
+            }
+            return yield* Effect.fail(
+              new GitHubError({
+                status: 200,
+                message: json.errors.map((e) => e.message).join("; "),
+                details: "GraphQL errors on repository.dependencyGraphManifests"
+              })
+            )
+          }
+
+          return mapDependencyGraphSummary(
+            json.data?.repository?.dependencyGraphManifests
+          )
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed(emptyDependencyGraphSummary())
+          )
+        )
+      })
+
       type GitHubRuleSuiteWire = {
         id?: number | null
         actor_id?: number | null
@@ -4633,6 +4736,7 @@ export class GitHubClient extends Context.Service<
         fetchTrafficClones,
         fetchSbomSummary,
         fetchAttestations,
+        fetchDependencyGraphSummary,
         fetchRuleSuites,
         searchCode,
         searchCommits,
