@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews, TrafficClones } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting, TrafficReferrer, TrafficPath, TrafficViews, TrafficClones } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -200,6 +200,7 @@ export class GitHubClient extends Context.Service<
     fetchTrafficReferrers: () => Effect.Effect<Array<TrafficReferrer>, GitHubError>
     fetchTrafficPaths: () => Effect.Effect<Array<TrafficPath>, GitHubError>
     fetchTrafficViews: () => Effect.Effect<TrafficViews, GitHubError>
+    fetchTrafficClones: () => Effect.Effect<TrafficClones, GitHubError>
     fetchRuleSuites: (params?: {
       limit?: number
     }) => Effect.Effect<Array<RuleSuite>, GitHubError>
@@ -4110,6 +4111,69 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+
+      type GitHubTrafficCloneDayWire = {
+        timestamp?: string | null
+        count?: number | null
+        uniques?: number | null
+      }
+
+      type GitHubTrafficClonesWire = {
+        count?: number | null
+        uniques?: number | null
+        clones?: Array<GitHubTrafficCloneDayWire> | null
+      }
+
+      function mapTrafficCloneDay(row: GitHubTrafficCloneDayWire) {
+        const timestamp = row.timestamp?.trim()
+        if (
+          !timestamp ||
+          typeof row.count !== "number" ||
+          typeof row.uniques !== "number"
+        ) {
+          return null
+        }
+        return { timestamp, count: row.count, uniques: row.uniques }
+      }
+
+      function mapTrafficClones(row: GitHubTrafficClonesWire): TrafficClones {
+        const clones = Array.isArray(row.clones)
+          ? row.clones.flatMap((day) => {
+              const mapped = mapTrafficCloneDay(day)
+              return mapped ? [mapped] : []
+            })
+          : []
+        return new TrafficClones({
+          count: typeof row.count === "number" ? row.count : 0,
+          uniques: typeof row.uniques === "number" ? row.uniques : 0,
+          clones
+        })
+      }
+
+      const emptyTrafficClones = (): TrafficClones =>
+        new TrafficClones({ count: 0, uniques: 0, clones: [] })
+
+      const fetchTrafficClones = Effect.fn("GitHubClient.fetchTrafficClones")(function* (): Effect.fn.Return<
+        TrafficClones,
+        GitHubError
+      > {
+        return yield* Effect.gen(function* () {
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/traffic/clones`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const row = (json && typeof json === "object" ? json : {}) as GitHubTrafficClonesWire
+          return mapTrafficClones(row)
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed(emptyTrafficClones())
+          )
+        )
+      })
+
       type GitHubRuleSuiteWire = {
         id?: number | null
         actor_id?: number | null
@@ -4486,6 +4550,7 @@ export class GitHubClient extends Context.Service<
         fetchTrafficReferrers,
         fetchTrafficPaths,
         fetchTrafficViews,
+        fetchTrafficClones,
         fetchRuleSuites,
         searchCode,
         searchCommits,
