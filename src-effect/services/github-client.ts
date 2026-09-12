@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -192,6 +192,10 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<GitRef>, GitHubError>
+    fetchAssigneeSuggestions: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<AssigneeSuggestion>, GitHubError>
     fetchRuleSuites: (params?: {
       limit?: number
     }) => Effect.Effect<Array<RuleSuite>, GitHubError>
@@ -3828,6 +3832,76 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+
+      type GitHubAssigneeSuggestionWire = {
+        login?: string | null
+        id?: number | null
+        node_id?: string | null
+        avatar_url?: string | null
+        type?: string | null
+        site_admin?: boolean | null
+      }
+
+      function mapAssigneeSuggestion(
+        row: GitHubAssigneeSuggestionWire
+      ): AssigneeSuggestion | null {
+        const login = row.login?.trim()
+        const nodeId = row.node_id?.trim()
+        const avatarUrl = row.avatar_url?.trim()
+        const type = row.type?.trim()
+        if (
+          !login ||
+          typeof row.id !== "number" ||
+          !nodeId ||
+          !avatarUrl ||
+          !type ||
+          typeof row.site_admin !== "boolean"
+        ) {
+          return null
+        }
+
+        return new AssigneeSuggestion({
+          login,
+          id: row.id,
+          nodeId,
+          avatarUrl,
+          type,
+          siteAdmin: row.site_admin
+        })
+      }
+
+      const fetchAssigneeSuggestions = Effect.fn(
+        "GitHubClient.fetchAssigneeSuggestions"
+      )(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<AssigneeSuggestion>, GitHubError> {
+        return yield* Effect.gen(function* () {
+          const searchParams = new URLSearchParams()
+          if (params.page) searchParams.set("page", String(params.page))
+          searchParams.set("per_page", String(params.perPage ?? 100))
+
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/assignees?${searchParams.toString()}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const rows = (Array.isArray(json) ? json : []) as Array<
+            GitHubAssigneeSuggestionWire
+          >
+          return rows.flatMap((row) => {
+            const mapped = mapAssigneeSuggestion(row)
+            return mapped ? [mapped] : []
+          })
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed([] as Array<AssigneeSuggestion>)
+          )
+        )
+      })
+
       type GitHubRuleSuiteWire = {
         id?: number | null
         actor_id?: number | null
@@ -4199,6 +4273,7 @@ export class GitHubClient extends Context.Service<
         fetchParticipation,
         fetchTags,
         fetchGitRefs,
+        fetchAssigneeSuggestions,
         fetchRuleSuites,
         searchCode,
         searchCommits,
