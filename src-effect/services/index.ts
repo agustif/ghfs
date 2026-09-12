@@ -87,3 +87,5 @@ export * from "./sync-traffic-paths"
 export * from "./sync-traffic-views"
 export * from "./sync-traffic-clones"
 export * from "./sync-sbom-summary"
+
+export * from "./sync-attestations-summary"

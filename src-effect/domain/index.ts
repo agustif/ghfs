@@ -78,3 +78,5 @@ export * from "./traffic-path"
 export * from "./traffic-views"
 export * from "./traffic-clones"
 export * from "./sbom-summary"
+
+export * from "./attestations-summary"

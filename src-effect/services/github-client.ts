@@ -202,6 +202,10 @@ export class GitHubClient extends Context.Service<
     fetchTrafficViews: () => Effect.Effect<TrafficViews, GitHubError>
     fetchTrafficClones: () => Effect.Effect<TrafficClones, GitHubError>
     fetchSbomSummary: () => Effect.Effect<SbomSummary, GitHubError>
+    fetchAttestations: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<ReadonlyArray<unknown>, GitHubError>
     fetchRuleSuites: (params?: {
       limit?: number
     }) => Effect.Effect<Array<RuleSuite>, GitHubError>
@@ -4221,6 +4225,35 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+      type GitHubAttestationsResponseWire = {
+        attestations?: Array<unknown> | null
+      }
+
+      const fetchAttestations = Effect.fn("GitHubClient.fetchAttestations")(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<ReadonlyArray<unknown>, GitHubError> {
+        return yield* Effect.gen(function* () {
+          const searchParams = new URLSearchParams()
+          if (params.page) searchParams.set("page", String(params.page))
+          searchParams.set("per_page", String(params.perPage ?? 100))
+
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/attestations?${searchParams.toString()}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const body = (json && typeof json === "object" ? json : {}) as GitHubAttestationsResponseWire
+          return Array.isArray(body.attestations) ? body.attestations : []
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed([] as ReadonlyArray<unknown>)
+          )
+        )
+      })
+
       type GitHubRuleSuiteWire = {
         id?: number | null
         actor_id?: number | null
@@ -4599,6 +4632,7 @@ export class GitHubClient extends Context.Service<
         fetchTrafficViews,
         fetchTrafficClones,
         fetchSbomSummary,
+        fetchAttestations,
         fetchRuleSuites,
         searchCode,
         searchCommits,
