@@ -71,10 +71,11 @@ import {
   SyncTrafficPaths,
   SyncTrafficViews,
   SyncTrafficClones,
+  SyncSbomSummary,
 } from '../services'
 
 /** AppLayer @ tip 200cc0f (#198 Schema-first execute.md).
- * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments / SyncSecuritySummary / SyncActivitySummary / SyncDeploymentsSummary / SyncMeSummary / SyncAutolinks / SyncRuleSuites / SyncSearchCodeTodos / SyncSearchCommitRefs / SyncSearchMentions / SyncSearchIssueQueries / SyncLatestPagesBuild / SyncStatus / SyncAgentHints / SyncGate / SyncWorkflowPermissions / SyncViewerStatus / SyncCommitComments / SyncInvitations / SyncTemplate / SyncForkStatus / SyncNetworkSummary / SyncActivityEvents / SyncFeeds / SyncRulesets / SyncRecentWorkflowRuns / SyncIssueTypes / SyncIssueFields / SyncCustomProperties / SyncCommitActivity / SyncParticipation / SyncTags / SyncGitRefs / SyncAssigneeSuggestions / SyncVulnerabilityReporting / SyncTrafficReferrers / SyncTrafficPaths / SyncTrafficViews / SyncTrafficClones — no service body rewrites.
+ * Adds SyncLabels / SyncMilestones / SyncComments / SyncTimeline / SyncReleases / SyncDiscussions / SyncWiki / SyncWorkflows / SyncMergeQueue / SyncPackages / SyncPeople / SyncTeams / SyncCollaborators / SyncCodeowners / SyncProjectsV2 / SyncPagesBuilds / SyncSponsorships / SyncActionsWebhooks / SyncInteractionLimits / SyncMetadata / SyncSatellites / SyncItemAttachments / SyncSecuritySummary / SyncActivitySummary / SyncDeploymentsSummary / SyncMeSummary / SyncAutolinks / SyncRuleSuites / SyncSearchCodeTodos / SyncSearchCommitRefs / SyncSearchMentions / SyncSearchIssueQueries / SyncLatestPagesBuild / SyncStatus / SyncAgentHints / SyncGate / SyncWorkflowPermissions / SyncViewerStatus / SyncCommitComments / SyncInvitations / SyncTemplate / SyncForkStatus / SyncNetworkSummary / SyncActivityEvents / SyncFeeds / SyncRulesets / SyncRecentWorkflowRuns / SyncIssueTypes / SyncIssueFields / SyncCustomProperties / SyncCommitActivity / SyncParticipation / SyncTags / SyncGitRefs / SyncAssigneeSuggestions / SyncVulnerabilityReporting / SyncTrafficReferrers / SyncTrafficPaths / SyncTrafficViews / SyncTrafficClones / SyncSbomSummary — no service body rewrites.
  */
 export const AppLayer = Layer.mergeAll(
   GhfsConfig.layer,
@@ -147,5 +148,6 @@ export const AppLayer = Layer.mergeAll(
   SyncTrafficPaths.layer,
   SyncTrafficViews.layer,
   SyncTrafficClones.layer,
+  SyncSbomSummary.layer,
   NodeContext.layer,
 )
