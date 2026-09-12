@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -188,6 +188,10 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<RepoTag>, GitHubError>
+    fetchGitRefs: (params?: {
+      page?: number
+      perPage?: number
+    }) => Effect.Effect<Array<GitRef>, GitHubError>
     fetchRuleSuites: (params?: {
       limit?: number
     }) => Effect.Effect<Array<RuleSuite>, GitHubError>
@@ -3760,6 +3764,70 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+      type GitHubGitRefWire = {
+        ref?: string | null
+        node_id?: string | null
+        url?: string | null
+        object?: {
+          type?: string | null
+          sha?: string | null
+          url?: string | null
+        } | null
+      }
+
+      function mapGitRef(row: GitHubGitRefWire): GitRef | null {
+        const ref = row.ref?.trim()
+        const nodeId = row.node_id?.trim()
+        const url = row.url?.trim()
+        const objectType = row.object?.type?.trim()
+        const objectSha = row.object?.sha?.trim()
+        const objectUrl = row.object?.url?.trim()
+        if (!ref || !nodeId || !url || !objectType || !objectSha || !objectUrl) {
+          return null
+        }
+
+        return new GitRef({
+          ref,
+          nodeId,
+          url,
+          object: { type: objectType, sha: objectSha, url: objectUrl }
+        })
+      }
+
+      function normalizeGitRefRows(json: unknown): Array<GitHubGitRefWire> {
+        if (Array.isArray(json)) return json as Array<GitHubGitRefWire>
+        if (json && typeof json === "object") return [json as GitHubGitRefWire]
+        return []
+      }
+
+      const fetchGitRefs = Effect.fn("GitHubClient.fetchGitRefs")(function* (params: {
+        page?: number
+        perPage?: number
+      } = {}): Effect.fn.Return<Array<GitRef>, GitHubError> {
+        return yield* Effect.gen(function* () {
+          const searchParams = new URLSearchParams()
+          if (params.page) searchParams.set("page", String(params.page))
+          searchParams.set("per_page", String(params.perPage ?? 100))
+
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/git/refs?${searchParams.toString()}`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const rows = normalizeGitRefRows(json)
+          return rows.flatMap((row) => {
+            const mapped = mapGitRef(row)
+            return mapped ? [mapped] : []
+          })
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 409 || error.status === 403),
+            () => Effect.succeed([] as Array<GitRef>)
+          )
+        )
+      })
+
       type GitHubRuleSuiteWire = {
         id?: number | null
         actor_id?: number | null
@@ -4130,6 +4198,7 @@ export class GitHubClient extends Context.Service<
         fetchCommitActivity,
         fetchParticipation,
         fetchTags,
+        fetchGitRefs,
         fetchRuleSuites,
         searchCode,
         searchCommits,
