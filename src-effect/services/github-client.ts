@@ -1,14 +1,14 @@
 import type {
   HttpClientError,
 } from '@effect/platform'
-import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion } from '../domain'
+import type { ActivityEventInput, AuthenticatedUserInput, Autolink, RuleSuite, SearchCodeHit, SearchCommitHit, SearchIssueHit, CodeownersFile, DeploymentInput, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, InteractionLimits, Issue, Label, Milestone, MergeQueueEntry, PagesBuild, Person, ProjectV2, PullRequest, Release, Repo, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting } from '../domain'
 import {
   HttpBody,
   HttpClient,
   HttpClientRequest,
 } from '@effect/platform'
 import { Context, DateTime, Effect, Layer, Redacted, Schedule } from 'effect'
-import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion } from '../domain'
+import { Autolink, RuleSuite, CodeownersFile, CodeownersRule, CodeScanningAlertLean, Collaborator, Comment, DependabotAlertLean, Discussion, DiscussionCategory, GitHubError, InteractionLimits, Label, MergeQueueEntry, Milestone, PagesBuild, Person, ProjectV2, ReactionSummary, Release, RepoMetadata, RepoPackage, RepoSecurityAdvisory, SecretScanningAlertLean, Sponsorship, Team, TimelineEvent, Webhook, WikiPage, Workflow, ViewerStatus, CommitComment, RepoInvitation, TemplateInfo, ForkStatus, NetworkSummary, Feeds, BranchProtection, WorkflowRun, IssueType, IssueField, CustomPropertyValue, CommitActivity, Participation, RepoTag, GitRef, AssigneeSuggestion, VulnerabilityReporting } from '../domain'
 import { GhfsConfig } from './config'
 
 function toGitHubError(error: HttpClientError.HttpClientError): GitHubError {
@@ -196,6 +196,7 @@ export class GitHubClient extends Context.Service<
       page?: number
       perPage?: number
     }) => Effect.Effect<Array<AssigneeSuggestion>, GitHubError>
+    fetchVulnerabilityReporting: () => Effect.Effect<VulnerabilityReporting, GitHubError>
     fetchRuleSuites: (params?: {
       limit?: number
     }) => Effect.Effect<Array<RuleSuite>, GitHubError>
@@ -3902,6 +3903,45 @@ export class GitHubClient extends Context.Service<
         )
       })
 
+      type GitHubVulnerabilityReportingWire = {
+        enabled?: boolean | null
+        url?: string | null
+      }
+
+      function mapVulnerabilityReporting(
+        row: GitHubVulnerabilityReportingWire
+      ): VulnerabilityReporting {
+        const enabled = row.enabled === true
+        const url = row.url?.trim()
+        return new VulnerabilityReporting({
+          enabled,
+          ...(url ? { url } : {})
+        })
+      }
+
+      const disabledVulnerabilityReporting = (): VulnerabilityReporting =>
+        new VulnerabilityReporting({ enabled: false })
+
+      const fetchVulnerabilityReporting = Effect.fn(
+        "GitHubClient.fetchVulnerabilityReporting"
+      )(function* (): Effect.fn.Return<VulnerabilityReporting, GitHubError> {
+        return yield* Effect.gen(function* () {
+          const response = yield* client
+            .get(`/repos/${owner}/${name}/private-vulnerability-reporting`)
+            .pipe(Effect.mapError(toGitHubError))
+          const json = yield* response.json.pipe(Effect.mapError(toGitHubError))
+          const row = (json && typeof json === "object" ? json : {}) as GitHubVulnerabilityReportingWire
+          return mapVulnerabilityReporting(row)
+        }).pipe(
+          Effect.catchIf(
+            (error): error is GitHubError =>
+              error instanceof GitHubError &&
+              (error.status === 404 || error.status === 403),
+            () => Effect.succeed(disabledVulnerabilityReporting())
+          )
+        )
+      })
+
       type GitHubRuleSuiteWire = {
         id?: number | null
         actor_id?: number | null
@@ -4274,6 +4314,7 @@ export class GitHubClient extends Context.Service<
         fetchTags,
         fetchGitRefs,
         fetchAssigneeSuggestions,
+        fetchVulnerabilityReporting,
         fetchRuleSuites,
         searchCode,
         searchCommits,
