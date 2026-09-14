@@ -89,3 +89,4 @@ export * from "./sync-traffic-clones"
 export * from "./sync-sbom-summary"
 
 export * from "./sync-attestations-summary"
+export * from "./sync-dependency-graph-summary"

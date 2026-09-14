@@ -80,3 +80,4 @@ export * from "./traffic-clones"
 export * from "./sbom-summary"
 
 export * from "./attestations-summary"
+export * from "./dependency-graph-summary"
